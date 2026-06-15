@@ -89,28 +89,28 @@ func (s *Storage) GetAccounts() ([]Account, error) {
 	return accounts, nil
 }
 
-func (s *Storage) CreateAccount(name string, openingBalance float64) (int64, error) {
+func (s *Storage) CreateAccount(name string, openingBalance float64) (*Account, error) {
 	const op = "storage.sqlite.CreateAccount"
 
 	stmt, err := s.db.Prepare(
-		`INSERT INTO accounts (name, opening_balance, manual_adjustment) VALUES (?, ?, ?)`,
+		`INSERT INTO accounts (name, opening_balance, manual_adjustment) VALUES (?, ?, ?) RETURNING id, name, opening_balance, manual_adjustment`,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(name, openingBalance, 0.0)
+	var account Account
+	err = stmt.QueryRow(name, openingBalance, 0.0).
+		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-
-	return id, nil
+	return &account, nil
 }
 
 func (s *Storage) GetAccount(id int64) (*Account, error) {

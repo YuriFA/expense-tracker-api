@@ -18,7 +18,7 @@ type AccountRequest struct {
 }
 
 func (h *Handler) CreateAccount(c *gin.Context) {
-	const op = "handlers.accounts.CreateAccount"
+	op := "handlers.accounts.CreateAccount"
 
 	log := h.Logger.With(
 		slog.String("op", op),
@@ -27,27 +27,22 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 	var req AccountRequest
 	if err := c.BindJSON(&req); err != nil {
 		log.Error("invalid request body", logger.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "invalid request body")
 		return
 	}
 
-	accountID, err := h.DB.CreateAccount(req.Name, *req.OpeningBalance)
+	account, err := h.DB.CreateAccount(req.Name, *req.OpeningBalance)
 	if err != nil {
 		log.Error("failed to create account", logger.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to create account",
-		})
+		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to create account")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Account created successfully",
-		"data":    gin.H{"id": accountID},
-	})
+	c.JSON(http.StatusCreated, account)
 }
 
 func (h *Handler) DeleteAccount(c *gin.Context) {
-	const op = "handlers.accounts.ListAccounts"
+	op := "handlers.accounts.DeleteAccount"
 
 	log := h.Logger.With(
 		slog.String("op", op),
@@ -56,26 +51,25 @@ func (h *Handler) DeleteAccount(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		log.Error("failed to parse id", logger.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid id param",
-		})
+		log.Error("invalid id param", logger.Error(err))
+		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid id param")
 		return
 	}
 
 	err = h.DB.DeleteAccount(id)
 	if err != nil {
+		if errors.Is(err, storage.ErrAccountNotFound) {
+			log.Info("account not found", slog.Int64("id", id))
+			writeError(c, http.StatusNotFound, ErrCodeAccountNotFound, "account not found")
+			return
+		}
+
 		log.Error("failed to delete account", logger.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to delete account",
-		})
+		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to delete account")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Delete account",
-		"data":    true,
-	})
+	c.JSON(http.StatusOK, gin.H{})
 }
 
 func (h *Handler) GetAccount(c *gin.Context) {
@@ -88,10 +82,8 @@ func (h *Handler) GetAccount(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		log.Error("failed to parse id", logger.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid id param",
-		})
+		log.Error("invalid id param", logger.Error(err))
+		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid id param")
 		return
 	}
 
@@ -99,27 +91,20 @@ func (h *Handler) GetAccount(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, storage.ErrAccountNotFound) {
 			log.Info("account not found", slog.Int64("id", id))
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "account not found",
-			})
+			writeError(c, http.StatusNotFound, ErrCodeAccountNotFound, "account not found")
 			return
 		}
 
 		log.Error("failed to get account", logger.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to get account",
-		})
+		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to get account")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "account",
-		"data":    account,
-	})
+	c.JSON(http.StatusOK, account)
 }
 
 func (h *Handler) ListAccounts(c *gin.Context) {
-	const op = "handlers.accounts.ListAccounts"
+	op := "handlers.accounts.ListAccounts"
 
 	log := h.Logger.With(
 		slog.String("op", op),
@@ -128,14 +113,9 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 	accounts, err := h.DB.GetAccounts()
 	if err != nil {
 		log.Error("failed to get accounts", logger.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to get accounts",
-		})
+		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to get accounts")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "List of accounts",
-		"data":    accounts,
-	})
+	c.JSON(http.StatusOK, accounts)
 }
