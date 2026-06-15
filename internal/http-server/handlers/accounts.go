@@ -69,7 +69,7 @@ func (h *Handler) DeleteAccount(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{})
+	c.JSON(http.StatusNoContent, gin.H{})
 }
 
 func (h *Handler) GetAccount(c *gin.Context) {
