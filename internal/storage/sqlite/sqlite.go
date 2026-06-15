@@ -19,7 +19,7 @@ func New(storagePath string) (*Storage, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	stmt, err := db.Prepare(`
+	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS accounts (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
@@ -33,8 +33,19 @@ func New(storagePath string) (*Storage, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	defer stmt.Close()
-	_, err = stmt.Exec()
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS categories (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			slug TEXT UNIQUE,
+			type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
+			icon TEXT NOT NULL,
+			color TEXT NOT NULL,
+			is_default INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}

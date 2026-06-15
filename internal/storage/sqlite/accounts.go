@@ -132,7 +132,7 @@ func (s *Storage) GetAccounts() ([]storage.Account, error) {
 	}
 	defer stmt.Close()
 
-	var accounts []storage.Account
+	accounts := []storage.Account{}
 	rows, err := stmt.Query()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)

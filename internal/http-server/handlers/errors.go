@@ -11,7 +11,9 @@ const (
 	ErrCodeInvalidRequest   = "INVALID_REQUEST"
 	ErrCodeValidationFailed = "VALIDATION_FAILED"
 	ErrCodeAccountNotFound  = "ACCOUNT_NOT_FOUND"
+	ErrCodeCategoryNotFound = "CATEGORY_NOT_FOUND"
 	ErrCodeInternal         = "INTERNAL_ERROR"
+	ErrCodeForbidden        = "FORBIDDEN"
 )
 
 type FieldError struct {

@@ -31,6 +31,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = db.SeedCategories()
+	if err != nil {
+		log.Error("failed to seed categories", logger.Error(err))
+		os.Exit(1)
+	}
+	log.Info("Storage initialized and categories seeded")
+
 	// Format validation error messages to use JSON field names instead of struct field names
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterTagNameFunc(func(fld reflect.StructField) string {
@@ -57,6 +64,12 @@ func main() {
 	router.PATCH("/accounts/:id", handlers.UpdateAccount)
 	router.DELETE("/accounts/:id", handlers.DeleteAccount)
 	router.GET("/accounts/balances", handlers.GetAccountBalances)
+
+	router.GET("/categories", handlers.ListCategories)
+	router.POST("/categories", handlers.CreateCategory)
+	router.GET("/categories/:id", handlers.GetCategory)
+	router.PATCH("/categories/:id", handlers.UpdateCategory)
+	router.DELETE("/categories/:id", handlers.DeleteCategory)
 
 	log.Info("Starting server", slog.String("address", cfg.Address))
 

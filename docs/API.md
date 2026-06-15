@@ -127,7 +127,7 @@ type Category = {
 
 | Метод | Endpoint | Описание |
 |---|---|---|
-| `GET` | `/api/categories` | Список категорий. Query: `?type=income|expense`, `?source=default|user` |
+| `GET` | `/api/categories` | Список категорий. Query: `?type=income|expense` |
 | `POST` | `/api/categories` | Создание пользовательской категории |
 | `GET` | `/api/categories/:id` | Одна категория |
 | `PATCH` | `/api/categories/:id` | Обновление. Для `isDefault: true` → **403** |
