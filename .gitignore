@@ -1,0 +1,5 @@
+.env
+/storage/
+/tmp
+*.log
+coverage.out

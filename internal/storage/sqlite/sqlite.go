@@ -7,7 +7,7 @@ import (
 
 	"expense-tracker-api/internal/storage"
 
-	"github.com/mattn/go-sqlite3" // init sqlite3 driver
+	_ "github.com/mattn/go-sqlite3" // init sqlite3 driver
 )
 
 type Storage struct {
@@ -23,12 +23,14 @@ func New(storagePath string) (*Storage, error) {
 	}
 
 	stmt, err := db.Prepare(`
-		CREATE TABLE IF NOT EXISTS url (
+		CREATE TABLE IF NOT EXISTS accounts (
 			id INTEGER PRIMARY KEY,
-			alias TEXT NOT NULL UNIQUE,
-			url TEXT NOT NULL
+			name TEXT NOT NULL,
+			opening_balance REAL NOT NULL,
+			manual_adjustment REAL NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
-		CREATE INDEX IF NOT EXISTS idx_alias ON url (alias);
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -43,28 +45,67 @@ func New(storagePath string) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
-func (s *Storage) SaveURL(urlToSave, alias string) (int64, error) {
-	const op = "storage.sqlite.SaveURL"
+type Account struct {
+	Id               int64   `json:"id"`
+	Name             string  `json:"name"`
+	OpeningBalance   float64 `json:"openingBalance"`
+	ManualAdjustment float64 `json:"manualAdjustment"`
+}
 
-	stmt, err := s.db.Prepare(`
-		INSERT INTO url (alias, url) VALUES (?, ?)
-	`)
+func (s *Storage) GetAccounts() ([]Account, error) {
+	const op = "storage.sqlite.GetAccounts"
+
+	stmt, err := s.db.Prepare(`SELECT id, name, opening_balance, manual_adjustment FROM accounts`)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer stmt.Close()
+
+	var accounts []Account
+	rows, err := stmt.Query()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		account := Account{}
+		err := rows.Scan(
+			&account.Id,
+			&account.Name,
+			&account.OpeningBalance,
+			&account.ManualAdjustment,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+		accounts = append(accounts, account)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return accounts, nil
+}
+
+func (s *Storage) CreateAccount(name string, openingBalance float64) (int64, error) {
+	const op = "storage.sqlite.CreateAccount"
+
+	stmt, err := s.db.Prepare(
+		`INSERT INTO accounts (name, opening_balance, manual_adjustment) VALUES (?, ?, ?)`,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(alias, urlToSave)
+	result, err := stmt.Exec(name, openingBalance, 0.0)
 	if err != nil {
-		if sqliteErr, ok := err.(sqlite3.Error); ok &&
-			sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
-			return 0, fmt.Errorf("%s: %w", op, storage.ErrURLExists)
-		}
-
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	id, err := res.LastInsertId()
+	id, err := result.LastInsertId()
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
@@ -72,40 +113,46 @@ func (s *Storage) SaveURL(urlToSave, alias string) (int64, error) {
 	return id, nil
 }
 
-func (s *Storage) GetURL(alias string) (string, error) {
-	const op = "storage.sqlite.GetURL"
+func (s *Storage) GetAccount(id int64) (*Account, error) {
+	const op = "storage.sqlite.GetAccount"
 
-	stmt, err := s.db.Prepare(`SELECT url FROM url WHERE alias = ?`)
+	stmt, err := s.db.Prepare(
+		`SELECT id, name, opening_balance, manual_adjustment FROM accounts WHERE id = ?`,
+	)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	defer stmt.Close()
 
-	var findedURL string
-	err = stmt.QueryRow(alias).Scan(&findedURL)
+	var account Account
+	err = stmt.QueryRow(id).
+		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", fmt.Errorf("%s: %w", op, storage.ErrURLNotFound)
+			return nil, fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
 		}
-
-		return "", fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return findedURL, nil
+	return &account, nil
 }
 
-func (s *Storage) DeleteURL(alias string) error {
-	const op = "storage.sqlite.DeleteURL"
+func (s *Storage) DeleteAccount(id int64) error {
+	const op = "storage.sqlite.DeleteAccount"
 
-	stmt, err := s.db.Prepare(`DELETE FROM url WHERE alias = ?`)
+	stmt, err := s.db.Prepare(
+		`DELETE FROM accounts WHERE id = ?`,
+	)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
-
 	defer stmt.Close()
 
-	_, err = stmt.Exec(alias)
+	_, err = stmt.Exec(id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
+		}
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
