@@ -1,6 +1,11 @@
 package handlers
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
+)
 
 const (
 	ErrCodeInvalidRequest   = "INVALID_REQUEST"
@@ -9,9 +14,44 @@ const (
 	ErrCodeInternal         = "INTERNAL_ERROR"
 )
 
+type FieldError struct {
+	Field   string `json:"field"`
+	Message string `json:"message"`
+}
+
 func writeError(c *gin.Context, status int, code, message string) {
 	c.JSON(status, gin.H{
 		"code":    code,
 		"message": message,
 	})
+}
+
+func writeValidationError(c *gin.Context, verrs validator.ValidationErrors) {
+	fields := make([]FieldError, len(verrs))
+	for i, fe := range verrs {
+		fields[i] = FieldError{
+			Field:   fe.Field(),
+			Message: formatValidationMessage(fe),
+		}
+	}
+	c.JSON(http.StatusBadRequest, gin.H{
+		"code":    ErrCodeValidationFailed,
+		"message": "validation failed",
+		"errors":  fields,
+	})
+}
+
+func formatValidationMessage(fe validator.FieldError) string {
+	switch fe.Tag() {
+	case "required":
+		return fe.Field() + " is required"
+	case "gte":
+		return fe.Field() + " must be greater than or equal to " + fe.Param()
+	case "min":
+		return fe.Field() + " must be at least " + fe.Param() + " characters"
+	case "max":
+		return fe.Field() + " must be at most " + fe.Param() + " characters"
+	default:
+		return fe.Field() + " failed '" + fe.Tag() + "' validation"
+	}
 }

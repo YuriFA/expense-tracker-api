@@ -7,19 +7,19 @@ import (
 
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
-	"expense-tracker-api/internal/storage/sqlite"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 type AccountRequest struct {
 	Name           string   `json:"name"           binding:"required"`
-	OpeningBalance *float64 `json:"openingBalance" binding:"required,gte=0"`
+	OpeningBalance *float64 `json:"openingBalance" binding:"required"`
 }
 
 type UpdateAccountRequest struct {
-	Name             *string  `json:"name"`
-	ManualAdjustment *float64 `json:"manualAdjustment"`
+	Name             *string  `json:"name"             binding:"omitempty,min=1"`
+	ManualAdjustment *float64 `json:"manualAdjustment" binding:"omitempty"`
 }
 
 func (h *Handler) CreateAccount(c *gin.Context) {
@@ -31,8 +31,14 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 
 	var req AccountRequest
 	if err := c.BindJSON(&req); err != nil {
+		if verrs, ok := errors.AsType[validator.ValidationErrors](err); ok {
+			log.Info("validation failed", logger.Error(err))
+			writeValidationError(c, verrs)
+			return
+		}
+
 		log.Error("invalid request body", logger.Error(err))
-		writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "invalid request body")
+		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid request body")
 		return
 	}
 
@@ -55,8 +61,13 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 
 	var req UpdateAccountRequest
 	if err := c.BindJSON(&req); err != nil {
+		if verrs, ok := errors.AsType[validator.ValidationErrors](err); ok {
+			log.Info("validation failed", logger.Error(err))
+			writeValidationError(c, verrs)
+			return
+		}
 		log.Error("invalid request body", logger.Error(err))
-		writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "invalid request body")
+		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid request body")
 		return
 	}
 
@@ -66,11 +77,17 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	account, err := h.DB.UpdateAccount(id, sqlite.UpdateAccountParams{
+	account, err := h.DB.UpdateAccount(id, storage.UpdateAccountParams{
 		Name:             req.Name,
 		ManualAdjustment: req.ManualAdjustment,
 	})
 	if err != nil {
+		if errors.Is(err, storage.ErrAccountNotFound) {
+			log.Info("account not found", slog.String("id", id))
+			writeError(c, http.StatusNotFound, ErrCodeAccountNotFound, "account not found")
+			return
+		}
+
 		log.Error("failed to update account", logger.Error(err))
 		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to update account")
 		return
@@ -142,4 +159,17 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, accounts)
+}
+
+func (h *Handler) GetAccountBalances(c *gin.Context) {
+	op := "handlers.accounts.GetAccountBalances"
+	log := h.Logger.With(
+		slog.String("op", op),
+	)
+
+	log.Info(
+		"GetAccountBalances endpoint called, TODO: implement logic to calculate and return account balances",
+	)
+
+	c.JSON(http.StatusOK, gin.H{})
 }

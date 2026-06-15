@@ -14,8 +14,6 @@
 - `createdAt` — ISO 8601, момент создания
 - `updatedAt` — ISO 8601, момент последнего обновления
 
-> Поле `updatedAt` сейчас есть только у транзакций. При переходе на API добавить и к Account, и к Category для консистентности.
-
 ### Коды ответов
 
 | Код | Значение |
@@ -44,9 +42,21 @@
 `code` — машиночитаемая строка для switch'а на клиенте.
 `message` — человекочитаемое описание.
 
-### DELETE → 204 No Content
+### Ошибки валидации
 
-Успешное удаление возвращает пустое тело.
+Когда тело запроса не проходит валидацию, сервер возвращает детали по каждому полю:
+
+```json
+{
+  "code": "VALIDATION_FAILED",
+  "message": "validation failed",
+  "errors": [
+    {"field": "name", "message": "name is required"},
+    {"field": "openingBalance", "message": "openingBalance must be greater than or equal to 0"}
+  ]
+}
+```
+Поле errors присутствует только при validation-ошибках. В остальных случаях (404, 500) возвращаются только code и message.
 
 ### Формат дат
 

@@ -47,21 +47,7 @@ func New(storagePath string) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
-type Account struct {
-	Id               string  `json:"id"`
-	Name             string  `json:"name"`
-	OpeningBalance   float64 `json:"openingBalance"`
-	ManualAdjustment float64 `json:"manualAdjustment"`
-	CreatedAt        string  `json:"createdAt"`
-	UpdatedAt        string  `json:"updatedAt"`
-}
-
-type UpdateAccountParams struct {
-	Name             *string
-	ManualAdjustment *float64
-}
-
-func (s *Storage) CreateAccount(name string, openingBalance float64) (*Account, error) {
+func (s *Storage) CreateAccount(name string, openingBalance float64) (*storage.Account, error) {
 	const op = "storage.sqlite.CreateAccount"
 
 	stmt, err := s.db.Prepare(
@@ -73,13 +59,10 @@ func (s *Storage) CreateAccount(name string, openingBalance float64) (*Account, 
 	defer stmt.Close()
 
 	id := uuid.NewString()
-	var account Account
+	var account storage.Account
 	err = stmt.QueryRow(id, name, openingBalance, 0.0).
 		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
-		}
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -88,8 +71,8 @@ func (s *Storage) CreateAccount(name string, openingBalance float64) (*Account, 
 
 func (s *Storage) UpdateAccount(
 	id string,
-	params UpdateAccountParams,
-) (*Account, error) {
+	params storage.UpdateAccountParams,
+) (*storage.Account, error) {
 	const op = "storage.sqlite.UpdateAccount"
 
 	setParts := []string{"updated_at = CURRENT_TIMESTAMP"}
@@ -110,7 +93,7 @@ func (s *Storage) UpdateAccount(
 		strings.Join(setParts, ", "),
 	)
 
-	var account Account
+	var account storage.Account
 	err := s.db.QueryRow(query, args...).
 		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
@@ -134,18 +117,23 @@ func (s *Storage) DeleteAccount(id string) error {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(id)
+	res, err := stmt.Exec(id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
-		}
 		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
 	}
 
 	return nil
 }
 
-func (s *Storage) GetAccount(id string) (*Account, error) {
+func (s *Storage) GetAccount(id string) (*storage.Account, error) {
 	const op = "storage.sqlite.GetAccount"
 
 	stmt, err := s.db.Prepare(
@@ -156,7 +144,7 @@ func (s *Storage) GetAccount(id string) (*Account, error) {
 	}
 	defer stmt.Close()
 
-	var account Account
+	var account storage.Account
 	err = stmt.QueryRow(id).
 		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
@@ -169,7 +157,7 @@ func (s *Storage) GetAccount(id string) (*Account, error) {
 	return &account, nil
 }
 
-func (s *Storage) GetAccounts() ([]Account, error) {
+func (s *Storage) GetAccounts() ([]storage.Account, error) {
 	const op = "storage.sqlite.GetAccounts"
 
 	stmt, err := s.db.Prepare(
@@ -180,7 +168,7 @@ func (s *Storage) GetAccounts() ([]Account, error) {
 	}
 	defer stmt.Close()
 
-	var accounts []Account
+	var accounts []storage.Account
 	rows, err := stmt.Query()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -188,7 +176,7 @@ func (s *Storage) GetAccounts() ([]Account, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		account := Account{}
+		account := storage.Account{}
 		err := rows.Scan(
 			&account.Id,
 			&account.Name,

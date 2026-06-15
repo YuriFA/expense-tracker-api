@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"reflect"
+	"strings"
 
 	"expense-tracker-api/internal/config"
 	"expense-tracker-api/internal/http-server/handlers"
@@ -11,6 +13,8 @@ import (
 	"expense-tracker-api/internal/storage/sqlite"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 )
 
 func main() {
@@ -27,6 +31,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Format validation error messages to use JSON field names instead of struct field names
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		v.RegisterTagNameFunc(func(fld reflect.StructField) string {
+			name, _, _ := strings.Cut(fld.Tag.Get("json"), ",")
+			if name == "-" {
+				return fld.Name
+			}
+			return name
+		})
+	}
+
 	router := gin.Default()
 
 	router.GET("/ping", func(c *gin.Context) {
@@ -41,6 +56,7 @@ func main() {
 	router.GET("/accounts/:id", handlers.GetAccount)
 	router.PATCH("/accounts/:id", handlers.UpdateAccount)
 	router.DELETE("/accounts/:id", handlers.DeleteAccount)
+	router.GET("/accounts/balances", handlers.GetAccountBalances)
 
 	log.Info("Starting server", slog.String("address", cfg.Address))
 
