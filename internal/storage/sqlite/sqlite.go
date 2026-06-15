@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"expense-tracker-api/internal/storage"
 
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3" // init sqlite3 driver
 )
 
@@ -24,7 +26,7 @@ func New(storagePath string) (*Storage, error) {
 
 	stmt, err := db.Prepare(`
 		CREATE TABLE IF NOT EXISTS accounts (
-			id INTEGER PRIMARY KEY,
+			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
 			opening_balance REAL NOT NULL,
 			manual_adjustment REAL NOT NULL,
@@ -46,63 +48,34 @@ func New(storagePath string) (*Storage, error) {
 }
 
 type Account struct {
-	Id               int64   `json:"id"`
+	Id               string  `json:"id"`
 	Name             string  `json:"name"`
 	OpeningBalance   float64 `json:"openingBalance"`
 	ManualAdjustment float64 `json:"manualAdjustment"`
+	CreatedAt        string  `json:"createdAt"`
+	UpdatedAt        string  `json:"updatedAt"`
 }
 
-func (s *Storage) GetAccounts() ([]Account, error) {
-	const op = "storage.sqlite.GetAccounts"
-
-	stmt, err := s.db.Prepare(`SELECT id, name, opening_balance, manual_adjustment FROM accounts`)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-	defer stmt.Close()
-
-	var accounts []Account
-	rows, err := stmt.Query()
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		account := Account{}
-		err := rows.Scan(
-			&account.Id,
-			&account.Name,
-			&account.OpeningBalance,
-			&account.ManualAdjustment,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", op, err)
-		}
-		accounts = append(accounts, account)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	return accounts, nil
+type UpdateAccountParams struct {
+	Name             *string
+	ManualAdjustment *float64
 }
 
 func (s *Storage) CreateAccount(name string, openingBalance float64) (*Account, error) {
 	const op = "storage.sqlite.CreateAccount"
 
 	stmt, err := s.db.Prepare(
-		`INSERT INTO accounts (name, opening_balance, manual_adjustment) VALUES (?, ?, ?) RETURNING id, name, opening_balance, manual_adjustment`,
+		`INSERT INTO accounts (id, name, opening_balance, manual_adjustment) VALUES (?, ?, ?, ?) RETURNING id, name, opening_balance, manual_adjustment, created_at, updated_at`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	defer stmt.Close()
 
+	id := uuid.NewString()
 	var account Account
-	err = stmt.QueryRow(name, openingBalance, 0.0).
-		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment)
+	err = stmt.QueryRow(id, name, openingBalance, 0.0).
+		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
@@ -113,20 +86,33 @@ func (s *Storage) CreateAccount(name string, openingBalance float64) (*Account, 
 	return &account, nil
 }
 
-func (s *Storage) GetAccount(id int64) (*Account, error) {
-	const op = "storage.sqlite.GetAccount"
+func (s *Storage) UpdateAccount(
+	id string,
+	params UpdateAccountParams,
+) (*Account, error) {
+	const op = "storage.sqlite.UpdateAccount"
 
-	stmt, err := s.db.Prepare(
-		`SELECT id, name, opening_balance, manual_adjustment FROM accounts WHERE id = ?`,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+	setParts := []string{"updated_at = CURRENT_TIMESTAMP"}
+	args := []any{}
+	if params.Name != nil {
+		setParts = append(setParts, "name = ?")
+		args = append(args, *params.Name)
 	}
-	defer stmt.Close()
+	if params.ManualAdjustment != nil {
+		setParts = append(setParts, "manual_adjustment = ?")
+		args = append(args, *params.ManualAdjustment)
+	}
+
+	args = append(args, id)
+
+	query := fmt.Sprintf(
+		`UPDATE accounts SET %s WHERE id = ? RETURNING id, name, opening_balance, manual_adjustment, created_at, updated_at`,
+		strings.Join(setParts, ", "),
+	)
 
 	var account Account
-	err = stmt.QueryRow(id).
-		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment)
+	err := s.db.QueryRow(query, args...).
+		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
@@ -137,7 +123,7 @@ func (s *Storage) GetAccount(id int64) (*Account, error) {
 	return &account, nil
 }
 
-func (s *Storage) DeleteAccount(id int64) error {
+func (s *Storage) DeleteAccount(id string) error {
 	const op = "storage.sqlite.DeleteAccount"
 
 	stmt, err := s.db.Prepare(
@@ -157,4 +143,69 @@ func (s *Storage) DeleteAccount(id int64) error {
 	}
 
 	return nil
+}
+
+func (s *Storage) GetAccount(id string) (*Account, error) {
+	const op = "storage.sqlite.GetAccount"
+
+	stmt, err := s.db.Prepare(
+		`SELECT id, name, opening_balance, manual_adjustment, created_at, updated_at FROM accounts WHERE id = ?`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer stmt.Close()
+
+	var account Account
+	err = stmt.QueryRow(id).
+		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.CreatedAt, &account.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &account, nil
+}
+
+func (s *Storage) GetAccounts() ([]Account, error) {
+	const op = "storage.sqlite.GetAccounts"
+
+	stmt, err := s.db.Prepare(
+		`SELECT id, name, opening_balance, manual_adjustment, created_at, updated_at FROM accounts`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer stmt.Close()
+
+	var accounts []Account
+	rows, err := stmt.Query()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		account := Account{}
+		err := rows.Scan(
+			&account.Id,
+			&account.Name,
+			&account.OpeningBalance,
+			&account.ManualAdjustment,
+			&account.CreatedAt,
+			&account.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+		accounts = append(accounts, account)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return accounts, nil
 }

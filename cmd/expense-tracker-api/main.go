@@ -39,6 +39,7 @@ func main() {
 	router.GET("/accounts", handlers.ListAccounts)
 	router.POST("/accounts", handlers.CreateAccount)
 	router.GET("/accounts/:id", handlers.GetAccount)
+	router.PATCH("/accounts/:id", handlers.UpdateAccount)
 	router.DELETE("/accounts/:id", handlers.DeleteAccount)
 
 	log.Info("Starting server", slog.String("address", cfg.Address))

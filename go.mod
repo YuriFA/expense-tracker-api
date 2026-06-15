@@ -5,6 +5,7 @@ go 1.26.3
 require (
 	github.com/fatih/color v1.19.0
 	github.com/gin-gonic/gin v1.12.0
+	github.com/google/uuid v1.6.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/mattn/go-sqlite3 v1.14.45
 )
