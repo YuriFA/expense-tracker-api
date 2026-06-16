@@ -29,7 +29,6 @@ type Category struct {
 }
 
 type CreateCategoryParams struct {
-	Id        string
 	Name      string
 	Type      string
 	Icon      string
