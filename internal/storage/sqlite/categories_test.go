@@ -1,9 +1,7 @@
 package sqlite_test
 
 import (
-	"errors"
 	"testing"
-	"time"
 
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/storage/sqlite"
@@ -13,10 +11,7 @@ import (
 )
 
 func TestCreateCategory(t *testing.T) {
-	db, err := sqlite.New(":memory:")
-	if err != nil {
-		t.Fatalf("failed to create test database: %v", err)
-	}
+	db := sqlite.NewTestDB(t)
 
 	cases := map[string]struct {
 		params    storage.CreateCategoryParams
@@ -47,50 +42,28 @@ func TestCreateCategory(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			category, err := db.CreateCategory(tc.params)
-			if err != nil && !tc.respError {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if err == nil && tc.respError {
-				t.Fatalf("expected error, got nil")
+			if tc.respError {
+				testutil.AssertError(t, err)
+				return
 			}
 
-			if category.Name != tc.params.Name || category.Type != tc.params.Type ||
-				category.Icon != tc.params.Icon ||
-				category.Color != tc.params.Color ||
-				category.IsDefault != tc.params.IsDefault {
-				t.Errorf("unexpected category data: got %v", category)
-			}
+			testutil.AssertNoError(t, err)
 
-			if err := uuid.Validate(category.Id); err != nil {
-				t.Errorf("expected category ID to be set, got empty string")
-			}
+			testutil.AssertEqual(t, category.Name, tc.params.Name)
+			testutil.AssertEqual(t, category.Icon, tc.params.Icon)
+			testutil.AssertEqual(t, category.Color, tc.params.Color)
+			testutil.AssertEqual(t, category.IsDefault, tc.params.IsDefault)
+			testutil.AssertValidUUID(t, category.Id)
 
-			createdAt, err := time.Parse(time.RFC3339, category.CreatedAt)
-			if err != nil {
-				t.Errorf("expected created_at to be a valid timestamp, got: %v", category.CreatedAt)
-			}
-
-			updatedAt, err := time.Parse(time.RFC3339, category.UpdatedAt)
-			if err != nil {
-				t.Errorf("expected updated_at to be a valid timestamp, got: %v", category.UpdatedAt)
-			}
-
-			if !createdAt.Equal(updatedAt) {
-				t.Errorf(
-					"expected created_at === updated_at, got created_at: %v, updated_at: %v",
-					category.CreatedAt,
-					category.UpdatedAt,
-				)
-			}
+			createdAt := testutil.ParseDatetime(t, category.CreatedAt)
+			updatedAt := testutil.ParseDatetime(t, category.UpdatedAt)
+			testutil.AssertEqual(t, createdAt, updatedAt)
 		})
 	}
 }
 
 func TestUpdateCategory(t *testing.T) {
-	db, err := sqlite.New(":memory:")
-	if err != nil {
-		t.Fatalf("failed to create test database: %v", err)
-	}
+	db := sqlite.NewTestDB(t)
 
 	t.Run("full params updates both params", func(t *testing.T) {
 		category, err := db.CreateCategory(storage.CreateCategoryParams{
@@ -100,49 +73,20 @@ func TestUpdateCategory(t *testing.T) {
 			Color:     "blue",
 			IsDefault: false,
 		})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		time.Sleep(1100 * time.Millisecond) // Ensure updated_at will be different from created_at
+		testutil.AssertNoError(t, err)
 		params := storage.UpdateCategoryParams{
-			Name:  testutil.Ptr("UpdatedCategory"),
-			Type:  testutil.Ptr("expense"),
-			Icon:  testutil.Ptr("icon3"),
-			Color: testutil.Ptr("red"),
+			Name:  new("UpdatedCategory"),
+			Type:  new("expense"),
+			Icon:  new("icon3"),
+			Color: new("red"),
 		}
 
 		updatedCategory, err := db.UpdateCategory(category.Id, params)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 
-		if updatedCategory.Name != *params.Name || updatedCategory.Type != *params.Type ||
-			updatedCategory.Icon != *params.Icon ||
-			updatedCategory.Color != *params.Color {
-			t.Errorf("unexpected category data: got %v", updatedCategory)
-		}
-
-		categoryUpdatedAt, err := time.Parse(time.RFC3339, category.UpdatedAt)
-		if err != nil {
-			t.Errorf(
-				"expected prev updated_at to be a valid timestamp, got: %v",
-				category.UpdatedAt,
-			)
-		}
-		updatedAt, err := time.Parse(time.RFC3339, updatedCategory.UpdatedAt)
-		if err != nil {
-			t.Errorf(
-				"expected next updated_at to be a valid timestamp, got: %v",
-				updatedCategory.UpdatedAt,
-			)
-		}
-
-		if categoryUpdatedAt.Equal(updatedAt) {
-			t.Errorf(
-				"expected updated_at to be different from test category updated_at, got updated_at: %v",
-				updatedCategory.UpdatedAt,
-			)
-		}
+		testutil.AssertEqual(t, updatedCategory.Name, *params.Name)
+		testutil.AssertEqual(t, updatedCategory.Icon, *params.Icon)
+		testutil.AssertEqual(t, updatedCategory.Color, *params.Color)
 	})
 
 	t.Run("only name change", func(t *testing.T) {
@@ -153,30 +97,18 @@ func TestUpdateCategory(t *testing.T) {
 			Color:     "blue",
 			IsDefault: false,
 		})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 		params := storage.UpdateCategoryParams{
-			Name: testutil.Ptr("UpdatedCategory"),
+			Name: new("UpdatedCategory"),
 		}
 
 		updatedCategory, err := db.UpdateCategory(category.Id, params)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
+		testutil.AssertEqual(t, updatedCategory.Name, *params.Name)
 
-		if updatedCategory.Name != *params.Name {
-			t.Errorf("unexpected category data: got %v", updatedCategory)
-		}
-
-		if category.Type != updatedCategory.Type || category.Icon != updatedCategory.Icon ||
-			category.Color != updatedCategory.Color {
-			t.Errorf(
-				"unexpected category data, only name must be changed: prev %v, got %v",
-				category,
-				updatedCategory,
-			)
-		}
+		testutil.AssertEqual(t, updatedCategory.Type, category.Type)
+		testutil.AssertEqual(t, updatedCategory.Icon, category.Icon)
+		testutil.AssertEqual(t, updatedCategory.Color, category.Color)
 	})
 
 	t.Run("empty params still bumps updated_at", func(t *testing.T) {
@@ -187,66 +119,25 @@ func TestUpdateCategory(t *testing.T) {
 			Color:     "blue",
 			IsDefault: true,
 		})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		time.Sleep(1100 * time.Millisecond) // Ensure updated_at will be different from created_at
+		testutil.AssertNoError(t, err)
 
 		updatedCategory, err := db.UpdateCategory(category.Id, storage.UpdateCategoryParams{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 
-		if category.Name != updatedCategory.Name || category.Type != updatedCategory.Type ||
-			category.Icon != updatedCategory.Icon ||
-			category.Color != updatedCategory.Color {
-			t.Errorf(
-				"unexpected category data, only name must be changed: prev %v, got %v",
-				category,
-				updatedCategory,
-			)
-		}
-
-		categoryUpdatedAt, err := time.Parse(time.RFC3339, category.UpdatedAt)
-		if err != nil {
-			t.Errorf(
-				"expected prev updated_at to be a valid timestamp, got: %v",
-				category.UpdatedAt,
-			)
-		}
-		updatedAt, err := time.Parse(time.RFC3339, updatedCategory.UpdatedAt)
-		if err != nil {
-			t.Errorf(
-				"expected next updated_at to be a valid timestamp, got: %v",
-				updatedCategory.UpdatedAt,
-			)
-		}
-
-		if categoryUpdatedAt.Equal(updatedAt) {
-			t.Errorf(
-				"expected updated_at to be different from test category updated_at, got updated_at: %v",
-				updatedCategory.UpdatedAt,
-			)
-		}
+		testutil.AssertEqual(t, updatedCategory.Name, category.Name)
+		testutil.AssertEqual(t, updatedCategory.Type, category.Type)
+		testutil.AssertEqual(t, updatedCategory.Icon, category.Icon)
+		testutil.AssertEqual(t, updatedCategory.Color, category.Color)
 	})
 
 	t.Run("wrong category id return not found", func(t *testing.T) {
 		_, err := db.UpdateCategory(uuid.NewString(), storage.UpdateCategoryParams{})
-		if err == nil {
-			t.Fatalf("expected error, got nil")
-		}
-
-		if !errors.Is(err, storage.ErrCategoryNotFound) {
-			t.Fatalf("error mismatch: want `%v`, got: `%v`", storage.ErrCategoryNotFound, err)
-		}
+		testutil.AssertErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 }
 
 func TestDeleteCategory(t *testing.T) {
-	db, err := sqlite.New(":memory:")
-	if err != nil {
-		t.Fatalf("failed to create test database: %v", err)
-	}
+	db := sqlite.NewTestDB(t)
 
 	t.Run("existing category", func(t *testing.T) {
 		category, err := db.CreateCategory(storage.CreateCategoryParams{
@@ -256,25 +147,15 @@ func TestDeleteCategory(t *testing.T) {
 			Color:     "blue",
 			IsDefault: true,
 		})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 
 		err = db.DeleteCategory(category.Id)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 	})
 
 	t.Run("non existing category", func(t *testing.T) {
-		err = db.DeleteCategory(uuid.NewString())
-		if err == nil {
-			t.Fatalf("expected error, got nil")
-		}
-
-		if !errors.Is(err, storage.ErrCategoryNotFound) {
-			t.Fatalf("error mismatch: want `%v`, got: `%v`", storage.ErrCategoryNotFound, err)
-		}
+		err := db.DeleteCategory(uuid.NewString())
+		testutil.AssertErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 
 	t.Run("double delete category", func(t *testing.T) {
@@ -285,29 +166,16 @@ func TestDeleteCategory(t *testing.T) {
 			Color:     "blue",
 			IsDefault: true,
 		})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 		err = db.DeleteCategory(category.Id)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 		err = db.DeleteCategory(category.Id)
-		if err == nil {
-			t.Fatalf("expected error, got nil")
-		}
-
-		if !errors.Is(err, storage.ErrCategoryNotFound) {
-			t.Errorf("error mismatch: want `%v`, got: `%v`", storage.ErrCategoryNotFound, err)
-		}
+		testutil.AssertErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 }
 
 func TestGetCategory(t *testing.T) {
-	db, err := sqlite.New(":memory:")
-	if err != nil {
-		t.Fatalf("failed to create test database: %v", err)
-	}
+	db := sqlite.NewTestDB(t)
 
 	testCategory, err := db.CreateCategory(storage.CreateCategoryParams{
 		Name:      "Category1",
@@ -316,9 +184,7 @@ func TestGetCategory(t *testing.T) {
 		Color:     "blue",
 		IsDefault: true,
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	cases := map[string]struct {
 		id          string
@@ -345,25 +211,13 @@ func TestGetCategory(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			category, err := db.GetCategory(tc.id)
 
-			if err != nil && !tc.respError {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if err != nil && tc.respError {
-				if !errors.Is(err, tc.expectedErr) {
-					t.Fatalf("error mismatch: want `%v`, got: `%v`", tc.expectedErr, err)
-				}
-				// We expect an error and got one, so we can return early to avoid further checks.
+			if tc.respError {
+				testutil.AssertErrorIs(t, err, tc.expectedErr)
 				return
 			}
 
-			if err == nil && tc.respError {
-				t.Fatalf("expected error, got nil")
-			}
-
-			if category.Id != tc.id {
-				t.Errorf("expected category ID to be %v, got %v", tc.id, category.Id)
-			}
+			testutil.AssertNoError(t, err)
+			testutil.AssertEqual(t, category.Id, tc.id)
 		})
 	}
 }
@@ -416,65 +270,38 @@ func createTestCategories(db *sqlite.Storage) ([]storage.Category, error) {
 
 func TestGetCategories(t *testing.T) {
 	t.Run("empty categories in database", func(t *testing.T) {
-		db, err := sqlite.New(":memory:")
-		if err != nil {
-			t.Fatalf("failed to create test database: %v", err)
-		}
+		db := sqlite.NewTestDB(t)
 
 		categories, err := db.GetCategories(storage.GetCategoriesParams{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if len(categories) != 0 {
-			t.Fatalf("expected 0 categories, got %v", len(categories))
-		}
+		testutil.AssertNoError(t, err)
+		testutil.AssertEqual(t, len(categories), 0)
 	})
 
 	t.Run("existing categories in database with no params", func(t *testing.T) {
-		db, err := sqlite.New(":memory:")
-		if err != nil {
-			t.Fatalf("failed to create test database: %v", err)
-		}
+		db := sqlite.NewTestDB(t)
 
 		createdCategories, err := createTestCategories(db)
-		if err != nil {
-			t.Fatalf("failed to create test categories: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 
 		categories, err := db.GetCategories(storage.GetCategoriesParams{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if len(createdCategories) != len(categories) {
-			t.Errorf("expected %v categories, got %v", len(createdCategories), len(categories))
-		}
+		testutil.AssertNoError(t, err)
+		testutil.AssertEqual(t, len(createdCategories), len(categories))
 	})
 
 	t.Run("existing categories in database with type param = income", func(t *testing.T) {
-		db, err := sqlite.New(":memory:")
-		if err != nil {
-			t.Fatalf("failed to create test database: %v", err)
-		}
+		db := sqlite.NewTestDB(t)
 
 		createdCategories, err := createTestCategories(db)
-		if err != nil {
-			t.Fatalf("failed to create test categories: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 
 		categories, err := db.GetCategories(
-			storage.GetCategoriesParams{Type: testutil.Ptr("income")},
+			storage.GetCategoriesParams{Type: new("income")},
 		)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 
 		incomeCategories := testutil.Filter(createdCategories, func(c storage.Category) bool {
 			return c.Type == "income"
 		})
-		if len(categories) != len(incomeCategories) {
-			t.Errorf("expected %v categories, got %v", len(incomeCategories), len(categories))
-		}
+		testutil.AssertEqual(t, len(incomeCategories), len(categories))
 	})
 }

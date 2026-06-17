@@ -1,9 +1,7 @@
 package sqlite_test
 
 import (
-	"errors"
 	"testing"
-	"time"
 
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/storage/sqlite"
@@ -13,10 +11,7 @@ import (
 )
 
 func TestCreateAccount(t *testing.T) {
-	db, err := sqlite.New(":memory:")
-	if err != nil {
-		t.Fatalf("failed to create test database: %v", err)
-	}
+	db := sqlite.NewTestDB(t)
 
 	cases := map[string]struct {
 		name           string
@@ -37,247 +32,113 @@ func TestCreateAccount(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			account, err := db.CreateAccount(tc.name, tc.openingBalance)
-			if err != nil && !tc.respError {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if err == nil && tc.respError {
-				t.Fatalf("expected error, got nil")
+			if tc.respError {
+				testutil.AssertError(t, err)
+				return
 			}
 
-			if account.Name != tc.name || account.OpeningBalance != tc.openingBalance {
-				t.Errorf("unexpected account data: got %v", account)
-			}
+			testutil.AssertNoError(t, err)
 
-			if err := uuid.Validate(account.Id); err != nil {
-				t.Errorf("expected account ID to be set, got empty string")
-			}
+			testutil.AssertEqual(t, account.Name, tc.name)
+			testutil.AssertEqual(t, account.OpeningBalance, tc.openingBalance)
 
-			if account.ManualAdjustment != 0.0 {
-				t.Errorf("expected manual adjustment to be 0.0, got %v", account.ManualAdjustment)
-			}
+			testutil.AssertValidUUID(t, account.Id)
+			testutil.AssertEqual(t, account.ManualAdjustment, 0.0)
 
-			createdAt, err := time.Parse(time.RFC3339, account.CreatedAt)
-			if err != nil {
-				t.Errorf("expected created_at to be a valid timestamp, got: %v", account.CreatedAt)
-			}
-
-			updatedAt, err := time.Parse(time.RFC3339, account.UpdatedAt)
-			if err != nil {
-				t.Errorf("expected updated_at to be a valid timestamp, got: %v", account.UpdatedAt)
-			}
-
-			if !createdAt.Equal(updatedAt) {
-				t.Errorf(
-					"expected created_at === updated_at, got created_at: %v, updated_at: %v",
-					account.CreatedAt,
-					account.UpdatedAt,
-				)
-			}
+			createdAt := testutil.ParseDatetime(t, account.CreatedAt)
+			updatedAt := testutil.ParseDatetime(t, account.UpdatedAt)
+			testutil.AssertEqual(t, updatedAt, createdAt)
 		})
 	}
 
 	t.Run("non duplicate account ids", func(t *testing.T) {
 		account1, err := db.CreateAccount("CreateAccount", 100.0)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 		account2, err := db.CreateAccount("CreateAccount", 200.0)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if account1.Id == account2.Id {
-			t.Errorf(
-				"expected different account IDs for duplicate names, got same ID: %v",
-				account1.Id,
-			)
-		}
+		testutil.AssertNoError(t, err)
+		testutil.AssertNotEqual(t, account1.Id, account2.Id)
 	})
 }
 
 func TestUpdateAccount(t *testing.T) {
-	db, err := sqlite.New(":memory:")
-	if err != nil {
-		t.Fatalf("failed to create test database: %v", err)
-	}
+	db := sqlite.NewTestDB(t)
 
 	t.Run("full params updates both params", func(t *testing.T) {
 		account, err := db.CreateAccount("Account1", 100.0)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		time.Sleep(1100 * time.Millisecond) // Ensure updated_at will be different from created_at
+		testutil.AssertNoError(t, err)
 		params := storage.UpdateAccountParams{
-			Name:             testutil.Ptr("UpdatedAccount"),
-			ManualAdjustment: testutil.Ptr(50.0),
+			Name:             new("UpdatedAccount"),
+			ManualAdjustment: new(50.0),
 		}
 
 		updatedAccount, err := db.UpdateAccount(account.Id, params)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if updatedAccount.Name != *params.Name || updatedAccount.ManualAdjustment != *params.ManualAdjustment {
-			t.Errorf("unexpected account data: got %v", updatedAccount)
-		}
-
-		accUpdatedAt, err := time.Parse(time.RFC3339, account.UpdatedAt)
-		if err != nil {
-			t.Errorf("expected prev updated_at to be a valid timestamp, got: %v", account.UpdatedAt)
-		}
-		updatedAt, err := time.Parse(time.RFC3339, updatedAccount.UpdatedAt)
-		if err != nil {
-			t.Errorf("expected next updated_at to be a valid timestamp, got: %v", updatedAccount.UpdatedAt)
-		}
-
-		if accUpdatedAt.Equal(updatedAt) {
-			t.Errorf(
-				"expected updated_at to be different from test account updated_at, got updated_at: %v",
-				updatedAccount.UpdatedAt,
-			)
-		}
+		testutil.AssertNoError(t, err)
+		testutil.AssertEqual(t, updatedAccount.Name, *params.Name)
+		testutil.AssertEqual(t, updatedAccount.ManualAdjustment, *params.ManualAdjustment)
 	})
 
 	t.Run("only name change", func(t *testing.T) {
 		account, err := db.CreateAccount("Account1", 100.0)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 		params := storage.UpdateAccountParams{
-			Name: testutil.Ptr("UpdatedAccount"),
+			Name: new("UpdatedAccount"),
 		}
 
 		updatedAccount, err := db.UpdateAccount(account.Id, params)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if updatedAccount.ManualAdjustment != 0.0 {
-			t.Errorf(
-				"unexpected manual adjustment change: prev %v, got %v",
-				account.ManualAdjustment,
-				updatedAccount.ManualAdjustment,
-			)
-		}
-
-		if updatedAccount.Name != *params.Name {
-			t.Errorf("unexpected account data: got %v", updatedAccount)
-		}
+		testutil.AssertNoError(t, err)
+		testutil.AssertEqual(t, updatedAccount.ManualAdjustment, 0.0)
+		testutil.AssertEqual(t, updatedAccount.Name, *params.Name)
 	})
 
 	t.Run("empty params still bumps updated_at", func(t *testing.T) {
 		account, err := db.CreateAccount("Account1", 100.0)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		time.Sleep(1100 * time.Millisecond) // Ensure updated_at will be different from created_at
+		testutil.AssertNoError(t, err)
 
 		updatedAccount, err := db.UpdateAccount(account.Id, storage.UpdateAccountParams{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if updatedAccount.ManualAdjustment != 0.0 {
-			t.Errorf(
-				"unexpected manual adjustment change: prev %v, got %v",
-				account.ManualAdjustment,
-				updatedAccount.ManualAdjustment,
-			)
-		}
-
-		if account.Name != updatedAccount.Name {
-			t.Errorf("unexpected account change: prev %v, got %v", account.Name, updatedAccount.Name)
-		}
-
-		accUpdatedAt, err := time.Parse(time.RFC3339, account.UpdatedAt)
-		if err != nil {
-			t.Errorf("expected prev updated_at to be a valid timestamp, got: %v", account.UpdatedAt)
-		}
-		updatedAt, err := time.Parse(time.RFC3339, updatedAccount.UpdatedAt)
-		if err != nil {
-			t.Errorf("expected next updated_at to be a valid timestamp, got: %v", updatedAccount.UpdatedAt)
-		}
-
-		if accUpdatedAt.Equal(updatedAt) {
-			t.Errorf(
-				"expected updated_at to be different from test account updated_at, got updated_at: %v",
-				updatedAccount.UpdatedAt,
-			)
-		}
+		testutil.AssertNoError(t, err)
+		testutil.AssertEqual(t, updatedAccount.ManualAdjustment, 0.0)
+		testutil.AssertEqual(t, account.Name, updatedAccount.Name)
 	})
 
 	t.Run("wrong account id return not found", func(t *testing.T) {
 		_, err := db.UpdateAccount(uuid.NewString(), storage.UpdateAccountParams{})
-		if err == nil {
-			t.Fatalf("expected error, got nil")
-		}
-
-		if !errors.Is(err, storage.ErrAccountNotFound) {
-			t.Fatalf("error mismatch: want `%v`, got: `%v`", storage.ErrAccountNotFound, err)
-		}
+		testutil.AssertErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 }
 
 func TestDeleteAccount(t *testing.T) {
-	db, err := sqlite.New(":memory:")
-	if err != nil {
-		t.Fatalf("failed to create test database: %v", err)
-	}
+	db := sqlite.NewTestDB(t)
 
 	t.Run("existing account", func(t *testing.T) {
 		acc, err := db.CreateAccount("Account1", 100.0)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 
 		err = db.DeleteAccount(acc.Id)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 	})
 
 	t.Run("non existing account", func(t *testing.T) {
-		err = db.DeleteAccount(uuid.NewString())
-		if err == nil {
-			t.Fatalf("expected error, got nil")
-		}
-
-		if !errors.Is(err, storage.ErrAccountNotFound) {
-			t.Fatalf("error mismatch: want `%v`, got: `%v`", storage.ErrAccountNotFound, err)
-		}
+		err := db.DeleteAccount(uuid.NewString())
+		testutil.AssertErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 
 	t.Run("double delete account", func(t *testing.T) {
 		acc, err := db.CreateAccount("Account1", 100.0)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 		err = db.DeleteAccount(acc.Id)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		testutil.AssertNoError(t, err)
 		err = db.DeleteAccount(acc.Id)
-		if err == nil {
-			t.Fatalf("expected error, got nil")
-		}
-
-		if !errors.Is(err, storage.ErrAccountNotFound) {
-			t.Errorf("error mismatch: want `%v`, got: `%v`", storage.ErrAccountNotFound, err)
-		}
+		testutil.AssertErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 }
 
 func TestGetAccount(t *testing.T) {
-	db, err := sqlite.New(":memory:")
-	if err != nil {
-		t.Fatalf("failed to create test database: %v", err)
-	}
+	db := sqlite.NewTestDB(t)
 
 	testAccount, err := db.CreateAccount("Account1", 100.0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	cases := map[string]struct {
 		id          string
@@ -304,25 +165,13 @@ func TestGetAccount(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			account, err := db.GetAccount(tc.id)
 
-			if err != nil && !tc.respError {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if err != nil && tc.respError {
-				if !errors.Is(err, tc.expectedErr) {
-					t.Fatalf("error mismatch: want `%v`, got: `%v`", tc.expectedErr, err)
-				}
-				// We expect an error and got one, so we can return early to avoid further checks.
+			if tc.respError {
+				testutil.AssertErrorIs(t, err, tc.expectedErr)
 				return
 			}
 
-			if err == nil && tc.respError {
-				t.Fatalf("expected error, got nil")
-			}
-
-			if account.Id != tc.id {
-				t.Errorf("expected account ID to be %v, got %v", tc.id, account.Id)
-			}
+			testutil.AssertNoError(t, err)
+			testutil.AssertEqual(t, account.Id, tc.id)
 		})
 	}
 }
@@ -354,39 +203,18 @@ func createTestAccounts(db *sqlite.Storage) ([]storage.Account, error) {
 
 func TestGetAccounts(t *testing.T) {
 	t.Run("empty accounts in database", func(t *testing.T) {
-		db, err := sqlite.New(":memory:")
-		if err != nil {
-			t.Fatalf("failed to create test database: %v", err)
-		}
-
+		db := sqlite.NewTestDB(t)
 		accounts, err := db.GetAccounts()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if len(accounts) != 0 {
-			t.Fatalf("expected 0 accounts, got %v", len(accounts))
-		}
+		testutil.AssertNoError(t, err)
+		testutil.AssertEqual(t, len(accounts), 0)
 	})
 
 	t.Run("existing accounts in database", func(t *testing.T) {
-		db, err := sqlite.New(":memory:")
-		if err != nil {
-			t.Fatalf("failed to create test database: %v", err)
-		}
-
+		db := sqlite.NewTestDB(t)
 		createdAccounts, err := createTestAccounts(db)
-		if err != nil {
-			t.Fatalf("failed to create test accounts: %v", err)
-		}
-
+		testutil.AssertNoError(t, err)
 		accounts, err := db.GetAccounts()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if len(createdAccounts) != len(accounts) {
-			t.Errorf("expected %v accounts, got %v", len(createdAccounts), len(accounts))
-		}
+		testutil.AssertNoError(t, err)
+		testutil.AssertEqual(t, len(accounts), len(createdAccounts))
 	})
 }
