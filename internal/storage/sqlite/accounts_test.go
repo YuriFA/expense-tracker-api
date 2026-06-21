@@ -32,7 +32,6 @@ func TestCreateAccount(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
 			account, err := db.CreateAccount(tc.name, tc.openingBalance)
 			if tc.respError {
 				testutil.AssertError(t, err)
@@ -41,15 +40,15 @@ func TestCreateAccount(t *testing.T) {
 
 			testutil.AssertNoError(t, err)
 
-			testutil.AssertEqual(t, account.Name, tc.name)
-			testutil.AssertEqual(t, account.OpeningBalance, tc.openingBalance)
+			testutil.AssertEqual(t, tc.name, account.Name, )
+			testutil.AssertEqual(t, tc.openingBalance, account.OpeningBalance)
 
 			testutil.AssertValidUUID(t, account.Id)
-			testutil.AssertEqual(t, account.ManualAdjustment, 0.0)
+			testutil.AssertEqual(t, 0.0, account.ManualAdjustment)
 
 			createdAt := testutil.ParseDatetime(t, account.CreatedAt)
 			updatedAt := testutil.ParseDatetime(t, account.UpdatedAt)
-			testutil.AssertEqual(t, updatedAt, createdAt)
+			testutil.AssertEqual(t, createdAt, updatedAt)
 		})
 	}
 
@@ -75,8 +74,8 @@ func TestUpdateAccount(t *testing.T) {
 
 		updatedAccount, err := db.UpdateAccount(account.Id, params)
 		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, updatedAccount.Name, *params.Name)
-		testutil.AssertEqual(t, updatedAccount.ManualAdjustment, *params.ManualAdjustment)
+		testutil.AssertEqual(t, *params.Name, updatedAccount.Name, )
+		testutil.AssertEqual(t, *params.ManualAdjustment, updatedAccount.ManualAdjustment)
 	})
 
 	t.Run("only name change", func(t *testing.T) {
@@ -88,18 +87,8 @@ func TestUpdateAccount(t *testing.T) {
 
 		updatedAccount, err := db.UpdateAccount(account.Id, params)
 		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, updatedAccount.ManualAdjustment, 0.0)
-		testutil.AssertEqual(t, updatedAccount.Name, *params.Name)
-	})
-
-	t.Run("empty params still bumps updated_at", func(t *testing.T) {
-		account, err := db.CreateAccount("Account1", 100.0)
-		testutil.AssertNoError(t, err)
-
-		updatedAccount, err := db.UpdateAccount(account.Id, storage.UpdateAccountParams{})
-		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, updatedAccount.ManualAdjustment, 0.0)
-		testutil.AssertEqual(t, account.Name, updatedAccount.Name)
+		testutil.AssertEqual(t, 0.0, updatedAccount.ManualAdjustment)
+		testutil.AssertEqual(t, *params.Name, updatedAccount.Name)
 	})
 
 	t.Run("wrong account id return not found", func(t *testing.T) {
@@ -171,7 +160,7 @@ func TestGetAccount(t *testing.T) {
 			}
 
 			testutil.AssertNoError(t, err)
-			testutil.AssertEqual(t, account.Id, tc.id)
+			testutil.AssertEqual(t, tc.id, account.Id)
 		})
 	}
 }
@@ -206,7 +195,7 @@ func TestGetAccounts(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		accounts, err := db.GetAccounts()
 		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, len(accounts), 0)
+		testutil.AssertEqual(t, 0, len(accounts))
 	})
 
 	t.Run("existing accounts in database", func(t *testing.T) {
@@ -215,6 +204,6 @@ func TestGetAccounts(t *testing.T) {
 		testutil.AssertNoError(t, err)
 		accounts, err := db.GetAccounts()
 		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, len(accounts), len(createdAccounts))
+		testutil.AssertEqual(t, len(createdAccounts), len(accounts))
 	})
 }

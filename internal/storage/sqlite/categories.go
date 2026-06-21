@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"expense-tracker-api/internal/storage"
 
@@ -39,30 +38,18 @@ func (s *Storage) UpdateCategory(
 ) (*storage.Category, error) {
 	const op = "storage.sqlite.UpdateCategory"
 
-	setParts := []string{"updated_at = CURRENT_TIMESTAMP"}
-	args := []any{}
-	if params.Name != nil {
-		setParts = append(setParts, "name = ?")
-		args = append(args, *params.Name)
-	}
-	if params.Type != nil {
-		setParts = append(setParts, "type = ?")
-		args = append(args, *params.Type)
-	}
-	if params.Icon != nil {
-		setParts = append(setParts, "icon = ?")
-		args = append(args, *params.Icon)
-	}
-	if params.Color != nil {
-		setParts = append(setParts, "color = ?")
-		args = append(args, *params.Color)
-	}
+	setParts, args := newUpdateBuilder().
+		addString("name", params.Name).
+		addString("type", params.Type).
+		addString("icon", params.Icon).
+		addString("color", params.Color).
+		build(", ")
 
 	args = append(args, id)
 
 	query := fmt.Sprintf(
 		`UPDATE categories SET %s WHERE id = ? RETURNING id, name, slug, type, icon, color, is_default, created_at, updated_at`,
-		strings.Join(setParts, ", "),
+		setParts,
 	)
 
 	var category storage.Category
@@ -132,17 +119,16 @@ func (s *Storage) GetCategory(id string) (*storage.Category, error) {
 func (s *Storage) GetCategories(params storage.GetCategoriesParams) ([]storage.Category, error) {
 	const op = "storage.sqlite.GetCategories"
 
-	whereParts := []string{"1=1"}
-	args := []any{}
-	if params.Type != nil {
-		whereParts = append(whereParts, "type = ?")
-		args = append(args, *params.Type)
-	}
-
 	query := fmt.Sprintf(
-		`SELECT id, name, slug, type, icon, color, is_default, created_at, updated_at FROM categories WHERE %s`,
-		strings.Join(whereParts, " AND "),
+		`SELECT id, name, slug, type, icon, color, is_default, created_at, updated_at FROM categories`,
 	)
+
+	whereParts, args := newWhereBuilder().
+		addString("type", params.Type).build(" AND ")
+
+	if len(whereParts) > 0 {
+		query = fmt.Sprintf(`%s WHERE %s`, query, whereParts)
+	}
 
 	categories := []storage.Category{}
 	rows, err := s.db.Query(query, args...)

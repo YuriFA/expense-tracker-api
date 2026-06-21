@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"expense-tracker-api/internal/storage"
 
@@ -39,22 +38,16 @@ func (s *Storage) UpdateAccount(
 ) (*storage.Account, error) {
 	const op = "storage.sqlite.UpdateAccount"
 
-	setParts := []string{"updated_at = CURRENT_TIMESTAMP"}
-	args := []any{}
-	if params.Name != nil {
-		setParts = append(setParts, "name = ?")
-		args = append(args, *params.Name)
-	}
-	if params.ManualAdjustment != nil {
-		setParts = append(setParts, "manual_adjustment = ?")
-		args = append(args, *params.ManualAdjustment)
-	}
+	setParts, args := newUpdateBuilder().
+		addString("name", params.Name).
+		addFloat("manual_adjustment", params.ManualAdjustment).
+		build(", ")
 
 	args = append(args, id)
 
 	query := fmt.Sprintf(
 		`UPDATE accounts SET %s WHERE id = ? RETURNING id, name, opening_balance, manual_adjustment, created_at, updated_at`,
-		strings.Join(setParts, ", "),
+		setParts,
 	)
 
 	var account storage.Account

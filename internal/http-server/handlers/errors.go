@@ -8,12 +8,14 @@ import (
 )
 
 const (
-	ErrCodeInvalidRequest   = "INVALID_REQUEST"
-	ErrCodeValidationFailed = "VALIDATION_FAILED"
-	ErrCodeAccountNotFound  = "ACCOUNT_NOT_FOUND"
-	ErrCodeCategoryNotFound = "CATEGORY_NOT_FOUND"
-	ErrCodeInternal         = "INTERNAL_ERROR"
-	ErrCodeForbidden        = "FORBIDDEN"
+	ErrCodeInvalidRequest       = "INVALID_REQUEST"
+	ErrCodeValidationFailed     = "VALIDATION_FAILED"
+	ErrCodeAccountNotFound      = "ACCOUNT_NOT_FOUND"
+	ErrCodeCategoryNotFound     = "CATEGORY_NOT_FOUND"
+	ErrCodeCategoryTypeMismatch = "CATEGORY_TYPE_MISMATCH"
+	ErrCodeTransactionNotFound  = "TRANSACTION_NOT_FOUND"
+	ErrCodeInternal             = "INTERNAL_ERROR"
+	ErrCodeForbidden            = "FORBIDDEN"
 )
 
 type FieldError struct {

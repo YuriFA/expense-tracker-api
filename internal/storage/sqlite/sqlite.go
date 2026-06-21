@@ -14,7 +14,7 @@ type Storage struct {
 func New(storagePath string) (*Storage, error) {
 	const op = "storage.sqlite.New"
 
-	db, err := sql.Open("sqlite3", storagePath)
+	db, err := sql.Open("sqlite3", storagePath + "?_foreign_keys=on")
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -44,6 +44,25 @@ func New(storagePath string) (*Storage, error) {
 			is_default INTEGER NOT NULL DEFAULT 0,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS transactions (
+			id TEXT PRIMARY KEY,
+			type TEXT NOT NULL CHECK(type IN ('income', 'expense', 'transfer')),
+			amount REAL NOT NULL,
+			description TEXT,
+			occurred_at DATETIME NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			account_id TEXT,
+			category_id TEXT,
+			FOREIGN KEY (account_id) REFERENCES accounts(id),
+			FOREIGN KEY (category_id) REFERENCES categories(id)
 		)
 	`)
 	if err != nil {

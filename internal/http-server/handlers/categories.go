@@ -9,14 +9,13 @@ import (
 	"expense-tracker-api/internal/storage"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 )
 
 type CategoryRequest struct {
-	Name      string `json:"name"      binding:"required"`
-	Type      string `json:"type"      binding:"required,oneof=income expense"`
-	Icon      string `json:"icon"      binding:"required"`
-	Color     string `json:"color"     binding:"required"`
+	Name  string `json:"name"  binding:"required"`
+	Type  string `json:"type"  binding:"required,oneof=income expense"`
+	Icon  string `json:"icon"  binding:"required"`
+	Color string `json:"color" binding:"required"`
 }
 
 type UpdateCategoryRequest struct {
@@ -38,23 +37,15 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 	)
 
 	var req CategoryRequest
-	if err := c.BindJSON(&req); err != nil {
-		if verrs, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			log.Info("validation failed", logger.Error(err))
-			writeValidationError(c, verrs)
-			return
-		}
-
-		log.Error("invalid request body", logger.Error(err))
-		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid request body")
+	if !bindAndValidateJSON(c, log, &req) {
 		return
 	}
 
 	category, err := h.DB.CreateCategory(storage.CreateCategoryParams{
-		Name:      req.Name,
-		Type:      req.Type,
-		Icon:      req.Icon,
-		Color:     req.Color,
+		Name:  req.Name,
+		Type:  req.Type,
+		Icon:  req.Icon,
+		Color: req.Color,
 		// For categories created via API, we set IsDefault to false. Default categories should be seeded directly in the database.
 		IsDefault: false,
 	})
@@ -75,14 +66,7 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 	)
 
 	var req UpdateCategoryRequest
-	if err := c.BindJSON(&req); err != nil {
-		if verrs, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			log.Info("validation failed", logger.Error(err))
-			writeValidationError(c, verrs)
-			return
-		}
-		log.Error("invalid request body", logger.Error(err))
-		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid request body")
+	if !bindAndValidateJSON(c, log, &req) {
 		return
 	}
 
@@ -218,7 +202,7 @@ func (h *Handler) ListCategories(c *gin.Context) {
 	)
 
 	var params GetCategoriesQuery
-	if err := c.BindQuery(&params); err != nil {
+	if err := c.ShouldBindQuery(&params); err != nil {
 		log.Info("invalid query parameters", logger.Error(err))
 		writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "invalid query parameters")
 		return

@@ -17,15 +17,15 @@ type UpdateAccountParams struct {
 }
 
 type Category struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
+	Id        string  `json:"id"`
+	Name      string  `json:"name"`
 	Slug      *string `json:"slug"`
-	Type      string `json:"type"`
-	Icon      string `json:"icon"`
-	Color     string `json:"color"`
-	IsDefault bool   `json:"isDefault"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	Type      string  `json:"type"`
+	Icon      string  `json:"icon"`
+	Color     string  `json:"color"`
+	IsDefault bool    `json:"isDefault"`
+	CreatedAt string  `json:"createdAt"`
+	UpdatedAt string  `json:"updatedAt"`
 }
 
 type CreateCategoryParams struct {
@@ -57,7 +57,59 @@ type GetCategoriesParams struct {
 	Type *string
 }
 
+type Transaction struct {
+	Id          string  `json:"id"`
+	Type        string  `json:"type"`
+	Amount      float64 `json:"amount"`
+	Description string  `json:"description"`
+	OccurredAt  string  `json:"occurredAt"`
+	AccountId   string  `json:"accountId"`
+	CategoryId  string  `json:"categoryId"`
+	CreatedAt   string  `json:"createdAt"`
+	UpdatedAt   string  `json:"updatedAt"`
+}
+
+type CreateTransactionParams struct {
+	Type        string
+	Amount      float64
+	Description string
+	OccurredAt  string
+	AccountId   string
+	CategoryId  string
+}
+
+type UpdateTransactionParams struct {
+	Type        *string
+	Amount      *float64
+	Description *string
+	OccurredAt  *string
+	AccountId   *string
+	CategoryId  *string
+}
+
+type SortParam string
+
+const (
+	OccurredAtAsc  SortParam = "occurredAt"
+	OccurredAtDesc SortParam = "-occurredAt"
+	AmountAsc      SortParam = "amount"
+	AmountDesc     SortParam = "-amount"
+)
+
+type GetTransactionsParams struct {
+	Type       *string
+	AccountId  *string
+	CategoryId *string
+	FromDate   *string
+	ToDate     *string
+	Limit      *int
+	Sort       *SortParam
+}
+
 var (
-	ErrAccountNotFound  = errors.New("account not found")
-	ErrCategoryNotFound = errors.New("category not found")
+	ErrAccountNotFound      = errors.New("account not found")
+	ErrCategoryNotFound     = errors.New("category not found")
+	ErrCategoryTypeMismatch = errors.New("category type mismatch")
+	ErrTransactionNotFound  = errors.New("transaction not found")
+	ErrUnknownSort          = errors.New("unknown sort")
 )

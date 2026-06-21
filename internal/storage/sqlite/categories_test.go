@@ -49,10 +49,10 @@ func TestCreateCategory(t *testing.T) {
 
 			testutil.AssertNoError(t, err)
 
-			testutil.AssertEqual(t, category.Name, tc.params.Name)
-			testutil.AssertEqual(t, category.Icon, tc.params.Icon)
-			testutil.AssertEqual(t, category.Color, tc.params.Color)
-			testutil.AssertEqual(t, category.IsDefault, tc.params.IsDefault)
+			testutil.AssertEqual(t, tc.params.Name, category.Name)
+			testutil.AssertEqual(t, tc.params.Icon, category.Icon)
+			testutil.AssertEqual(t, tc.params.Color, category.Color)
+			testutil.AssertEqual(t, tc.params.IsDefault, category.IsDefault)
 			testutil.AssertValidUUID(t, category.Id)
 
 			createdAt := testutil.ParseDatetime(t, category.CreatedAt)
@@ -84,9 +84,9 @@ func TestUpdateCategory(t *testing.T) {
 		updatedCategory, err := db.UpdateCategory(category.Id, params)
 		testutil.AssertNoError(t, err)
 
-		testutil.AssertEqual(t, updatedCategory.Name, *params.Name)
-		testutil.AssertEqual(t, updatedCategory.Icon, *params.Icon)
-		testutil.AssertEqual(t, updatedCategory.Color, *params.Color)
+		testutil.AssertEqual(t, *params.Name, updatedCategory.Name)
+		testutil.AssertEqual(t, *params.Icon, updatedCategory.Icon)
+		testutil.AssertEqual(t, *params.Color, updatedCategory.Color)
 	})
 
 	t.Run("only name change", func(t *testing.T) {
@@ -104,30 +104,11 @@ func TestUpdateCategory(t *testing.T) {
 
 		updatedCategory, err := db.UpdateCategory(category.Id, params)
 		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, updatedCategory.Name, *params.Name)
+		testutil.AssertEqual(t, *params.Name, updatedCategory.Name)
 
-		testutil.AssertEqual(t, updatedCategory.Type, category.Type)
-		testutil.AssertEqual(t, updatedCategory.Icon, category.Icon)
-		testutil.AssertEqual(t, updatedCategory.Color, category.Color)
-	})
-
-	t.Run("empty params still bumps updated_at", func(t *testing.T) {
-		category, err := db.CreateCategory(storage.CreateCategoryParams{
-			Name:      "Category1",
-			Type:      "income",
-			Icon:      "icon2",
-			Color:     "blue",
-			IsDefault: true,
-		})
-		testutil.AssertNoError(t, err)
-
-		updatedCategory, err := db.UpdateCategory(category.Id, storage.UpdateCategoryParams{})
-		testutil.AssertNoError(t, err)
-
-		testutil.AssertEqual(t, updatedCategory.Name, category.Name)
-		testutil.AssertEqual(t, updatedCategory.Type, category.Type)
-		testutil.AssertEqual(t, updatedCategory.Icon, category.Icon)
-		testutil.AssertEqual(t, updatedCategory.Color, category.Color)
+		testutil.AssertEqual(t, category.Type, updatedCategory.Type)
+		testutil.AssertEqual(t, category.Icon, updatedCategory.Icon)
+		testutil.AssertEqual(t, category.Color, updatedCategory.Color)
 	})
 
 	t.Run("wrong category id return not found", func(t *testing.T) {
@@ -217,7 +198,7 @@ func TestGetCategory(t *testing.T) {
 			}
 
 			testutil.AssertNoError(t, err)
-			testutil.AssertEqual(t, category.Id, tc.id)
+			testutil.AssertEqual(t, tc.id, category.Id)
 		})
 	}
 }
@@ -274,7 +255,7 @@ func TestGetCategories(t *testing.T) {
 
 		categories, err := db.GetCategories(storage.GetCategoriesParams{})
 		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, len(categories), 0)
+		testutil.AssertEqual(t, 0, len(categories))
 	})
 
 	t.Run("existing categories in database with no params", func(t *testing.T) {

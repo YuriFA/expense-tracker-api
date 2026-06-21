@@ -9,7 +9,6 @@ import (
 	"expense-tracker-api/internal/storage"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 )
 
 type AccountRequest struct {
@@ -30,15 +29,7 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 	)
 
 	var req AccountRequest
-	if err := c.BindJSON(&req); err != nil {
-		if verrs, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			log.Info("validation failed", logger.Error(err))
-			writeValidationError(c, verrs)
-			return
-		}
-
-		log.Error("invalid request body", logger.Error(err))
-		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid request body")
+	if !bindAndValidateJSON(c, log, &req) {
 		return
 	}
 
@@ -60,14 +51,7 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 	)
 
 	var req UpdateAccountRequest
-	if err := c.BindJSON(&req); err != nil {
-		if verrs, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			log.Info("validation failed", logger.Error(err))
-			writeValidationError(c, verrs)
-			return
-		}
-		log.Error("invalid request body", logger.Error(err))
-		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid request body")
+	if !bindAndValidateJSON(c, log, &req) {
 		return
 	}
 

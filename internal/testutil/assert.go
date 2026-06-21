@@ -1,7 +1,9 @@
 package testutil
 
 import (
+	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -36,6 +38,15 @@ func AssertEqual[T comparable](t *testing.T, want, got T) {
 	t.Helper()
 	if got != want {
 		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+func AssertDeepEqual[T any](t *testing.T, want, got T) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		g, _ := json.MarshalIndent(got, "", "\t")
+		w, _ := json.MarshalIndent(want, "", "\t")
+		t.Fatalf("expected %v, got %v", string(w), string(g))
 	}
 }
 
