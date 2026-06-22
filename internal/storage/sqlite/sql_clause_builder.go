@@ -33,6 +33,17 @@ func (b *sqlClauseBuilder) addString(
 	return b
 }
 
+func (b *sqlClauseBuilder) addTimeSet(
+	col string,
+	arg *time.Time,
+) *sqlClauseBuilder {
+	if arg != nil {
+		b.clauses = append(b.clauses, col+" = ?")
+		b.args = append(b.args, *arg)
+	}
+	return b
+}
+
 func (b *sqlClauseBuilder) addTimeOp(
 	col string,
 	arg *time.Time,

@@ -76,7 +76,7 @@ type CreateTransactionParams struct {
 	Type        string
 	Amount      float64
 	Description string
-	OccurredAt  string
+	OccurredAt  time.Time
 	AccountId   string
 	CategoryId  string
 }
@@ -85,7 +85,7 @@ type UpdateTransactionParams struct {
 	Type        *string
 	Amount      *float64
 	Description *string
-	OccurredAt  *string
+	OccurredAt  *time.Time
 	AccountId   *string
 	CategoryId  *string
 }

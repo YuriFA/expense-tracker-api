@@ -2,6 +2,7 @@ package sqlite_test
 
 import (
 	"testing"
+	"time"
 
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/storage/sqlite"
@@ -44,7 +45,7 @@ func TestCreateTransaction(t *testing.T) {
 				Type:        "income",
 				Amount:      1000,
 				Description: "Salary",
-				OccurredAt:  "2024-06-01T00:00:00Z",
+				OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 				AccountId:   account.Id,
 				CategoryId:  category.Id,
 			},
@@ -55,7 +56,7 @@ func TestCreateTransaction(t *testing.T) {
 				Type:        "expense",
 				Amount:      1000,
 				Description: "Salary",
-				OccurredAt:  "2024-06-01T00:00:00Z",
+				OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 				AccountId:   account.Id,
 				CategoryId:  category.Id,
 			},
@@ -66,7 +67,7 @@ func TestCreateTransaction(t *testing.T) {
 				Type:        "income",
 				Amount:      1000,
 				Description: "Salary",
-				OccurredAt:  "2024-06-01T00:00:00Z",
+				OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 				AccountId:   uuid.NewString(),
 				CategoryId:  uuid.NewString(),
 			},
@@ -87,7 +88,11 @@ func TestCreateTransaction(t *testing.T) {
 			testutil.AssertEqual(t, tc.params.Type, transaction.Type)
 			testutil.AssertEqual(t, tc.params.Amount, transaction.Amount)
 			testutil.AssertEqual(t, tc.params.Description, transaction.Description)
-			testutil.AssertEqual(t, tc.params.OccurredAt, transaction.OccurredAt)
+			testutil.AssertEqual(
+				t,
+				tc.params.OccurredAt.Format(time.RFC3339),
+				transaction.OccurredAt,
+			)
 			testutil.AssertEqual(t, tc.params.AccountId, transaction.AccountId)
 			testutil.AssertEqual(t, tc.params.CategoryId, transaction.CategoryId)
 
@@ -117,7 +122,7 @@ func TestUpdateTransaction(t *testing.T) {
 			Type:        "income",
 			Amount:      1000,
 			Description: "Salary1",
-			OccurredAt:  "2024-06-01T00:00:00Z",
+			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 			AccountId:   account.Id,
 			CategoryId:  category.Id,
 		})
@@ -126,7 +131,7 @@ func TestUpdateTransaction(t *testing.T) {
 			Type:        new("expense"),
 			Amount:      new(2000.0),
 			Description: new("Updated Salary"),
-			OccurredAt:  new("2024-06-02T00:00:00Z"),
+			OccurredAt:  testutil.GetTimeFromStr(t, "2024-06-02T00:00:00Z"),
 			AccountId:   new(account.Id),
 			CategoryId:  new(expenseCategory.Id),
 		}
@@ -137,7 +142,11 @@ func TestUpdateTransaction(t *testing.T) {
 		testutil.AssertEqual(t, *params.Type, updatedTransaction.Type)
 		testutil.AssertEqual(t, *params.Amount, updatedTransaction.Amount)
 		testutil.AssertEqual(t, *params.Description, updatedTransaction.Description)
-		testutil.AssertEqual(t, *params.OccurredAt, updatedTransaction.OccurredAt)
+		testutil.AssertEqual(
+			t,
+			params.OccurredAt.Format(time.RFC3339),
+			updatedTransaction.OccurredAt,
+		)
 		testutil.AssertEqual(t, *params.AccountId, updatedTransaction.AccountId)
 		testutil.AssertEqual(t, *params.CategoryId, updatedTransaction.CategoryId)
 	})
@@ -148,7 +157,7 @@ func TestUpdateTransaction(t *testing.T) {
 			Type:        "income",
 			Amount:      1000,
 			Description: "Salary1",
-			OccurredAt:  "2024-06-01T00:00:00Z",
+			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 			AccountId:   account.Id,
 			CategoryId:  category.Id,
 		})
@@ -176,7 +185,7 @@ func TestDeleteTransaction(t *testing.T) {
 			Type:        "income",
 			Amount:      1000,
 			Description: "Salary1",
-			OccurredAt:  "2024-06-01T00:00:00Z",
+			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 			AccountId:   account.Id,
 			CategoryId:  category.Id,
 		})
@@ -197,7 +206,7 @@ func TestDeleteTransaction(t *testing.T) {
 			Type:        "income",
 			Amount:      1000,
 			Description: "Salary1",
-			OccurredAt:  "2024-06-01T00:00:00Z",
+			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 			AccountId:   account.Id,
 			CategoryId:  category.Id,
 		})
@@ -217,7 +226,7 @@ func TestGetTransaction(t *testing.T) {
 		Type:        "income",
 		Amount:      1000,
 		Description: "Salary1",
-		OccurredAt:  "2024-06-01T00:00:00Z",
+		OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 		AccountId:   account.Id,
 		CategoryId:  category.Id,
 	})
@@ -259,11 +268,10 @@ func TestGetTransaction(t *testing.T) {
 	}
 }
 
-func createTestTransactions(db *sqlite.Storage) ([]storage.Transaction, error) {
+func createTestTransactions(t *testing.T, db *sqlite.Storage) ([]storage.Transaction, error) {
+	t.Helper()
 	account, err := db.CreateAccount("Account1", 1000)
-	if err != nil {
-		return nil, err
-	}
+	testutil.AssertNoError(t, err)
 	incomeCategory, err := db.CreateCategory(storage.CreateCategoryParams{
 		Name:      "Category1",
 		Type:      "income",
@@ -271,9 +279,7 @@ func createTestTransactions(db *sqlite.Storage) ([]storage.Transaction, error) {
 		Color:     "blue",
 		IsDefault: false,
 	})
-	if err != nil {
-		return nil, err
-	}
+	testutil.AssertNoError(t, err)
 	expenseCategory, err := db.CreateCategory(storage.CreateCategoryParams{
 		Name:      "Category2",
 		Type:      "expense",
@@ -281,16 +287,14 @@ func createTestTransactions(db *sqlite.Storage) ([]storage.Transaction, error) {
 		Color:     "red",
 		IsDefault: false,
 	})
-	if err != nil {
-		return nil, err
-	}
+	testutil.AssertNoError(t, err)
 
 	transactionCreationParams := []storage.CreateTransactionParams{
 		{
 			Type:        "income",
 			Amount:      1000,
 			Description: "Salary1",
-			OccurredAt:  "2024-06-01T00:00:00Z",
+			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 			AccountId:   account.Id,
 			CategoryId:  incomeCategory.Id,
 		},
@@ -298,7 +302,7 @@ func createTestTransactions(db *sqlite.Storage) ([]storage.Transaction, error) {
 			Type:        "expense",
 			Amount:      2000,
 			Description: "Shopping1",
-			OccurredAt:  "2024-07-01T14:30:00Z",
+			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-07-01T14:30:00Z"),
 			AccountId:   account.Id,
 			CategoryId:  expenseCategory.Id,
 		},
@@ -306,7 +310,7 @@ func createTestTransactions(db *sqlite.Storage) ([]storage.Transaction, error) {
 			Type:        "income",
 			Amount:      5000,
 			Description: "Salary2",
-			OccurredAt:  "2024-05-01T23:59:00Z",
+			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-05-01T23:59:00Z"),
 			AccountId:   account.Id,
 			CategoryId:  incomeCategory.Id,
 		},
@@ -314,7 +318,7 @@ func createTestTransactions(db *sqlite.Storage) ([]storage.Transaction, error) {
 			Type:        "expense",
 			Amount:      3000,
 			Description: "Shopping2",
-			OccurredAt:  "2024-07-01T00:00:00Z",
+			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-07-01T00:00:00Z"),
 			AccountId:   account.Id,
 			CategoryId:  expenseCategory.Id,
 		},
@@ -322,7 +326,7 @@ func createTestTransactions(db *sqlite.Storage) ([]storage.Transaction, error) {
 			Type:        "income",
 			Amount:      1000,
 			Description: "Salary3",
-			OccurredAt:  "2024-05-02T00:00:00Z",
+			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-05-02T00:00:00Z"),
 			AccountId:   account.Id,
 			CategoryId:  incomeCategory.Id,
 		},
@@ -330,7 +334,7 @@ func createTestTransactions(db *sqlite.Storage) ([]storage.Transaction, error) {
 			Type:        "expense",
 			Amount:      1000,
 			Description: "Game1",
-			OccurredAt:  "2024-05-02T00:00:00Z",
+			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-05-02T00:00:00Z"),
 			AccountId:   account.Id,
 			CategoryId:  expenseCategory.Id,
 		},
@@ -362,7 +366,7 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("no params", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(db)
+		createdTransactions, err := createTestTransactions(t, db)
 		testutil.AssertNoError(t, err)
 
 		transactions, err := db.GetTransactions(storage.GetTransactionsParams{})
@@ -373,7 +377,7 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("type param = income", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(db)
+		createdTransactions, err := createTestTransactions(t, db)
 		testutil.AssertNoError(t, err)
 
 		transactions, err := db.GetTransactions(
@@ -399,7 +403,7 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("sort param occurred_at DESC", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(db)
+		createdTransactions, err := createTestTransactions(t, db)
 		testutil.AssertNoError(t, err)
 
 		transactions, err := db.GetTransactions(
@@ -419,7 +423,7 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("from date and to date", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(db)
+		createdTransactions, err := createTestTransactions(t, db)
 		testutil.AssertNoError(t, err)
 
 		transactions, err := db.GetTransactions(
@@ -445,7 +449,7 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("from date only", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(db)
+		createdTransactions, err := createTestTransactions(t, db)
 		testutil.AssertNoError(t, err)
 
 		transactions, err := db.GetTransactions(
@@ -470,7 +474,7 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("to date only", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(db)
+		createdTransactions, err := createTestTransactions(t, db)
 		testutil.AssertNoError(t, err)
 
 		transactions, err := db.GetTransactions(
@@ -495,7 +499,7 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("limit = 2", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(db)
+		createdTransactions, err := createTestTransactions(t, db)
 		testutil.AssertNoError(t, err)
 
 		transactions, err := db.GetTransactions(

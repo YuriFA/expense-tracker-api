@@ -13,21 +13,21 @@ import (
 )
 
 type TransactionRequest struct {
-	Type        string  `json:"type"        binding:"required,oneof=income expense transfer"`
-	Amount      float64 `json:"amount"      binding:"required,gt=0"`
-	Description string  `json:"description" binding:"omitempty"`
-	OccurredAt  string  `json:"occurredAt"  binding:"required,datetime=2006-01-02T15:04:05Z07:00"`
-	AccountId   string  `json:"accountId"   binding:"required,uuid"`
-	CategoryId  string  `json:"categoryId"  binding:"required,uuid"`
+	Type        string    `json:"type"        binding:"required,oneof=income expense transfer"`
+	Amount      float64   `json:"amount"      binding:"required,gt=0"`
+	Description string    `json:"description" binding:"omitempty"`
+	OccurredAt  time.Time `json:"occurredAt"  binding:"required"                               time_format:"2006-01-02T15:04:05Z07:00"`
+	AccountId   string    `json:"accountId"   binding:"required,uuid"`
+	CategoryId  string    `json:"categoryId"  binding:"required,uuid"`
 }
 
 type UpdateTransactionRequest struct {
-	Type        *string  `json:"type"        binding:"omitempty,oneof=income expense transfer"`
-	Amount      *float64 `json:"amount"      binding:"omitempty,gt=0"`
-	Description *string  `json:"description" binding:"omitempty"`
-	OccurredAt  *string  `json:"occurredAt"  binding:"omitempty,datetime=2006-01-02T15:04:05Z07:00"`
-	AccountId   *string  `json:"accountId"   binding:"omitempty,uuid"`
-	CategoryId  *string  `json:"categoryId"  binding:"omitempty,uuid"`
+	Type        *string    `json:"type"        binding:"omitempty,oneof=income expense transfer"`
+	Amount      *float64   `json:"amount"      binding:"omitempty,gt=0"`
+	Description *string    `json:"description" binding:"omitempty"`
+	OccurredAt  *time.Time `json:"occurredAt"  binding:"omitempty"                               time_format:"2006-01-02T15:04:05Z07:00"`
+	AccountId   *string    `json:"accountId"   binding:"omitempty,uuid"`
+	CategoryId  *string    `json:"categoryId"  binding:"omitempty,uuid"`
 }
 
 type GetTransactionsQuery struct {
@@ -244,17 +244,9 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		return
 	}
 
-	// fromDate, toDate, err := parseDateRange(params.FromDate, params.ToDate)
-	// if err != nil {
-	// 	log.Info("invalid date range", logger.Error(err))
-	// 	writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "invalid date range")
-	// 	return
-	// }
 	log.Debug(
 		"query parameters after parse",
 		slog.Any("params", params),
-		// slog.Any("fromDateRFC3339", fromDate),
-		// slog.Any("toDateRFC3339", toDate),
 	)
 	transactions, err := h.DB.GetTransactions(storage.GetTransactionsParams{
 		Type:       params.Type,
