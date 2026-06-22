@@ -1,6 +1,9 @@
 package storage
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 type Account struct {
 	Id               string  `json:"id"`
@@ -100,8 +103,8 @@ type GetTransactionsParams struct {
 	Type       *string
 	AccountId  *string
 	CategoryId *string
-	FromDate   *string
-	ToDate     *string
+	FromDate   *time.Time
+	ToDate     *time.Time
 	Limit      *int
 	Sort       *SortParam
 }

@@ -298,7 +298,7 @@ func createTestTransactions(db *sqlite.Storage) ([]storage.Transaction, error) {
 			Type:        "expense",
 			Amount:      2000,
 			Description: "Shopping1",
-			OccurredAt:  "2024-07-01T00:00:00Z",
+			OccurredAt:  "2024-07-01T14:30:00Z",
 			AccountId:   account.Id,
 			CategoryId:  expenseCategory.Id,
 		},
@@ -306,7 +306,7 @@ func createTestTransactions(db *sqlite.Storage) ([]storage.Transaction, error) {
 			Type:        "income",
 			Amount:      5000,
 			Description: "Salary2",
-			OccurredAt:  "2024-05-01T00:00:00Z",
+			OccurredAt:  "2024-05-01T23:59:00Z",
 			AccountId:   account.Id,
 			CategoryId:  incomeCategory.Id,
 		},
@@ -424,8 +424,8 @@ func TestGetTransactions(t *testing.T) {
 
 		transactions, err := db.GetTransactions(
 			storage.GetTransactionsParams{
-				FromDate: new("2024-06-01T00:00:00Z"),
-				ToDate:   new("2024-07-01T00:00:00Z"),
+				FromDate: testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
+				ToDate:   testutil.GetTimeFromStr(t, "2024-07-01T00:00:00Z"),
 			},
 		)
 		testutil.AssertNoError(t, err)
@@ -450,7 +450,7 @@ func TestGetTransactions(t *testing.T) {
 
 		transactions, err := db.GetTransactions(
 			storage.GetTransactionsParams{
-				FromDate: new("2024-06-01T00:00:00Z"),
+				FromDate: testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 			},
 		)
 		testutil.AssertNoError(t, err)
@@ -475,7 +475,7 @@ func TestGetTransactions(t *testing.T) {
 
 		transactions, err := db.GetTransactions(
 			storage.GetTransactionsParams{
-				ToDate: new("2024-07-01T00:00:00Z"),
+				ToDate: testutil.GetTimeFromStr(t, "2024-07-01T00:00:00Z"),
 			},
 		)
 		testutil.AssertNoError(t, err)

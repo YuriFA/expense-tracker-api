@@ -1,6 +1,9 @@
 package sqlite
 
-import "strings"
+import (
+	"strings"
+	"time"
+)
 
 type sqlClauseBuilder struct {
 	clauses []string
@@ -30,13 +33,13 @@ func (b *sqlClauseBuilder) addString(
 	return b
 }
 
-func (b *sqlClauseBuilder) addStringOp(
+func (b *sqlClauseBuilder) addTimeOp(
 	col string,
-	arg *string,
+	arg *time.Time,
 	equal string,
 ) *sqlClauseBuilder {
 	if arg != nil {
-		b.clauses = append(b.clauses, col+" "+equal+" ?")
+		b.clauses = append(b.clauses, "datetime("+col+") "+equal+" datetime(?)")
 		b.args = append(b.args, *arg)
 	}
 	return b

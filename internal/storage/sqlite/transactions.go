@@ -188,8 +188,8 @@ func (s *Storage) GetTransactions(
 		addString("type", params.Type).
 		addString("account_id", params.AccountId).
 		addString("category_id", params.CategoryId).
-		addStringOp("occurred_at", params.FromDate, ">=").
-		addStringOp("occurred_at", params.ToDate, "<=").
+		addTimeOp("occurred_at", params.FromDate, ">=").
+		addTimeOp("occurred_at", params.ToDate, "<=").
 		build(" AND ")
 
 	query := "SELECT id, type, amount, description, occurred_at, account_id, category_id, created_at, updated_at FROM transactions"

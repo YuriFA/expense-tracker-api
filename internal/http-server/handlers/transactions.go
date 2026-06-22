@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
@@ -33,8 +34,8 @@ type GetTransactionsQuery struct {
 	Type       *string            `form:"type"       binding:"omitempty,oneof=income expense transfer"`
 	AccountId  *string            `form:"accountId"  binding:"omitempty,uuid"`
 	CategoryId *string            `form:"categoryId" binding:"omitempty,uuid"`
-	FromDate   *string            `form:"fromDate"   binding:"omitempty,datetime=2006-01-02"`
-	ToDate     *string            `form:"toDate"     binding:"omitempty,datetime=2006-01-02"`
+	FromDate   *time.Time         `form:"fromDate"   binding:"omitempty"                                             time_format:"2006-01-02"`
+	ToDate     *time.Time         `form:"toDate"     binding:"omitempty,gtefield=FromDate"                           time_format:"2006-01-02"`
 	Limit      *int               `form:"limit"      binding:"omitempty,gt=0"`
 	Sort       *storage.SortParam `form:"sort"       binding:"omitempty,oneof=occurredAt -occurredAt amount -amount"`
 }
@@ -243,24 +244,24 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		return
 	}
 
-	fromDate, toDate, err := parseDateRange(params.FromDate, params.ToDate)
-	if err != nil {
-		log.Info("invalid date range", logger.Error(err))
-		writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "invalid date range")
-		return
-	}
+	// fromDate, toDate, err := parseDateRange(params.FromDate, params.ToDate)
+	// if err != nil {
+	// 	log.Info("invalid date range", logger.Error(err))
+	// 	writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "invalid date range")
+	// 	return
+	// }
 	log.Debug(
 		"query parameters after parse",
 		slog.Any("params", params),
-		slog.Any("fromDateRFC3339", fromDate),
-		slog.Any("toDateRFC3339", toDate),
+		// slog.Any("fromDateRFC3339", fromDate),
+		// slog.Any("toDateRFC3339", toDate),
 	)
 	transactions, err := h.DB.GetTransactions(storage.GetTransactionsParams{
 		Type:       params.Type,
 		AccountId:  params.AccountId,
 		CategoryId: params.CategoryId,
-		FromDate:   fromDate,
-		ToDate:     toDate,
+		FromDate:   params.FromDate,
+		ToDate:     endOfDay(params.ToDate),
 		Limit:      params.Limit,
 		Sort:       params.Sort,
 	})
