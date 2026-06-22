@@ -202,9 +202,7 @@ func (h *Handler) ListCategories(c *gin.Context) {
 	)
 
 	var params GetCategoriesQuery
-	if err := c.ShouldBindQuery(&params); err != nil {
-		log.Info("invalid query parameters", logger.Error(err))
-		writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "invalid query parameters")
+	if !bindAndValidateQuery(c, log, &params) {
 		return
 	}
 

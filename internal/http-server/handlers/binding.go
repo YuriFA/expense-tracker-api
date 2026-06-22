@@ -25,3 +25,18 @@ func bindAndValidateJSON[T any](c *gin.Context, log *slog.Logger, req *T) bool {
 
 	return true
 }
+
+func bindAndValidateQuery[T any](c *gin.Context, log *slog.Logger, req *T) bool {
+	if err := c.ShouldBindQuery(req); err != nil {
+		if verrs, ok := errors.AsType[validator.ValidationErrors](err); ok {
+			log.Info("validation failed", logger.Error(err))
+			writeValidationError(c, verrs)
+			return false
+		}
+		log.Info("invalid request body", logger.Error(err))
+		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid request body")
+		return false
+	}
+
+	return true
+}
