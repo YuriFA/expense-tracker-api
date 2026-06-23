@@ -244,6 +244,10 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		return
 	}
 
+	if params.ToDate != nil {
+		params.ToDate = new(endOfDay(*params.ToDate))
+	}
+
 	log.Debug(
 		"query parameters after parse",
 		slog.Any("params", params),
@@ -253,7 +257,7 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		AccountId:  params.AccountId,
 		CategoryId: params.CategoryId,
 		FromDate:   params.FromDate,
-		ToDate:     endOfDay(params.ToDate),
+		ToDate:     params.ToDate,
 		Limit:      params.Limit,
 		Sort:       params.Sort,
 	})
