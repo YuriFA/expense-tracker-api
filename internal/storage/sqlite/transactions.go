@@ -104,7 +104,7 @@ func (s *Storage) UpdateTransaction(
 		addString("type", params.Type).
 		addFloat("amount", params.Amount).
 		addString("description", params.Description).
-		addTime("occurred_at", params.OccurredAt).
+		addTimeSet("occurred_at", params.OccurredAt).
 		addString("account_id", params.AccountId).
 		addString("category_id", params.CategoryId).build(", ")
 
