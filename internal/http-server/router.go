@@ -1,0 +1,51 @@
+package httpserver
+
+import (
+	"reflect"
+	"strings"
+
+	"expense-tracker-api/internal/http-server/handlers"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
+)
+
+func NewRouter(handlers *handlers.Handler) *gin.Engine {
+	// Format validation error messages to use JSON field names instead of struct field names
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		v.RegisterTagNameFunc(func(fld reflect.StructField) string {
+			name, _, _ := strings.Cut(fld.Tag.Get("json"), ",")
+			if name == "-" {
+				return fld.Name
+			}
+			return name
+		})
+	}
+
+	router := gin.New()
+
+	router.Use(gin.Recovery())
+
+	api := router.Group("/api")
+	api.GET("/accounts", handlers.ListAccounts)
+	api.POST("/accounts", handlers.CreateAccount)
+	api.GET("/accounts/:id", handlers.GetAccount)
+	api.PATCH("/accounts/:id", handlers.UpdateAccount)
+	api.DELETE("/accounts/:id", handlers.DeleteAccount)
+	api.GET("/accounts/balances", handlers.GetAccountBalances)
+
+	api.GET("/categories", handlers.ListCategories)
+	api.POST("/categories", handlers.CreateCategory)
+	api.GET("/categories/:id", handlers.GetCategory)
+	api.PATCH("/categories/:id", handlers.UpdateCategory)
+	api.DELETE("/categories/:id", handlers.DeleteCategory)
+
+	api.GET("/transactions", handlers.ListTransactions)
+	api.POST("/transactions", handlers.CreateTransaction)
+	api.GET("/transactions/:id", handlers.GetTransaction)
+	api.PATCH("/transactions/:id", handlers.UpdateTransaction)
+	api.DELETE("/transactions/:id", handlers.DeleteTransaction)
+
+	return router
+}
