@@ -17,7 +17,7 @@ type AccountRequest struct {
 }
 
 type UpdateAccountRequest struct {
-	Name             *string  `json:"name"             binding:"omitempty,min=1"`
+	Name             *string  `json:"name"             binding:"omitempty,min=3"`
 	ManualAdjustment *float64 `json:"manualAdjustment" binding:"omitempty"`
 }
 
