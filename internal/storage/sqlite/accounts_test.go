@@ -8,6 +8,8 @@ import (
 	"expense-tracker-api/internal/testutil"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateAccount(t *testing.T) {
@@ -34,30 +36,30 @@ func TestCreateAccount(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			account, err := db.CreateAccount(tc.name, tc.openingBalance)
 			if tc.respError {
-				testutil.AssertError(t, err)
+				require.Error(t, err)
 				return
 			}
 
-			testutil.AssertNoError(t, err)
+			require.NoError(t, err)
 
-			testutil.AssertEqual(t, tc.name, account.Name, )
-			testutil.AssertEqual(t, tc.openingBalance, account.OpeningBalance)
+			require.Equal(t, tc.name, account.Name)
+			require.Equal(t, tc.openingBalance, account.OpeningBalance)
 
 			testutil.AssertValidUUID(t, account.Id)
-			testutil.AssertEqual(t, 0.0, account.ManualAdjustment)
+			assert.Equal(t, 0.0, account.ManualAdjustment)
 
 			createdAt := testutil.ParseDatetime(t, account.CreatedAt)
 			updatedAt := testutil.ParseDatetime(t, account.UpdatedAt)
-			testutil.AssertEqual(t, createdAt, updatedAt)
+			assert.Equal(t, createdAt, updatedAt)
 		})
 	}
 
 	t.Run("non duplicate account ids", func(t *testing.T) {
 		account1, err := db.CreateAccount("CreateAccount", 100.0)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		account2, err := db.CreateAccount("CreateAccount", 200.0)
-		testutil.AssertNoError(t, err)
-		testutil.AssertNotEqual(t, account1.Id, account2.Id)
+		require.NoError(t, err)
+		require.NotEqual(t, account1.Id, account2.Id)
 	})
 }
 
@@ -66,34 +68,34 @@ func TestUpdateAccount(t *testing.T) {
 
 	t.Run("full params updates both params", func(t *testing.T) {
 		account, err := db.CreateAccount("Account1", 100.0)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		params := storage.UpdateAccountParams{
 			Name:             new("UpdatedAccount"),
 			ManualAdjustment: new(50.0),
 		}
 
 		updatedAccount, err := db.UpdateAccount(account.Id, params)
-		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, *params.Name, updatedAccount.Name, )
-		testutil.AssertEqual(t, *params.ManualAdjustment, updatedAccount.ManualAdjustment)
+		require.NoError(t, err)
+		require.Equal(t, *params.Name, updatedAccount.Name)
+		require.Equal(t, *params.ManualAdjustment, updatedAccount.ManualAdjustment)
 	})
 
 	t.Run("only name change", func(t *testing.T) {
 		account, err := db.CreateAccount("Account1", 100.0)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		params := storage.UpdateAccountParams{
 			Name: new("UpdatedAccount"),
 		}
 
 		updatedAccount, err := db.UpdateAccount(account.Id, params)
-		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, 0.0, updatedAccount.ManualAdjustment)
-		testutil.AssertEqual(t, *params.Name, updatedAccount.Name)
+		require.NoError(t, err)
+		require.Equal(t, 0.0, updatedAccount.ManualAdjustment)
+		require.Equal(t, *params.Name, updatedAccount.Name)
 	})
 
 	t.Run("wrong account id return not found", func(t *testing.T) {
 		_, err := db.UpdateAccount(uuid.NewString(), storage.UpdateAccountParams{})
-		testutil.AssertErrorIs(t, err, storage.ErrAccountNotFound)
+		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 }
 
@@ -102,24 +104,24 @@ func TestDeleteAccount(t *testing.T) {
 
 	t.Run("existing account", func(t *testing.T) {
 		acc, err := db.CreateAccount("Account1", 100.0)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		err = db.DeleteAccount(acc.Id)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("non existing account", func(t *testing.T) {
 		err := db.DeleteAccount(uuid.NewString())
-		testutil.AssertErrorIs(t, err, storage.ErrAccountNotFound)
+		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 
 	t.Run("double delete account", func(t *testing.T) {
 		acc, err := db.CreateAccount("Account1", 100.0)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		err = db.DeleteAccount(acc.Id)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		err = db.DeleteAccount(acc.Id)
-		testutil.AssertErrorIs(t, err, storage.ErrAccountNotFound)
+		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 }
 
@@ -127,7 +129,7 @@ func TestGetAccount(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	testAccount, err := db.CreateAccount("Account1", 100.0)
-	testutil.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	cases := map[string]struct {
 		id          string
@@ -155,12 +157,12 @@ func TestGetAccount(t *testing.T) {
 			account, err := db.GetAccount(tc.id)
 
 			if tc.respError {
-				testutil.AssertErrorIs(t, err, tc.expectedErr)
+				require.ErrorIs(t, err, tc.expectedErr)
 				return
 			}
 
-			testutil.AssertNoError(t, err)
-			testutil.AssertEqual(t, tc.id, account.Id)
+			require.NoError(t, err)
+			require.Equal(t, tc.id, account.Id)
 		})
 	}
 }
@@ -194,16 +196,16 @@ func TestGetAccounts(t *testing.T) {
 	t.Run("empty accounts in database", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		accounts, err := db.GetAccounts()
-		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, 0, len(accounts))
+		require.NoError(t, err)
+		require.Equal(t, 0, len(accounts))
 	})
 
 	t.Run("existing accounts in database", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		createdAccounts, err := createTestAccounts(db)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		accounts, err := db.GetAccounts()
-		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, len(createdAccounts), len(accounts))
+		require.NoError(t, err)
+		require.Equal(t, len(createdAccounts), len(accounts))
 	})
 }

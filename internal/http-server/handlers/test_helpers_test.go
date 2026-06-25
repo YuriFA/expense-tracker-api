@@ -11,9 +11,9 @@ import (
 	"expense-tracker-api/internal/http-server/handlers"
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage/sqlite"
-	"expense-tracker-api/internal/testutil"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 )
 
 // setupTestEnv(t) *gin.Engine, *sqlite.Storage 	Собирает router с in-memory SQLite + discard logger. Единая точка setup'а.
@@ -34,7 +34,7 @@ func setupTestEnv(t *testing.T) (*gin.Engine, *sqlite.Storage) {
 func newJSONRequest(t *testing.T, method, path string, body any) *http.Request {
 	t.Helper()
 	paramsJson, err := json.Marshal(body)
-	testutil.AssertNoError(t, err)
+	require.NoError(t, err)
 	req := httptest.NewRequest(method, path, bytes.NewReader(paramsJson))
 	req.Header.Set("Content-Type", "application/json")
 	return req
@@ -56,5 +56,5 @@ func performRequest(
 func parseBody[T any](t *testing.T, recorder *httptest.ResponseRecorder, target *T) {
 	t.Helper()
 	err := json.Unmarshal(recorder.Body.Bytes(), target)
-	testutil.AssertNoError(t, err)
+	require.NoError(t, err)
 }

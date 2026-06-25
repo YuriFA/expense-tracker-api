@@ -8,9 +8,10 @@ import (
 	"expense-tracker-api/internal/http-server/handlers"
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/storage/sqlite"
-	"expense-tracker-api/internal/testutil"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func seedAccount(
@@ -20,7 +21,7 @@ func seedAccount(
 	openingBalance float64,
 ) *storage.Account {
 	account, err := db.CreateAccount(name, openingBalance)
-	testutil.AssertNoError(t, err)
+	require.NoError(t, err)
 	return account
 }
 
@@ -34,11 +35,11 @@ func TestCreateAccount(t *testing.T) {
 		})
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusCreated, w.Code)
+		assert.Equal(t, http.StatusCreated, w.Code)
 		var response storage.Account
 		parseBody(t, w, &response)
-		testutil.AssertEqual(t, "Wallet", response.Name)
-		testutil.AssertEqual(t, 1000.0, response.OpeningBalance)
+		assert.Equal(t, "Wallet", response.Name)
+		assert.Equal(t, 1000.0, response.OpeningBalance)
 	})
 
 	t.Run("ValidationFail", func(t *testing.T) {
@@ -88,14 +89,14 @@ func TestCreateAccount(t *testing.T) {
 				req := newJSONRequest(t, http.MethodPost, "/api/accounts", tc.body)
 				w := performRequest(t, router, req)
 
-				testutil.AssertEqual(t, http.StatusBadRequest, w.Code)
+				assert.Equal(t, http.StatusBadRequest, w.Code)
 				var response handlers.ValidationErrorResponse
 				parseBody(t, w, &response)
-				testutil.AssertEqual(t, handlers.ErrCodeValidationFailed, response.Code)
-				testutil.AssertEqual(t, "validation failed", response.Message)
-				testutil.AssertEqual(t, tc.errorsLen, len(response.Errors))
-				testutil.AssertEqual(t, tc.wantField, response.Errors[0].Field)
-				testutil.AssertEqual(t, tc.wantMessage, response.Errors[0].Message)
+				assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+				assert.Equal(t, "validation failed", response.Message)
+				assert.Equal(t, tc.errorsLen, len(response.Errors))
+				assert.Equal(t, tc.wantField, response.Errors[0].Field)
+				assert.Equal(t, tc.wantMessage, response.Errors[0].Message)
 			})
 		}
 	})
@@ -118,11 +119,11 @@ func TestUpdateAccount(t *testing.T) {
 		)
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusOK, w.Code)
+		assert.Equal(t, http.StatusOK, w.Code)
 		var response storage.Account
 		parseBody(t, w, &response)
-		testutil.AssertEqual(t, "Updated Wallet", response.Name)
-		testutil.AssertEqual(t, 100.0, response.ManualAdjustment)
+		assert.Equal(t, "Updated Wallet", response.Name)
+		assert.Equal(t, 100.0, response.ManualAdjustment)
 	})
 
 	t.Run("PartialUpdate", func(t *testing.T) {
@@ -140,11 +141,11 @@ func TestUpdateAccount(t *testing.T) {
 		)
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusOK, w.Code)
+		assert.Equal(t, http.StatusOK, w.Code)
 		var response storage.Account
 		parseBody(t, w, &response)
-		testutil.AssertEqual(t, "Updated Wallet", response.Name)
-		testutil.AssertEqual(t, existing.OpeningBalance, response.OpeningBalance)
+		assert.Equal(t, "Updated Wallet", response.Name)
+		assert.Equal(t, existing.OpeningBalance, response.OpeningBalance)
 	})
 
 	t.Run("ShortName", func(t *testing.T) {
@@ -162,14 +163,14 @@ func TestUpdateAccount(t *testing.T) {
 		)
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 		var response handlers.ValidationErrorResponse
 		parseBody(t, w, &response)
-		testutil.AssertEqual(t, handlers.ErrCodeValidationFailed, response.Code)
-		testutil.AssertEqual(t, "validation failed", response.Message)
-		testutil.AssertEqual(t, 1, len(response.Errors))
-		testutil.AssertEqual(t, "name", response.Errors[0].Field)
-		testutil.AssertEqual(
+		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+		assert.Equal(t, "validation failed", response.Message)
+		assert.Equal(t, 1, len(response.Errors))
+		assert.Equal(t, "name", response.Errors[0].Field)
+		assert.Equal(
 			t,
 			"name must be at least 3 characters",
 			response.Errors[0].Message,
@@ -189,11 +190,11 @@ func TestUpdateAccount(t *testing.T) {
 		)
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 		var response handlers.ErrorResponse
 		parseBody(t, w, &response)
-		testutil.AssertEqual(t, handlers.ErrCodeValidationFailed, response.Code)
-		testutil.AssertEqual(t, "no fields to update", response.Message)
+		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+		assert.Equal(t, "no fields to update", response.Message)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
@@ -209,11 +210,11 @@ func TestUpdateAccount(t *testing.T) {
 		)
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusNotFound, w.Code)
+		assert.Equal(t, http.StatusNotFound, w.Code)
 		var response handlers.ErrorResponse
 		parseBody(t, w, &response)
-		testutil.AssertEqual(t, handlers.ErrCodeAccountNotFound, response.Code)
-		testutil.AssertEqual(t, "account not found", response.Message)
+		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, "account not found", response.Message)
 	})
 }
 
@@ -226,8 +227,8 @@ func TestDeleteAccount(t *testing.T) {
 		req := httptest.NewRequest(http.MethodDelete, "/api/accounts/"+existing.Id, nil)
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusNoContent, w.Code)
-		testutil.AssertEqual(t, 0, w.Body.Len())
+		assert.Equal(t, http.StatusNoContent, w.Code)
+		assert.Equal(t, 0, w.Body.Len())
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
@@ -236,11 +237,11 @@ func TestDeleteAccount(t *testing.T) {
 		req := httptest.NewRequest(http.MethodDelete, "/api/accounts/"+uuid.NewString(), nil)
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusNotFound, w.Code)
+		assert.Equal(t, http.StatusNotFound, w.Code)
 		var response handlers.ErrorResponse
 		parseBody(t, w, &response)
-		testutil.AssertEqual(t, handlers.ErrCodeAccountNotFound, response.Code)
-		testutil.AssertEqual(t, "account not found", response.Message)
+		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, "account not found", response.Message)
 	})
 }
 
@@ -253,12 +254,12 @@ func TestGetAccount(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/accounts/"+existing.Id, nil)
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusOK, w.Code)
+		assert.Equal(t, http.StatusOK, w.Code)
 		var response storage.Account
 		parseBody(t, w, &response)
-		testutil.AssertEqual(t, "Wallet", response.Name)
-		testutil.AssertEqual(t, 1000.0, response.OpeningBalance)
-		testutil.AssertEqual(t, 0.0, response.ManualAdjustment)
+		assert.Equal(t, "Wallet", response.Name)
+		assert.Equal(t, 1000.0, response.OpeningBalance)
+		assert.Equal(t, 0.0, response.ManualAdjustment)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
@@ -267,11 +268,11 @@ func TestGetAccount(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/accounts/"+uuid.NewString(), nil)
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusNotFound, w.Code)
+		assert.Equal(t, http.StatusNotFound, w.Code)
 		var response handlers.ErrorResponse
 		parseBody(t, w, &response)
-		testutil.AssertEqual(t, handlers.ErrCodeAccountNotFound, response.Code)
-		testutil.AssertEqual(t, "account not found", response.Message)
+		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, "account not found", response.Message)
 	})
 }
 
@@ -288,10 +289,10 @@ func TestListAccounts(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/accounts", nil)
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusOK, w.Code)
+		assert.Equal(t, http.StatusOK, w.Code)
 		var response []storage.Account
 		parseBody(t, w, &response)
-		testutil.AssertEqual(t, len(seededAccounts), len(response))
+		assert.Equal(t, len(seededAccounts), len(response))
 
 		accountMap := make(map[string]*storage.Account)
 		for _, acc := range seededAccounts {
@@ -299,8 +300,8 @@ func TestListAccounts(t *testing.T) {
 		}
 		for _, acc := range response {
 			account, exists := accountMap[acc.Id]
-			testutil.AssertEqual(t, true, exists)
-			testutil.AssertDeepEqual(t, *account, acc)
+			assert.Equal(t, true, exists)
+			assert.Equal(t, *account, acc)
 		}
 	})
 
@@ -310,9 +311,9 @@ func TestListAccounts(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/accounts", nil)
 		w := performRequest(t, router, req)
 
-		testutil.AssertEqual(t, http.StatusOK, w.Code)
+		assert.Equal(t, http.StatusOK, w.Code)
 		var response []storage.Account
 		parseBody(t, w, &response)
-		testutil.AssertEqual(t, 0, len(response))
+		assert.Equal(t, 0, len(response))
 	})
 }

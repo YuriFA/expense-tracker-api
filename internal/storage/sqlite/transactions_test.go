@@ -9,6 +9,7 @@ import (
 	"expense-tracker-api/internal/testutil"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 )
 
 func createAccountAndCategory(
@@ -18,7 +19,7 @@ func createAccountAndCategory(
 	t.Helper()
 
 	account, err := db.CreateAccount("Account1", 1000)
-	testutil.AssertNoError(t, err)
+	require.NoError(t, err)
 	category, err := db.CreateCategory(storage.CreateCategoryParams{
 		Name:      "Category1",
 		Type:      "income",
@@ -26,7 +27,7 @@ func createAccountAndCategory(
 		Color:     "blue",
 		IsDefault: false,
 	})
-	testutil.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	return *account, *category
 }
@@ -79,28 +80,28 @@ func TestCreateTransaction(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			transaction, err := db.CreateTransaction(tc.params)
 			if tc.respError {
-				testutil.AssertError(t, err)
+				require.Error(t, err)
 				return
 			}
 
-			testutil.AssertNoError(t, err)
+			require.NoError(t, err)
 
-			testutil.AssertEqual(t, tc.params.Type, transaction.Type)
-			testutil.AssertEqual(t, tc.params.Amount, transaction.Amount)
-			testutil.AssertEqual(t, tc.params.Description, transaction.Description)
-			testutil.AssertEqual(
+			require.Equal(t, tc.params.Type, transaction.Type)
+			require.Equal(t, tc.params.Amount, transaction.Amount)
+			require.Equal(t, tc.params.Description, transaction.Description)
+			require.Equal(
 				t,
 				tc.params.OccurredAt.Format(time.RFC3339),
 				transaction.OccurredAt,
 			)
-			testutil.AssertEqual(t, tc.params.AccountId, transaction.AccountId)
-			testutil.AssertEqual(t, tc.params.CategoryId, transaction.CategoryId)
+			require.Equal(t, tc.params.AccountId, transaction.AccountId)
+			require.Equal(t, tc.params.CategoryId, transaction.CategoryId)
 
 			testutil.AssertValidUUID(t, transaction.Id)
 
 			createdAt := testutil.ParseDatetime(t, transaction.CreatedAt)
 			updatedAt := testutil.ParseDatetime(t, transaction.UpdatedAt)
-			testutil.AssertEqual(t, createdAt, updatedAt)
+			require.Equal(t, createdAt, updatedAt)
 		})
 	}
 }
@@ -117,7 +118,7 @@ func TestUpdateTransaction(t *testing.T) {
 			Color:     "red",
 			IsDefault: false,
 		})
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		transaction, err := db.CreateTransaction(storage.CreateTransactionParams{
 			Type:        "income",
 			Amount:      1000,
@@ -126,7 +127,7 @@ func TestUpdateTransaction(t *testing.T) {
 			AccountId:   account.Id,
 			CategoryId:  category.Id,
 		})
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		params := storage.UpdateTransactionParams{
 			Type:        new("expense"),
 			Amount:      new(2000.0),
@@ -137,18 +138,18 @@ func TestUpdateTransaction(t *testing.T) {
 		}
 
 		updatedTransaction, err := db.UpdateTransaction(transaction.Id, params)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
-		testutil.AssertEqual(t, *params.Type, updatedTransaction.Type)
-		testutil.AssertEqual(t, *params.Amount, updatedTransaction.Amount)
-		testutil.AssertEqual(t, *params.Description, updatedTransaction.Description)
-		testutil.AssertEqual(
+		require.Equal(t, *params.Type, updatedTransaction.Type)
+		require.Equal(t, *params.Amount, updatedTransaction.Amount)
+		require.Equal(t, *params.Description, updatedTransaction.Description)
+		require.Equal(
 			t,
 			params.OccurredAt.Format(time.RFC3339),
 			updatedTransaction.OccurredAt,
 		)
-		testutil.AssertEqual(t, *params.AccountId, updatedTransaction.AccountId)
-		testutil.AssertEqual(t, *params.CategoryId, updatedTransaction.CategoryId)
+		require.Equal(t, *params.AccountId, updatedTransaction.AccountId)
+		require.Equal(t, *params.CategoryId, updatedTransaction.CategoryId)
 	})
 
 	t.Run("only type change", func(t *testing.T) {
@@ -161,18 +162,18 @@ func TestUpdateTransaction(t *testing.T) {
 			AccountId:   account.Id,
 			CategoryId:  category.Id,
 		})
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		params := storage.UpdateTransactionParams{
 			Type: new("expense"),
 		}
 
 		_, err = db.UpdateTransaction(transaction.Id, params)
-		testutil.AssertErrorIs(t, err, storage.ErrCategoryTypeMismatch)
+		require.ErrorIs(t, err, storage.ErrCategoryTypeMismatch)
 	})
 
 	t.Run("wrong transaction id return not found", func(t *testing.T) {
 		_, err := db.UpdateTransaction(uuid.NewString(), storage.UpdateTransactionParams{})
-		testutil.AssertErrorIs(t, err, storage.ErrTransactionNotFound)
+		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 }
 
@@ -189,15 +190,15 @@ func TestDeleteTransaction(t *testing.T) {
 			AccountId:   account.Id,
 			CategoryId:  category.Id,
 		})
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		err = db.DeleteTransaction(transaction.Id)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("non existing transaction", func(t *testing.T) {
 		err := db.DeleteTransaction(uuid.NewString())
-		testutil.AssertErrorIs(t, err, storage.ErrTransactionNotFound)
+		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 
 	t.Run("double delete transaction", func(t *testing.T) {
@@ -210,11 +211,11 @@ func TestDeleteTransaction(t *testing.T) {
 			AccountId:   account.Id,
 			CategoryId:  category.Id,
 		})
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		err = db.DeleteTransaction(transaction.Id)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		err = db.DeleteTransaction(transaction.Id)
-		testutil.AssertErrorIs(t, err, storage.ErrTransactionNotFound)
+		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 }
 
@@ -230,7 +231,7 @@ func TestGetTransaction(t *testing.T) {
 		AccountId:   account.Id,
 		CategoryId:  category.Id,
 	})
-	testutil.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	cases := map[string]struct {
 		id          string
@@ -258,12 +259,12 @@ func TestGetTransaction(t *testing.T) {
 			transaction, err := db.GetTransaction(tc.id)
 
 			if tc.respError {
-				testutil.AssertErrorIs(t, err, tc.expectedErr)
+				require.ErrorIs(t, err, tc.expectedErr)
 				return
 			}
 
-			testutil.AssertNoError(t, err)
-			testutil.AssertEqual(t, tc.id, transaction.Id)
+			require.NoError(t, err)
+			require.Equal(t, tc.id, transaction.Id)
 		})
 	}
 }
@@ -271,7 +272,7 @@ func TestGetTransaction(t *testing.T) {
 func createTestTransactions(t *testing.T, db *sqlite.Storage) ([]storage.Transaction, error) {
 	t.Helper()
 	account, err := db.CreateAccount("Account1", 1000)
-	testutil.AssertNoError(t, err)
+	require.NoError(t, err)
 	incomeCategory, err := db.CreateCategory(storage.CreateCategoryParams{
 		Name:      "Category1",
 		Type:      "income",
@@ -279,7 +280,7 @@ func createTestTransactions(t *testing.T, db *sqlite.Storage) ([]storage.Transac
 		Color:     "blue",
 		IsDefault: false,
 	})
-	testutil.AssertNoError(t, err)
+	require.NoError(t, err)
 	expenseCategory, err := db.CreateCategory(storage.CreateCategoryParams{
 		Name:      "Category2",
 		Type:      "expense",
@@ -287,7 +288,7 @@ func createTestTransactions(t *testing.T, db *sqlite.Storage) ([]storage.Transac
 		Color:     "red",
 		IsDefault: false,
 	})
-	testutil.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	transactionCreationParams := []storage.CreateTransactionParams{
 		{
@@ -359,31 +360,31 @@ func TestGetTransactions(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		transactions, err := db.GetTransactions(storage.GetTransactionsParams{})
-		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, 0, len(transactions))
+		require.NoError(t, err)
+		require.Empty(t, transactions)
 	})
 
 	t.Run("no params", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		createdTransactions, err := createTestTransactions(t, db)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(storage.GetTransactionsParams{})
-		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, len(createdTransactions), len(transactions))
+		require.NoError(t, err)
+		require.Equal(t, len(createdTransactions), len(transactions))
 	})
 
 	t.Run("type param = income", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		createdTransactions, err := createTestTransactions(t, db)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
 			storage.GetTransactionsParams{Type: new("income")},
 		)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		expected := testutil.Sort(
 			createdTransactions,
@@ -397,19 +398,19 @@ func TestGetTransactions(t *testing.T) {
 				return c.Type == "income"
 			},
 		)
-		testutil.AssertDeepEqual(t, expected, transactions)
+		require.Equal(t, expected, transactions)
 	})
 
 	t.Run("sort param occurred_at DESC", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		createdTransactions, err := createTestTransactions(t, db)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
 			storage.GetTransactionsParams{Sort: new(storage.OccurredAtDesc)},
 		)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		expected := testutil.Sort(
 			createdTransactions,
@@ -417,14 +418,14 @@ func TestGetTransactions(t *testing.T) {
 				return a.OccurredAt > b.OccurredAt
 			},
 		)
-		testutil.AssertDeepEqual(t, expected, transactions)
+		require.Equal(t, expected, transactions)
 	})
 
 	t.Run("from date and to date", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		createdTransactions, err := createTestTransactions(t, db)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
 			storage.GetTransactionsParams{
@@ -432,7 +433,7 @@ func TestGetTransactions(t *testing.T) {
 				ToDate:   testutil.GetTimeFromStr(t, "2024-07-01T00:00:00Z"),
 			},
 		)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		expected := testutil.Sort(
 			createdTransactions,
@@ -443,21 +444,21 @@ func TestGetTransactions(t *testing.T) {
 		expected = testutil.Filter(expected, func(c storage.Transaction) bool {
 			return c.OccurredAt >= "2024-06-01T00:00:00Z" && c.OccurredAt <= "2024-07-01T00:00:00Z"
 		})
-		testutil.AssertDeepEqual(t, expected, transactions)
+		require.Equal(t, expected, transactions)
 	})
 
 	t.Run("from date only", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		createdTransactions, err := createTestTransactions(t, db)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
 			storage.GetTransactionsParams{
 				FromDate: testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 			},
 		)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		expected := testutil.Sort(
 			createdTransactions,
@@ -468,21 +469,21 @@ func TestGetTransactions(t *testing.T) {
 		expected = testutil.Filter(expected, func(c storage.Transaction) bool {
 			return c.OccurredAt >= "2024-06-01T00:00:00Z"
 		})
-		testutil.AssertDeepEqual(t, expected, transactions)
+		require.Equal(t, expected, transactions)
 	})
 
 	t.Run("to date only", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		createdTransactions, err := createTestTransactions(t, db)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
 			storage.GetTransactionsParams{
 				ToDate: testutil.GetTimeFromStr(t, "2024-07-01T00:00:00Z"),
 			},
 		)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		expected := testutil.Sort(
 			createdTransactions,
@@ -493,19 +494,19 @@ func TestGetTransactions(t *testing.T) {
 		expected = testutil.Filter(expected, func(c storage.Transaction) bool {
 			return c.OccurredAt <= "2024-07-01T00:00:00Z"
 		})
-		testutil.AssertDeepEqual(t, expected, transactions)
+		require.Equal(t, expected, transactions)
 	})
 
 	t.Run("limit = 2", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		createdTransactions, err := createTestTransactions(t, db)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
 			storage.GetTransactionsParams{Limit: new(2)},
 		)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		expected := testutil.Sort(
 			createdTransactions,
@@ -513,6 +514,6 @@ func TestGetTransactions(t *testing.T) {
 				return a.OccurredAt > b.OccurredAt
 			},
 		)
-		testutil.AssertDeepEqual(t, expected[0:2], transactions)
+		require.Equal(t, expected[0:2], transactions)
 	})
 }

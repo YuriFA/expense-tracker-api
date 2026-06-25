@@ -8,6 +8,8 @@ import (
 	"expense-tracker-api/internal/testutil"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateCategory(t *testing.T) {
@@ -43,21 +45,21 @@ func TestCreateCategory(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			category, err := db.CreateCategory(tc.params)
 			if tc.respError {
-				testutil.AssertError(t, err)
+				assert.Error(t, err)
 				return
 			}
 
-			testutil.AssertNoError(t, err)
+			assert.NoError(t, err)
 
-			testutil.AssertEqual(t, tc.params.Name, category.Name)
-			testutil.AssertEqual(t, tc.params.Icon, category.Icon)
-			testutil.AssertEqual(t, tc.params.Color, category.Color)
-			testutil.AssertEqual(t, tc.params.IsDefault, category.IsDefault)
+			assert.Equal(t, tc.params.Name, category.Name)
+			assert.Equal(t, tc.params.Icon, category.Icon)
+			assert.Equal(t, tc.params.Color, category.Color)
+			assert.Equal(t, tc.params.IsDefault, category.IsDefault)
 			testutil.AssertValidUUID(t, category.Id)
 
 			createdAt := testutil.ParseDatetime(t, category.CreatedAt)
 			updatedAt := testutil.ParseDatetime(t, category.UpdatedAt)
-			testutil.AssertEqual(t, createdAt, updatedAt)
+			assert.Equal(t, createdAt, updatedAt)
 		})
 	}
 }
@@ -73,7 +75,7 @@ func TestUpdateCategory(t *testing.T) {
 			Color:     "blue",
 			IsDefault: false,
 		})
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		params := storage.UpdateCategoryParams{
 			Name:  new("UpdatedCategory"),
 			Type:  new("expense"),
@@ -82,11 +84,11 @@ func TestUpdateCategory(t *testing.T) {
 		}
 
 		updatedCategory, err := db.UpdateCategory(category.Id, params)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
-		testutil.AssertEqual(t, *params.Name, updatedCategory.Name)
-		testutil.AssertEqual(t, *params.Icon, updatedCategory.Icon)
-		testutil.AssertEqual(t, *params.Color, updatedCategory.Color)
+		require.Equal(t, *params.Name, updatedCategory.Name)
+		require.Equal(t, *params.Icon, updatedCategory.Icon)
+		require.Equal(t, *params.Color, updatedCategory.Color)
 	})
 
 	t.Run("only name change", func(t *testing.T) {
@@ -97,23 +99,23 @@ func TestUpdateCategory(t *testing.T) {
 			Color:     "blue",
 			IsDefault: false,
 		})
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		params := storage.UpdateCategoryParams{
 			Name: new("UpdatedCategory"),
 		}
 
 		updatedCategory, err := db.UpdateCategory(category.Id, params)
-		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, *params.Name, updatedCategory.Name)
+		require.NoError(t, err)
+		require.Equal(t, *params.Name, updatedCategory.Name)
 
-		testutil.AssertEqual(t, category.Type, updatedCategory.Type)
-		testutil.AssertEqual(t, category.Icon, updatedCategory.Icon)
-		testutil.AssertEqual(t, category.Color, updatedCategory.Color)
+		require.Equal(t, category.Type, updatedCategory.Type)
+		require.Equal(t, category.Icon, updatedCategory.Icon)
+		require.Equal(t, category.Color, updatedCategory.Color)
 	})
 
 	t.Run("wrong category id return not found", func(t *testing.T) {
 		_, err := db.UpdateCategory(uuid.NewString(), storage.UpdateCategoryParams{})
-		testutil.AssertErrorIs(t, err, storage.ErrCategoryNotFound)
+		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 }
 
@@ -128,15 +130,15 @@ func TestDeleteCategory(t *testing.T) {
 			Color:     "blue",
 			IsDefault: true,
 		})
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		err = db.DeleteCategory(category.Id)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("non existing category", func(t *testing.T) {
 		err := db.DeleteCategory(uuid.NewString())
-		testutil.AssertErrorIs(t, err, storage.ErrCategoryNotFound)
+		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 
 	t.Run("double delete category", func(t *testing.T) {
@@ -147,11 +149,11 @@ func TestDeleteCategory(t *testing.T) {
 			Color:     "blue",
 			IsDefault: true,
 		})
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		err = db.DeleteCategory(category.Id)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 		err = db.DeleteCategory(category.Id)
-		testutil.AssertErrorIs(t, err, storage.ErrCategoryNotFound)
+		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 }
 
@@ -165,7 +167,7 @@ func TestGetCategory(t *testing.T) {
 		Color:     "blue",
 		IsDefault: true,
 	})
-	testutil.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	cases := map[string]struct {
 		id          string
@@ -193,12 +195,12 @@ func TestGetCategory(t *testing.T) {
 			category, err := db.GetCategory(tc.id)
 
 			if tc.respError {
-				testutil.AssertErrorIs(t, err, tc.expectedErr)
+				require.ErrorIs(t, err, tc.expectedErr)
 				return
 			}
 
-			testutil.AssertNoError(t, err)
-			testutil.AssertEqual(t, tc.id, category.Id)
+			require.NoError(t, err)
+			require.Equal(t, tc.id, category.Id)
 		})
 	}
 }
@@ -254,35 +256,35 @@ func TestGetCategories(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		categories, err := db.GetCategories(storage.GetCategoriesParams{})
-		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, 0, len(categories))
+		require.NoError(t, err)
+		assert.Empty(t, categories)
 	})
 
 	t.Run("existing categories in database with no params", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		createdCategories, err := createTestCategories(db)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		categories, err := db.GetCategories(storage.GetCategoriesParams{})
-		testutil.AssertNoError(t, err)
-		testutil.AssertEqual(t, len(createdCategories), len(categories))
+		require.NoError(t, err)
+		assert.Equal(t, len(createdCategories), len(categories))
 	})
 
 	t.Run("existing categories in database with type param = income", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		createdCategories, err := createTestCategories(db)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		categories, err := db.GetCategories(
 			storage.GetCategoriesParams{Type: new("income")},
 		)
-		testutil.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		incomeCategories := testutil.Filter(createdCategories, func(c storage.Category) bool {
 			return c.Type == "income"
 		})
-		testutil.AssertEqual(t, len(incomeCategories), len(categories))
+		require.Equal(t, len(incomeCategories), len(categories))
 	})
 }

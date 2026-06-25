@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"expense-tracker-api/internal/testutil"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEndOfDay(t *testing.T) {
@@ -41,7 +41,7 @@ func TestEndOfDay(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			result := endOfDay(tc.date)
-			testutil.AssertEqual(t, tc.expected, result)
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
