@@ -23,10 +23,20 @@ type FieldError struct {
 	Message string `json:"message"`
 }
 
+type ErrorResponse struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type ValidationErrorResponse struct {
+	ErrorResponse
+	Errors []FieldError `json:"errors"`
+}
+
 func writeError(c *gin.Context, status int, code, message string) {
-	c.JSON(status, gin.H{
-		"code":    code,
-		"message": message,
+	c.JSON(status, ErrorResponse{
+		Code:    code,
+		Message: message,
 	})
 }
 
@@ -38,10 +48,12 @@ func writeValidationError(c *gin.Context, verrs validator.ValidationErrors) {
 			Message: formatValidationMessage(fe),
 		}
 	}
-	c.JSON(http.StatusBadRequest, gin.H{
-		"code":    ErrCodeValidationFailed,
-		"message": "validation failed",
-		"errors":  fields,
+	c.JSON(http.StatusBadRequest, ValidationErrorResponse{
+		ErrorResponse: ErrorResponse{
+			Code:    ErrCodeValidationFailed,
+			Message: "validation failed",
+		},
+		Errors: fields,
 	})
 }
 
