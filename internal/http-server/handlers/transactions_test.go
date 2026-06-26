@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -87,14 +88,6 @@ func seedTransactionAt(
 	})
 
 	return transaction
-}
-
-func formatQueryParams(params map[string]string) string {
-	result := "?"
-	for key, value := range params {
-		result += fmt.Sprintf("%s=%s&", key, value)
-	}
-	return result[:len(result)-1] // Remove the trailing '&'
 }
 
 func TestCreateTransaction(t *testing.T) {
@@ -594,11 +587,16 @@ func TestListTransactions(t *testing.T) {
 		}
 
 		for _, tc := range cases {
-			params := formatQueryParams(tc.params)
+			params := url.Values{}
+			for key, value := range tc.params {
+				params.Add(key, value)
+			}
+			paramsEncoded := params.Encode()
+
 			t.Run(fmt.Sprintf("Params: %v", params), func(t *testing.T) {
 				req := httptest.NewRequest(
 					http.MethodGet,
-					"/api/transactions"+params,
+					"/api/transactions"+"?"+paramsEncoded,
 					nil,
 				)
 				w := performRequest(t, router, req)
