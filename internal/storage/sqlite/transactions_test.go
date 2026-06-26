@@ -12,30 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createAccountAndCategory(
-	t *testing.T,
-	db *sqlite.Storage,
-) (storage.Account, storage.Category) {
-	t.Helper()
-
-	account, err := db.CreateAccount("Account1", 1000)
-	require.NoError(t, err)
-	category, err := db.CreateCategory(storage.CreateCategoryParams{
-		Name:      "Category1",
-		Type:      "income",
-		Icon:      "icon2",
-		Color:     "blue",
-		IsDefault: false,
-	})
-	require.NoError(t, err)
-
-	return *account, *category
-}
-
 func TestCreateTransaction(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
-	account, category := createAccountAndCategory(t, db)
+	account, category := seedAccountAndCategory(t, db, "income")
 
 	cases := map[string]struct {
 		params    storage.CreateTransactionParams
@@ -110,24 +90,18 @@ func TestUpdateTransaction(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	t.Run("full params updates", func(t *testing.T) {
-		account, category := createAccountAndCategory(t, db)
-		expenseCategory, err := db.CreateCategory(storage.CreateCategoryParams{
-			Name:      "Category2",
-			Type:      "expense",
-			Icon:      "icon3",
-			Color:     "red",
-			IsDefault: false,
-		})
-		require.NoError(t, err)
-		transaction, err := db.CreateTransaction(storage.CreateTransactionParams{
-			Type:        "income",
-			Amount:      1000,
-			Description: "Salary1",
-			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-			AccountId:   account.Id,
-			CategoryId:  category.Id,
-		})
-		require.NoError(t, err)
+		account, category := seedAccountAndCategory(t, db, "income")
+		expenseCategory := seedCategory(t, db, "expense")
+		transaction := seedTransaction(
+			t,
+			db,
+			seedTransactionParams{
+				amount:          1000,
+				accountId:       account.Id,
+				categoryId:      category.Id,
+				transactionType: "income",
+			},
+		)
 		params := storage.UpdateTransactionParams{
 			Type:        new("expense"),
 			Amount:      new(2000.0),
@@ -153,21 +127,22 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("only type change", func(t *testing.T) {
-		account, category := createAccountAndCategory(t, db)
-		transaction, err := db.CreateTransaction(storage.CreateTransactionParams{
-			Type:        "income",
-			Amount:      1000,
-			Description: "Salary1",
-			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-			AccountId:   account.Id,
-			CategoryId:  category.Id,
-		})
-		require.NoError(t, err)
+		account, category := seedAccountAndCategory(t, db, "income")
+		transaction := seedTransaction(
+			t,
+			db,
+			seedTransactionParams{
+				amount:          1000,
+				accountId:       account.Id,
+				categoryId:      category.Id,
+				transactionType: "income",
+			},
+		)
 		params := storage.UpdateTransactionParams{
 			Type: new("expense"),
 		}
 
-		_, err = db.UpdateTransaction(transaction.Id, params)
+		_, err := db.UpdateTransaction(transaction.Id, params)
 		require.ErrorIs(t, err, storage.ErrCategoryTypeMismatch)
 	})
 
@@ -181,18 +156,19 @@ func TestDeleteTransaction(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	t.Run("existing transaction", func(t *testing.T) {
-		account, category := createAccountAndCategory(t, db)
-		transaction, err := db.CreateTransaction(storage.CreateTransactionParams{
-			Type:        "income",
-			Amount:      1000,
-			Description: "Salary1",
-			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-			AccountId:   account.Id,
-			CategoryId:  category.Id,
-		})
-		require.NoError(t, err)
+		account, category := seedAccountAndCategory(t, db, "income")
+		transaction := seedTransaction(
+			t,
+			db,
+			seedTransactionParams{
+				amount:          1000,
+				accountId:       account.Id,
+				categoryId:      category.Id,
+				transactionType: "income",
+			},
+		)
 
-		err = db.DeleteTransaction(transaction.Id)
+		err := db.DeleteTransaction(transaction.Id)
 		require.NoError(t, err)
 	})
 
@@ -202,17 +178,19 @@ func TestDeleteTransaction(t *testing.T) {
 	})
 
 	t.Run("double delete transaction", func(t *testing.T) {
-		account, category := createAccountAndCategory(t, db)
-		transaction, err := db.CreateTransaction(storage.CreateTransactionParams{
-			Type:        "income",
-			Amount:      1000,
-			Description: "Salary1",
-			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-			AccountId:   account.Id,
-			CategoryId:  category.Id,
-		})
-		require.NoError(t, err)
-		err = db.DeleteTransaction(transaction.Id)
+		account, category := seedAccountAndCategory(t, db, "income")
+		transaction := seedTransaction(
+			t,
+			db,
+			seedTransactionParams{
+				amount:          1000,
+				accountId:       account.Id,
+				categoryId:      category.Id,
+				transactionType: "income",
+			},
+		)
+
+		err := db.DeleteTransaction(transaction.Id)
 		require.NoError(t, err)
 		err = db.DeleteTransaction(transaction.Id)
 		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
@@ -222,16 +200,17 @@ func TestDeleteTransaction(t *testing.T) {
 func TestGetTransaction(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
-	account, category := createAccountAndCategory(t, db)
-	testTransaction, err := db.CreateTransaction(storage.CreateTransactionParams{
-		Type:        "income",
-		Amount:      1000,
-		Description: "Salary1",
-		OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-		AccountId:   account.Id,
-		CategoryId:  category.Id,
-	})
-	require.NoError(t, err)
+	account, category := seedAccountAndCategory(t, db, "income")
+	testTransaction := seedTransaction(
+		t,
+		db,
+		seedTransactionParams{
+			amount:          1000,
+			accountId:       account.Id,
+			categoryId:      category.Id,
+			transactionType: "income",
+		},
+	)
 
 	cases := map[string]struct {
 		id          string
@@ -271,25 +250,8 @@ func TestGetTransaction(t *testing.T) {
 
 func createTestTransactions(t *testing.T, db *sqlite.Storage) ([]storage.Transaction, error) {
 	t.Helper()
-	account, err := db.CreateAccount("Account1", 1000)
-	require.NoError(t, err)
-	incomeCategory, err := db.CreateCategory(storage.CreateCategoryParams{
-		Name:      "Category1",
-		Type:      "income",
-		Icon:      "icon2",
-		Color:     "blue",
-		IsDefault: false,
-	})
-	require.NoError(t, err)
-	expenseCategory, err := db.CreateCategory(storage.CreateCategoryParams{
-		Name:      "Category2",
-		Type:      "expense",
-		Icon:      "icon3",
-		Color:     "red",
-		IsDefault: false,
-	})
-	require.NoError(t, err)
-
+	account, incomeCategory := seedAccountAndCategory(t, db, "income")
+	expenseCategory := seedCategory(t, db, "expense")
 	transactionCreationParams := []storage.CreateTransactionParams{
 		{
 			Type:        "income",

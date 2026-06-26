@@ -6,20 +6,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	httpserver "expense-tracker-api/internal/http-server"
 	"expense-tracker-api/internal/http-server/handlers"
 	"expense-tracker-api/internal/logger"
+	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/storage/sqlite"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
-// setupTestEnv(t) *gin.Engine, *sqlite.Storage 	Собирает router с in-memory SQLite + discard logger. Единая точка setup'а.
-// newJSONRequest(t, method, path, body) *http.Request 	Конструирует request с JSON-телом, выставляет Content-Type.
-// performRequest(t, router, req) *httptest.ResponseRecorder 	Выполняет request, возвращает recorder.
-// parseBody(t, recorder, target *T) 	Декодирует JSON-ответ в типизированный target.
 // assertErrorResponse(t, code, body, errCode, errMsg) 	Проверяет формат writeError (тот самый error-response контракт).
 // assertValidationError(t, code, body, expectedFields ...) 	Проверяет формат writeValidationError.
 
@@ -57,4 +55,97 @@ func parseBody[T any](t *testing.T, recorder *httptest.ResponseRecorder, target 
 	t.Helper()
 	err := json.Unmarshal(recorder.Body.Bytes(), target)
 	require.NoError(t, err)
+}
+
+func seedAccount(
+	t *testing.T,
+	db *sqlite.Storage,
+	name string,
+	openingBalance float64,
+) *storage.Account {
+	account, err := db.CreateAccount(name, openingBalance)
+	require.NoError(t, err)
+	return account
+}
+
+func seedCategory(
+	t *testing.T,
+	db *sqlite.Storage,
+	params storage.CreateCategoryParams,
+) *storage.Category {
+	category, err := db.CreateCategory(params)
+	require.NoError(t, err)
+	return category
+}
+
+func seedCommonCategoryAndAccount(
+	t *testing.T,
+	db *sqlite.Storage,
+	categoryType string,
+) (*storage.Category, *storage.Account) {
+	t.Helper()
+
+	category := seedCategory(t, db, storage.CreateCategoryParams{
+		Name:  "Salary",
+		Type:  categoryType,
+		Icon:  "dollar-sign",
+		Color: "green",
+	})
+	account := seedAccount(t, db, "Cash", 1000.0)
+
+	return category, account
+}
+
+func seedTransaction(
+	t *testing.T,
+	db *sqlite.Storage,
+	params storage.CreateTransactionParams,
+) *storage.Transaction {
+	t.Helper()
+	transaction, err := db.CreateTransaction(params)
+	require.NoError(t, err)
+	return transaction
+}
+
+func seedCommonTransaction(
+	t *testing.T,
+	db *sqlite.Storage,
+	transactionType string,
+) *storage.Transaction {
+	t.Helper()
+
+	occurredAt := time.Now()
+	category, account := seedCommonCategoryAndAccount(t, db, transactionType)
+
+	transaction := seedTransaction(t, db, storage.CreateTransactionParams{
+		Type:        transactionType,
+		Amount:      1000.0,
+		Description: "Common transaction",
+		OccurredAt:  occurredAt,
+		AccountId:   account.Id,
+		CategoryId:  category.Id,
+	})
+
+	return transaction
+}
+
+func seedTransactionAt(
+	t *testing.T,
+	db *sqlite.Storage,
+	transactionType string,
+	occurredAt time.Time,
+	amount float64,
+) *storage.Transaction {
+	t.Helper()
+	category, account := seedCommonCategoryAndAccount(t, db, transactionType)
+	transaction := seedTransaction(t, db, storage.CreateTransactionParams{
+		Type:        transactionType,
+		Amount:      amount,
+		Description: "Common transaction",
+		OccurredAt:  occurredAt,
+		AccountId:   account.Id,
+		CategoryId:  category.Id,
+	})
+
+	return transaction
 }

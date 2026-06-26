@@ -7,22 +7,10 @@ import (
 
 	"expense-tracker-api/internal/http-server/handlers"
 	"expense-tracker-api/internal/storage"
-	"expense-tracker-api/internal/storage/sqlite"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-func seedCategory(
-	t *testing.T,
-	db *sqlite.Storage,
-	params storage.CreateCategoryParams,
-) *storage.Category {
-	category, err := db.CreateCategory(params)
-	require.NoError(t, err)
-	return category
-}
 
 func TestCreateCategory(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {

@@ -68,14 +68,7 @@ func TestUpdateCategory(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	t.Run("full params updates both params", func(t *testing.T) {
-		category, err := db.CreateCategory(storage.CreateCategoryParams{
-			Name:      "Category1",
-			Type:      "income",
-			Icon:      "icon2",
-			Color:     "blue",
-			IsDefault: false,
-		})
-		require.NoError(t, err)
+		category := seedCategory(t, db, "income")
 		params := storage.UpdateCategoryParams{
 			Name:  new("UpdatedCategory"),
 			Type:  new("expense"),
@@ -92,14 +85,7 @@ func TestUpdateCategory(t *testing.T) {
 	})
 
 	t.Run("only name change", func(t *testing.T) {
-		category, err := db.CreateCategory(storage.CreateCategoryParams{
-			Name:      "Category1",
-			Type:      "income",
-			Icon:      "icon2",
-			Color:     "blue",
-			IsDefault: false,
-		})
-		require.NoError(t, err)
+		category := seedCategory(t, db, "income")
 		params := storage.UpdateCategoryParams{
 			Name: new("UpdatedCategory"),
 		}
@@ -123,16 +109,8 @@ func TestDeleteCategory(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	t.Run("existing category", func(t *testing.T) {
-		category, err := db.CreateCategory(storage.CreateCategoryParams{
-			Name:      "Category1",
-			Type:      "income",
-			Icon:      "icon2",
-			Color:     "blue",
-			IsDefault: true,
-		})
-		require.NoError(t, err)
-
-		err = db.DeleteCategory(category.Id)
+		category := seedCategory(t, db, "income")
+		err := db.DeleteCategory(category.Id)
 		require.NoError(t, err)
 	})
 
@@ -142,15 +120,8 @@ func TestDeleteCategory(t *testing.T) {
 	})
 
 	t.Run("double delete category", func(t *testing.T) {
-		category, err := db.CreateCategory(storage.CreateCategoryParams{
-			Name:      "Category1",
-			Type:      "income",
-			Icon:      "icon2",
-			Color:     "blue",
-			IsDefault: true,
-		})
-		require.NoError(t, err)
-		err = db.DeleteCategory(category.Id)
+		category := seedCategory(t, db, "income")
+		err := db.DeleteCategory(category.Id)
 		require.NoError(t, err)
 		err = db.DeleteCategory(category.Id)
 		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
@@ -160,14 +131,7 @@ func TestDeleteCategory(t *testing.T) {
 func TestGetCategory(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
-	testCategory, err := db.CreateCategory(storage.CreateCategoryParams{
-		Name:      "Category1",
-		Type:      "income",
-		Icon:      "icon2",
-		Color:     "blue",
-		IsDefault: true,
-	})
-	require.NoError(t, err)
+	testCategory := seedCategory(t, db, "income")
 
 	cases := map[string]struct {
 		id          string
@@ -205,56 +169,9 @@ func TestGetCategory(t *testing.T) {
 	}
 }
 
-func createTestCategories(db *sqlite.Storage) ([]storage.Category, error) {
-	testCategories := []storage.CreateCategoryParams{
-		{
-			Name:      "Category1",
-			Type:      "income",
-			Icon:      "icon2",
-			Color:     "blue",
-			IsDefault: true,
-		},
-		{
-			Name:      "Category2",
-			Type:      "expense",
-			Icon:      "icon3",
-			Color:     "red",
-			IsDefault: false,
-		},
-		{
-			Name:      "Category3",
-			Type:      "expense",
-			Icon:      "icon4",
-			Color:     "green",
-			IsDefault: true,
-		},
-		{
-			Name:      "Category4",
-			Type:      "income",
-			Icon:      "icon5",
-			Color:     "black",
-			IsDefault: true,
-		},
-	}
-
-	result := []storage.Category{}
-
-	for _, params := range testCategories {
-		category, err := db.CreateCategory(params)
-		if err != nil {
-			return nil, err
-		}
-
-		result = append(result, *category)
-	}
-
-	return result, nil
-}
-
 func TestGetCategories(t *testing.T) {
 	t.Run("empty categories in database", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-
 		categories, err := db.GetCategories(storage.GetCategoriesParams{})
 		require.NoError(t, err)
 		assert.Empty(t, categories)
@@ -262,10 +179,7 @@ func TestGetCategories(t *testing.T) {
 
 	t.Run("existing categories in database with no params", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-
-		createdCategories, err := createTestCategories(db)
-		require.NoError(t, err)
-
+		createdCategories := seedCategories(t, db, 4)
 		categories, err := db.GetCategories(storage.GetCategoriesParams{})
 		require.NoError(t, err)
 		assert.Equal(t, len(createdCategories), len(categories))
@@ -274,15 +188,14 @@ func TestGetCategories(t *testing.T) {
 	t.Run("existing categories in database with type param = income", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdCategories, err := createTestCategories(db)
-		require.NoError(t, err)
+		createdCategories := seedCategories(t, db, 4)
 
 		categories, err := db.GetCategories(
 			storage.GetCategoriesParams{Type: new("income")},
 		)
 		require.NoError(t, err)
 
-		incomeCategories := testutil.Filter(createdCategories, func(c storage.Category) bool {
+		incomeCategories := testutil.Filter(createdCategories, func(c *storage.Category) bool {
 			return c.Type == "income"
 		})
 		require.Equal(t, len(incomeCategories), len(categories))

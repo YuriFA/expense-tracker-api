@@ -55,10 +55,8 @@ func TestCreateAccount(t *testing.T) {
 	}
 
 	t.Run("non duplicate account ids", func(t *testing.T) {
-		account1, err := db.CreateAccount("CreateAccount", 100.0)
-		require.NoError(t, err)
-		account2, err := db.CreateAccount("CreateAccount", 200.0)
-		require.NoError(t, err)
+		account1 := seedAccount(t, db, 100.0)
+		account2 := seedAccount(t, db, 200.0)
 		require.NotEqual(t, account1.Id, account2.Id)
 	})
 }
@@ -67,8 +65,7 @@ func TestUpdateAccount(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	t.Run("full params updates both params", func(t *testing.T) {
-		account, err := db.CreateAccount("Account1", 100.0)
-		require.NoError(t, err)
+		account := seedAccount(t, db, 100.0)
 		params := storage.UpdateAccountParams{
 			Name:             new("UpdatedAccount"),
 			ManualAdjustment: new(50.0),
@@ -81,8 +78,7 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("only name change", func(t *testing.T) {
-		account, err := db.CreateAccount("Account1", 100.0)
-		require.NoError(t, err)
+		account := seedAccount(t, db, 100.0)
 		params := storage.UpdateAccountParams{
 			Name: new("UpdatedAccount"),
 		}
@@ -103,10 +99,8 @@ func TestDeleteAccount(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	t.Run("existing account", func(t *testing.T) {
-		acc, err := db.CreateAccount("Account1", 100.0)
-		require.NoError(t, err)
-
-		err = db.DeleteAccount(acc.Id)
+		account := seedAccount(t, db, 100.0)
+		err := db.DeleteAccount(account.Id)
 		require.NoError(t, err)
 	})
 
@@ -116,11 +110,10 @@ func TestDeleteAccount(t *testing.T) {
 	})
 
 	t.Run("double delete account", func(t *testing.T) {
-		acc, err := db.CreateAccount("Account1", 100.0)
+		account := seedAccount(t, db, 100.0)
+		err := db.DeleteAccount(account.Id)
 		require.NoError(t, err)
-		err = db.DeleteAccount(acc.Id)
-		require.NoError(t, err)
-		err = db.DeleteAccount(acc.Id)
+		err = db.DeleteAccount(account.Id)
 		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 }
@@ -128,8 +121,7 @@ func TestDeleteAccount(t *testing.T) {
 func TestGetAccount(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
-	testAccount, err := db.CreateAccount("Account1", 100.0)
-	require.NoError(t, err)
+	testAccount := seedAccount(t, db, 100.0)
 
 	cases := map[string]struct {
 		id          string
