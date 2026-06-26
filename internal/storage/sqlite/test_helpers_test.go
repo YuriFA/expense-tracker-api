@@ -43,6 +43,15 @@ func seedAccount(t *testing.T, db *sqlite.Storage, openingBalance float64) *stor
 	return account
 }
 
+func seedAccounts(t *testing.T, db *sqlite.Storage, count int) []*storage.Account {
+	t.Helper()
+	results := make([]*storage.Account, 0, count)
+	for i := range count {
+		results = append(results, seedAccount(t, db, float64(i+10)*100.0))
+	}
+	return results
+}
+
 func seedAccountAndCategory(
 	t *testing.T,
 	db *sqlite.Storage,

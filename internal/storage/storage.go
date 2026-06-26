@@ -8,10 +8,17 @@ import (
 type Account struct {
 	Id               string  `json:"id"`
 	Name             string  `json:"name"`
+	Balance          float64 `json:"balance"`
 	OpeningBalance   float64 `json:"openingBalance"`
 	ManualAdjustment float64 `json:"manualAdjustment"`
 	CreatedAt        string  `json:"createdAt"`
 	UpdatedAt        string  `json:"updatedAt"`
+}
+
+type AccountBalance struct {
+	Id      string  `json:"id"`
+	Name    string  `json:"name"`
+	Balance float64 `json:"balance"`
 }
 
 type UpdateAccountParams struct {

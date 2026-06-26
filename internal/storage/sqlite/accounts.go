@@ -14,7 +14,9 @@ func (s *Storage) CreateAccount(name string, openingBalance float64) (*storage.A
 	const op = "storage.sqlite.CreateAccount"
 
 	stmt, err := s.db.Prepare(
-		`INSERT INTO accounts (id, name, opening_balance, manual_adjustment) VALUES (?, ?, ?, ?) RETURNING id, name, opening_balance, manual_adjustment, created_at, updated_at`,
+		`INSERT INTO accounts (id, name, opening_balance, manual_adjustment)
+		VALUES (?, ?, ?, ?)
+		RETURNING id, name, opening_balance, manual_adjustment, opening_balance + manual_adjustment, created_at, updated_at`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -24,7 +26,7 @@ func (s *Storage) CreateAccount(name string, openingBalance float64) (*storage.A
 	id := uuid.NewString()
 	var account storage.Account
 	err = stmt.QueryRow(id, name, openingBalance, 0.0).
-		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.CreatedAt, &account.UpdatedAt)
+		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -46,13 +48,27 @@ func (s *Storage) UpdateAccount(
 	args = append(args, id)
 
 	query := fmt.Sprintf(
-		`UPDATE accounts SET %s WHERE id = ? RETURNING id, name, opening_balance, manual_adjustment, created_at, updated_at`,
+		`UPDATE accounts SET %s
+		WHERE id = ?
+		RETURNING id, name, opening_balance, manual_adjustment,
+		(opening_balance + manual_adjustment +
+			COALESCE(
+				(SELECT SUM(CASE
+					WHEN t.type = 'income' THEN t.amount
+					WHEN t.type = 'expense' THEN -t.amount
+					ELSE 0
+				END)
+				FROM transactions t
+				WHERE t.account_id = accounts.id),
+				0
+		)) AS balance,
+		created_at, updated_at`,
 		setParts,
 	)
 
 	var account storage.Account
 	err := s.db.QueryRow(query, args...).
-		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.CreatedAt, &account.UpdatedAt)
+		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
@@ -94,7 +110,19 @@ func (s *Storage) GetAccount(id string) (*storage.Account, error) {
 	const op = "storage.sqlite.GetAccount"
 
 	stmt, err := s.db.Prepare(
-		`SELECT id, name, opening_balance, manual_adjustment, created_at, updated_at FROM accounts WHERE id = ?`,
+		`SELECT a.id, a.name, a.opening_balance, a.manual_adjustment, 
+			a.opening_balance + a.manual_adjustment +
+			COALESCE(SUM(CASE
+				WHEN t.type = 'income' THEN t.amount
+				WHEN t.type = 'expense' THEN -t.amount
+				ELSE 0
+			END
+			), 0) AS balance,
+			a.created_at, a.updated_at
+		FROM accounts a
+		LEFT JOIN transactions t ON t.account_id = a.id
+		WHERE a.id = ?
+		GROUP BY a.id, a.name, a.opening_balance, a.manual_adjustment, a.created_at, a.updated_at`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -103,7 +131,7 @@ func (s *Storage) GetAccount(id string) (*storage.Account, error) {
 
 	var account storage.Account
 	err = stmt.QueryRow(id).
-		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.CreatedAt, &account.UpdatedAt)
+		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
@@ -118,7 +146,18 @@ func (s *Storage) GetAccounts() ([]storage.Account, error) {
 	const op = "storage.sqlite.GetAccounts"
 
 	stmt, err := s.db.Prepare(
-		`SELECT id, name, opening_balance, manual_adjustment, created_at, updated_at FROM accounts`,
+		`SELECT a.id, a.name, a.opening_balance, a.manual_adjustment, 
+			a.opening_balance + a.manual_adjustment +
+			COALESCE(SUM(CASE
+				WHEN t.type = 'income' THEN t.amount
+				WHEN t.type = 'expense' THEN -t.amount
+				ELSE 0
+			END
+			), 0) AS balance,
+			a.created_at, a.updated_at
+		FROM accounts a
+		LEFT JOIN transactions t ON t.account_id = a.id
+		GROUP BY a.id, a.name, a.opening_balance, a.manual_adjustment, a.created_at, a.updated_at`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -139,6 +178,7 @@ func (s *Storage) GetAccounts() ([]storage.Account, error) {
 			&account.Name,
 			&account.OpeningBalance,
 			&account.ManualAdjustment,
+			&account.Balance,
 			&account.CreatedAt,
 			&account.UpdatedAt,
 		)
@@ -153,4 +193,46 @@ func (s *Storage) GetAccounts() ([]storage.Account, error) {
 	}
 
 	return accounts, nil
+}
+
+func (s *Storage) GetAccountBalances() ([]storage.AccountBalance, error) {
+	const op = "storage.sqlite.GetAccountBalances"
+
+	stmt, err := s.db.Prepare(
+		`SELECT a.id, a.name, 
+			a.opening_balance + a.manual_adjustment + 
+			COALESCE(SUM(CASE 
+				WHEN t.type = 'income' THEN t.amount
+				WHEN t.type = 'expense' THEN -t.amount
+				ELSE 0
+			END), 0) AS balance
+		FROM accounts a
+		LEFT JOIN transactions t ON t.account_id = a.id
+		GROUP BY a.id, a.name, a.opening_balance, a.manual_adjustment`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer stmt.Close()
+
+	balances := []storage.AccountBalance{}
+	rows, err := stmt.Query()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		b := storage.AccountBalance{}
+		if err := rows.Scan(&b.Id, &b.Name, &b.Balance); err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+		balances = append(balances, b)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return balances, nil
 }

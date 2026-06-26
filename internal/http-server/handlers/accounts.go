@@ -151,9 +151,17 @@ func (h *Handler) GetAccountBalances(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	log.Info(
-		"GetAccountBalances endpoint called, TODO: implement logic to calculate and return account balances",
-	)
+	accountBalances, err := h.DB.GetAccountBalances()
+	if err != nil {
+		log.Error("failed to get account balances", logger.Error(err))
+		writeError(
+			c,
+			http.StatusInternalServerError,
+			ErrCodeInternal,
+			"failed to get account balances",
+		)
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{})
+	c.JSON(http.StatusOK, accountBalances)
 }

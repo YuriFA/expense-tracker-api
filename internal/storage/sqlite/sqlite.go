@@ -14,7 +14,7 @@ type Storage struct {
 func New(storagePath string) (*Storage, error) {
 	const op = "storage.sqlite.New"
 
-	db, err := sql.Open("sqlite3", storagePath + "?_foreign_keys=on")
+	db, err := sql.Open("sqlite3", storagePath+"?_foreign_keys=on")
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
