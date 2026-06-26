@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -67,6 +68,12 @@ func formatValidationMessage(fe validator.FieldError) string {
 		return fe.Field() + " must be at least " + fe.Param() + " characters"
 	case "max":
 		return fe.Field() + " must be at most " + fe.Param() + " characters"
+	case "oneof":
+		params := strings.Split(fe.Param(), " ")
+		for i, param := range params {
+			params[i] = "'" + param + "'"
+		}
+		return fe.Field() + " must be either " + strings.Join(params, " or ")
 	default:
 		return fe.Field() + " failed '" + fe.Tag() + "' validation"
 	}
