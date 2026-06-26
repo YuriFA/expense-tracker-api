@@ -33,8 +33,8 @@ func bindAndValidateQuery[T any](c *gin.Context, log *slog.Logger, req *T) bool 
 			writeValidationError(c, verrs)
 			return false
 		}
-		log.Info("invalid request body", logger.Error(err))
-		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid request body")
+		log.Info("invalid query", logger.Error(err))
+		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid query")
 		return false
 	}
 
