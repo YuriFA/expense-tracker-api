@@ -61,10 +61,29 @@ func New(storagePath string) (*Storage, error) {
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			account_id TEXT,
 			category_id TEXT,
+			from_account_id TEXT,
+			to_account_id TEXT,
 			FOREIGN KEY (account_id) REFERENCES accounts(id),
-			FOREIGN KEY (category_id) REFERENCES categories(id)
+			FOREIGN KEY (category_id) REFERENCES categories(id),
+			FOREIGN KEY (from_account_id) REFERENCES accounts(id),
+			FOREIGN KEY (to_account_id) REFERENCES accounts(id)
 		)
 	`)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	_, err = db.Exec(`
+		CREATE VIEW IF NOT EXISTS account_contributions AS
+			SELECT account_id,
+				CASE WHEN type='income' THEN amount WHEN type='expense' THEN -amount END AS signed
+			FROM transactions
+			WHERE type IN ('income','expense')
+			UNION ALL
+			SELECT from_account_id, -amount FROM transactions WHERE type='transfer'
+			UNION ALL
+			SELECT to_account_id,  +amount FROM transactions WHERE type='transfer';
+`)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}

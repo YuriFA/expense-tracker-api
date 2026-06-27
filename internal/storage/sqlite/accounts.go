@@ -53,15 +53,9 @@ func (s *Storage) UpdateAccount(
 		RETURNING id, name, opening_balance, manual_adjustment,
 		(opening_balance + manual_adjustment +
 			COALESCE(
-				(SELECT SUM(CASE
-					WHEN t.type = 'income' THEN t.amount
-					WHEN t.type = 'expense' THEN -t.amount
-					ELSE 0
-				END)
-				FROM transactions t
-				WHERE t.account_id = accounts.id),
-				0
-		)) AS balance,
+				(SELECT SUM(c.signed) FROM account_contributions c WHERE c.account_id = accounts.id),
+			0)
+		) AS balance,
 		created_at, updated_at`,
 		setParts,
 	)
@@ -111,16 +105,10 @@ func (s *Storage) GetAccount(id string) (*storage.Account, error) {
 
 	stmt, err := s.db.Prepare(
 		`SELECT a.id, a.name, a.opening_balance, a.manual_adjustment, 
-			a.opening_balance + a.manual_adjustment +
-			COALESCE(SUM(CASE
-				WHEN t.type = 'income' THEN t.amount
-				WHEN t.type = 'expense' THEN -t.amount
-				ELSE 0
-			END
-			), 0) AS balance,
+			a.opening_balance + a.manual_adjustment + COALESCE(SUM(c.signed),0) AS balance,
 			a.created_at, a.updated_at
 		FROM accounts a
-		LEFT JOIN transactions t ON t.account_id = a.id
+		LEFT JOIN account_contributions c ON c.account_id = a.id
 		WHERE a.id = ?
 		GROUP BY a.id, a.name, a.opening_balance, a.manual_adjustment, a.created_at, a.updated_at`,
 	)
@@ -147,16 +135,10 @@ func (s *Storage) GetAccounts() ([]storage.Account, error) {
 
 	stmt, err := s.db.Prepare(
 		`SELECT a.id, a.name, a.opening_balance, a.manual_adjustment, 
-			a.opening_balance + a.manual_adjustment +
-			COALESCE(SUM(CASE
-				WHEN t.type = 'income' THEN t.amount
-				WHEN t.type = 'expense' THEN -t.amount
-				ELSE 0
-			END
-			), 0) AS balance,
+			a.opening_balance + a.manual_adjustment + COALESCE(SUM(c.signed),0) AS balance,
 			a.created_at, a.updated_at
 		FROM accounts a
-		LEFT JOIN transactions t ON t.account_id = a.id
+		LEFT JOIN account_contributions c ON c.account_id = a.id
 		GROUP BY a.id, a.name, a.opening_balance, a.manual_adjustment, a.created_at, a.updated_at`,
 	)
 	if err != nil {
@@ -199,15 +181,9 @@ func (s *Storage) GetAccountBalances() ([]storage.AccountBalance, error) {
 	const op = "storage.sqlite.GetAccountBalances"
 
 	stmt, err := s.db.Prepare(
-		`SELECT a.id, a.name, 
-			a.opening_balance + a.manual_adjustment + 
-			COALESCE(SUM(CASE 
-				WHEN t.type = 'income' THEN t.amount
-				WHEN t.type = 'expense' THEN -t.amount
-				ELSE 0
-			END), 0) AS balance
+		`SELECT a.id, a.name, a.opening_balance + a.manual_adjustment + COALESCE(SUM(c.signed), 0) AS balance
 		FROM accounts a
-		LEFT JOIN transactions t ON t.account_id = a.id
+		LEFT JOIN account_contributions c ON c.account_id = a.id
 		GROUP BY a.id, a.name, a.opening_balance, a.manual_adjustment`,
 	)
 	if err != nil {
