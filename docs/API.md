@@ -52,7 +52,6 @@
   "message": "validation failed",
   "errors": [
     {"field": "name", "message": "name is required"},
-    {"field": "openingBalance", "message": "openingBalance must be greater than or equal to 0"}
   ]
 }
 ```
