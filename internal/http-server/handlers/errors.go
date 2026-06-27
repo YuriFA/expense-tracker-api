@@ -74,6 +74,8 @@ func formatValidationMessage(fe validator.FieldError) string {
 			params[i] = "'" + param + "'"
 		}
 		return fe.Field() + " must be either " + strings.Join(params, " or ")
+	case "uuid":
+		return fe.Field() + " must be a valid UUID"
 	default:
 		return fe.Field() + " failed '" + fe.Tag() + "' validation"
 	}
