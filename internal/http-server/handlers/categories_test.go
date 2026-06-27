@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"expense-tracker-api/internal/http-server/handlers"
 	"expense-tracker-api/internal/storage"
@@ -298,6 +299,37 @@ func TestDeleteCategory(t *testing.T) {
 		parseBody(t, w, &response)
 		assert.Equal(t, handlers.ErrCodeCategoryNotFound, response.Code)
 		assert.Equal(t, "category not found", response.Message)
+	})
+
+	t.Run("CategoryWithTransactions", func(t *testing.T) {
+		router, db := setupTestEnv(t)
+
+		account := seedAccount(t, db, "Wallet", 1000.0)
+		existing := seedCategory(
+			t, db, storage.CreateCategoryParams{
+				Name:  "Salary",
+				Type:  "income",
+				Icon:  "dollar-sign",
+				Color: "green",
+			},
+		)
+		_ = seedTransaction(t, db, storage.CreateTransactionParams{
+			Type:        "income",
+			Amount:      100.0,
+			Description: "Salary",
+			OccurredAt:  time.Now(),
+			AccountId:   account.Id,
+			CategoryId:  existing.Id,
+		})
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/categories/"+existing.Id, nil)
+		w := performRequest(t, router, req)
+
+		assert.Equal(t, http.StatusConflict, w.Code)
+		var response handlers.ErrorResponse
+		parseBody(t, w, &response)
+		assert.Equal(t, handlers.ErrCodeCategoryInUse, response.Code)
+		assert.Equal(t, "category in use", response.Message)
 	})
 }
 

@@ -116,6 +116,23 @@ func TestDeleteAccount(t *testing.T) {
 		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 
+	t.Run("account with transactions", func(t *testing.T) {
+		account := seedAccount(t, db, 1000.0)
+		category := seedCategory(t, db, "income")
+		_ = seedTransaction(
+			t,
+			db,
+			seedTransactionParams{
+				amount:          200.0,
+				accountId:       account.Id,
+				categoryId:      category.Id,
+				transactionType: "income",
+			},
+		)
+		err := db.DeleteAccount(account.Id)
+		require.ErrorIs(t, err, storage.ErrAccountHasTransactions)
+	})
+
 	t.Run("double delete account", func(t *testing.T) {
 		account := seedAccount(t, db, 100.0)
 		err := db.DeleteAccount(account.Id)

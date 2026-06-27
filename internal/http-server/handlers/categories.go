@@ -162,6 +162,12 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 			return
 		}
 
+		if errors.Is(err, storage.ErrCategoryHasTransactions) {
+			log.Info("category in use", slog.String("id", id))
+			writeError(c, http.StatusConflict, ErrCodeCategoryInUse, "category in use")
+			return
+		}
+
 		log.Error("failed to delete category", logger.Error(err))
 		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to delete category")
 		return

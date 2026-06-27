@@ -119,6 +119,23 @@ func TestDeleteCategory(t *testing.T) {
 		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 
+	t.Run("category with transactions", func(t *testing.T) {
+		account := seedAccount(t, db, 1000.0)
+		category := seedCategory(t, db, "income")
+		_ = seedTransaction(
+			t,
+			db,
+			seedTransactionParams{
+				amount:          200.0,
+				accountId:       account.Id,
+				categoryId:      category.Id,
+				transactionType: "income",
+			},
+		)
+		err := db.DeleteCategory(category.Id)
+		require.ErrorIs(t, err, storage.ErrCategoryHasTransactions)
+	})
+
 	t.Run("double delete category", func(t *testing.T) {
 		category := seedCategory(t, db, "income")
 		err := db.DeleteCategory(category.Id)

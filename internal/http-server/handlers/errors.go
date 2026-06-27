@@ -17,6 +17,8 @@ const (
 	ErrCodeTransactionNotFound  = "TRANSACTION_NOT_FOUND"
 	ErrCodeInternal             = "INTERNAL_ERROR"
 	ErrCodeForbidden            = "FORBIDDEN"
+	ErrCodeAccountInUse         = "ACCOUNT_IN_USE"
+	ErrCodeCategoryInUse        = "CATEGORY_IN_USE"
 )
 
 type FieldError struct {

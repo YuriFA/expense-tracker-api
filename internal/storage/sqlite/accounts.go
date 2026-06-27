@@ -86,6 +86,9 @@ func (s *Storage) DeleteAccount(id string) error {
 
 	res, err := stmt.Exec(id)
 	if err != nil {
+		if isFKViolationError(err) {
+			return fmt.Errorf("%s: %w", op, storage.ErrAccountHasTransactions)
+		}
 		return fmt.Errorf("%s: %w", op, err)
 	}
 

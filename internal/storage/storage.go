@@ -117,9 +117,11 @@ type GetTransactionsParams struct {
 }
 
 var (
-	ErrAccountNotFound      = errors.New("account not found")
-	ErrCategoryNotFound     = errors.New("category not found")
-	ErrCategoryTypeMismatch = errors.New("category type mismatch")
-	ErrTransactionNotFound  = errors.New("transaction not found")
-	ErrUnknownSort          = errors.New("unknown sort")
+	ErrAccountNotFound         = errors.New("account not found")
+	ErrCategoryNotFound        = errors.New("category not found")
+	ErrCategoryTypeMismatch    = errors.New("category type mismatch")
+	ErrTransactionNotFound     = errors.New("transaction not found")
+	ErrUnknownSort             = errors.New("unknown sort")
+	ErrAccountHasTransactions  = errors.New("account has transactions and cannot be deleted")
+	ErrCategoryHasTransactions = errors.New("category has transactions and cannot be deleted")
 )

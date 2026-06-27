@@ -78,6 +78,9 @@ func (s *Storage) DeleteCategory(id string) error {
 
 	res, err := stmt.Exec(id)
 	if err != nil {
+		if isFKViolationError(err) {
+			return fmt.Errorf("%s: %w", op, storage.ErrCategoryHasTransactions)
+		}
 		return fmt.Errorf("%s: %w", op, err)
 	}
 

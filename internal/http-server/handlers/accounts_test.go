@@ -298,6 +298,37 @@ func TestDeleteAccount(t *testing.T) {
 		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
 		assert.Equal(t, "account not found", response.Message)
 	})
+
+	t.Run("AccountWithTransactions", func(t *testing.T) {
+		router, db := setupTestEnv(t)
+
+		existing := seedAccount(t, db, "Wallet", 1000.0)
+		category := seedCategory(
+			t, db, storage.CreateCategoryParams{
+				Name:  "Salary",
+				Type:  "income",
+				Icon:  "dollar-sign",
+				Color: "green",
+			},
+		)
+		_ = seedTransaction(t, db, storage.CreateTransactionParams{
+			Type:        "income",
+			Amount:      100.0,
+			Description: "Salary",
+			OccurredAt:  time.Now(),
+			AccountId:   existing.Id,
+			CategoryId:  category.Id,
+		})
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/accounts/"+existing.Id, nil)
+		w := performRequest(t, router, req)
+
+		assert.Equal(t, http.StatusConflict, w.Code)
+		var response handlers.ErrorResponse
+		parseBody(t, w, &response)
+		assert.Equal(t, handlers.ErrCodeAccountInUse, response.Code)
+		assert.Equal(t, "account in use", response.Message)
+	})
 }
 
 func TestGetAccount(t *testing.T) {

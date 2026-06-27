@@ -96,6 +96,12 @@ func (h *Handler) DeleteAccount(c *gin.Context) {
 			return
 		}
 
+		if errors.Is(err, storage.ErrAccountHasTransactions) {
+			log.Info("account in use", slog.String("id", id))
+			writeError(c, http.StatusConflict, ErrCodeAccountInUse, "account in use")
+			return
+		}
+
 		log.Error("failed to delete account", logger.Error(err))
 		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to delete account")
 		return
