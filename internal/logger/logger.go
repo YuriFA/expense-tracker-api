@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 )
@@ -17,9 +18,15 @@ func New(opts Options) *slog.Logger {
 	case "local", "dev":
 		logger = slog.New(NewPrettyLogHandler(os.Stdout, slog.LevelDebug))
 	case "prod":
-	default:
 		logger = slog.New(
-			slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}),
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
+		)
+	default:
+		panic(
+			fmt.Sprintf(
+				"logger.New: unknown environment: %s, must be one of 'local', 'dev', 'prod'",
+				opts.Environment,
+			),
 		)
 	}
 
