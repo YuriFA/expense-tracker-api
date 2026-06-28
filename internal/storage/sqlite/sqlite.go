@@ -57,7 +57,7 @@ func New(storagePath string) (*Storage, error) {
 			id TEXT PRIMARY KEY,
 			type TEXT NOT NULL CHECK(type IN ('income', 'expense', 'transfer')),
 			amount REAL NOT NULL,
-			description TEXT,
+			description TEXT NOT NULL DEFAULT '',
 			occurred_at DATETIME NOT NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
