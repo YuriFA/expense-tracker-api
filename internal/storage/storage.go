@@ -73,10 +73,14 @@ type Transaction struct {
 	Amount      float64 `json:"amount"`
 	Description string  `json:"description"`
 	OccurredAt  string  `json:"occurredAt"`
-	AccountId   string  `json:"accountId"`
-	CategoryId  string  `json:"categoryId"`
 	CreatedAt   string  `json:"createdAt"`
 	UpdatedAt   string  `json:"updatedAt"`
+	// Cashflow fields
+	AccountId  *string `json:"accountId,omitempty"`
+	CategoryId *string `json:"categoryId,omitempty"`
+	// Transfer fields
+	FromAccountId *string `json:"fromAccountId,omitempty"`
+	ToAccountId   *string `json:"toAccountId,omitempty"`
 }
 
 type CreateTransactionParams struct {
@@ -84,17 +88,24 @@ type CreateTransactionParams struct {
 	Amount      float64
 	Description string
 	OccurredAt  time.Time
-	AccountId   string
-	CategoryId  string
+	// Cashflow fields
+	AccountId  *string
+	CategoryId *string
+	// Transfer fields
+	FromAccountId *string
+	ToAccountId   *string
 }
 
 type UpdateTransactionParams struct {
-	Type        *string
 	Amount      *float64
 	Description *string
 	OccurredAt  *time.Time
-	AccountId   *string
-	CategoryId  *string
+	// Cashflow fields
+	AccountId  *string
+	CategoryId *string
+	// Transfer fields
+	FromAccountId *string
+	ToAccountId   *string
 }
 
 type SortParam string
@@ -124,4 +135,6 @@ var (
 	ErrUnknownSort             = errors.New("unknown sort")
 	ErrAccountHasTransactions  = errors.New("account has transactions and cannot be deleted")
 	ErrCategoryHasTransactions = errors.New("category has transactions and cannot be deleted")
+	ErrInvalidRefs             = errors.New("invalid references in transaction")
+	ErrSameAccountTransfer     = errors.New("transfer cannot be made to the same account")
 )

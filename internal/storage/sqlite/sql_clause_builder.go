@@ -33,6 +33,23 @@ func (b *sqlClauseBuilder) addString(
 	return b
 }
 
+func (b *sqlClauseBuilder) addStringsForOr(
+	cols []string,
+	arg *string,
+) *sqlClauseBuilder {
+	if arg != nil {
+		clauses := make([]string, len(cols))
+		for i, col := range cols {
+			clauses[i] = col + " = ?"
+		}
+		b.clauses = append(b.clauses, "("+strings.Join(clauses, " OR ")+")")
+		for range cols {
+			b.args = append(b.args, *arg)
+		}
+	}
+	return b
+}
+
 func (b *sqlClauseBuilder) addTimeSet(
 	col string,
 	arg *time.Time,

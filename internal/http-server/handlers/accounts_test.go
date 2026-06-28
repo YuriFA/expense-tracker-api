@@ -168,16 +168,16 @@ func TestUpdateAccount(t *testing.T) {
 			Amount:      100.0,
 			Description: "Salary",
 			OccurredAt:  time.Now(),
-			AccountId:   existing.Id,
-			CategoryId:  incomeCategory.Id,
+			AccountId:   &existing.Id,
+			CategoryId:  &incomeCategory.Id,
 		})
 		expenseTransaction := seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        "expense",
 			Amount:      250.0,
 			Description: "Groceries",
 			OccurredAt:  time.Now(),
-			AccountId:   existing.Id,
-			CategoryId:  expenseCategory.Id,
+			AccountId:   &existing.Id,
+			CategoryId:  &expenseCategory.Id,
 		})
 
 		req := newJSONRequest(
@@ -316,8 +316,8 @@ func TestDeleteAccount(t *testing.T) {
 			Amount:      100.0,
 			Description: "Salary",
 			OccurredAt:  time.Now(),
-			AccountId:   existing.Id,
-			CategoryId:  category.Id,
+			AccountId:   &existing.Id,
+			CategoryId:  &category.Id,
 		})
 
 		req := httptest.NewRequest(http.MethodDelete, "/api/accounts/"+existing.Id, nil)
@@ -370,16 +370,16 @@ func TestGetAccount(t *testing.T) {
 			Amount:      100.0,
 			Description: "Shopping",
 			OccurredAt:  time.Now(),
-			AccountId:   existing.Id,
-			CategoryId:  expenseCategory.Id,
+			AccountId:   &existing.Id,
+			CategoryId:  &expenseCategory.Id,
 		})
 		transaction2 := seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        "income",
 			Amount:      100.0,
 			Description: "Salary",
 			OccurredAt:  time.Now(),
-			AccountId:   existing.Id,
-			CategoryId:  incomeCategory.Id,
+			AccountId:   &existing.Id,
+			CategoryId:  &incomeCategory.Id,
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/api/accounts/"+existing.Id, nil)
@@ -439,16 +439,16 @@ func seedAccountWithTransaction(
 		Amount:      params.expense,
 		Description: "Shopping",
 		OccurredAt:  time.Now(),
-		AccountId:   account.Id,
-		CategoryId:  expenseCategory.Id,
+		AccountId:   &account.Id,
+		CategoryId:  &expenseCategory.Id,
 	})
 	_ = seedTransaction(t, db, storage.CreateTransactionParams{
 		Type:        "income",
 		Amount:      params.income,
 		Description: "Salary",
 		OccurredAt:  time.Now(),
-		AccountId:   account.Id,
-		CategoryId:  incomeCategory.Id,
+		AccountId:   &account.Id,
+		CategoryId:  &incomeCategory.Id,
 	})
 
 	return account
@@ -564,8 +564,8 @@ func TestGetAccountBalances(t *testing.T) {
 			Amount:      100.0,
 			Description: "Salary",
 			OccurredAt:  time.Now(),
-			AccountId:   account.Id,
-			CategoryId:  category.Id,
+			AccountId:   &account.Id,
+			CategoryId:  &category.Id,
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/api/accounts/balances", nil)
@@ -644,24 +644,24 @@ func TestGetAccountBalances(t *testing.T) {
 			Amount:      100.0,
 			Description: "Shopping",
 			OccurredAt:  time.Now(),
-			AccountId:   account1.Id,
-			CategoryId:  expenseCategory.Id,
+			AccountId:   &account1.Id,
+			CategoryId:  &expenseCategory.Id,
 		})
 		acc1transaction2 := seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        "income",
 			Amount:      100.0,
 			Description: "Salary",
 			OccurredAt:  time.Now(),
-			AccountId:   account1.Id,
-			CategoryId:  incomeCategory.Id,
+			AccountId:   &account1.Id,
+			CategoryId:  &incomeCategory.Id,
 		})
 		acc2transaction := seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        "income",
 			Amount:      100.0,
 			Description: "Salary",
 			OccurredAt:  time.Now(),
-			AccountId:   account2.Id,
-			CategoryId:  incomeCategory.Id,
+			AccountId:   &account2.Id,
+			CategoryId:  &incomeCategory.Id,
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/api/accounts/balances", nil)

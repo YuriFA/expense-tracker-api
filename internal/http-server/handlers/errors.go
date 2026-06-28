@@ -19,6 +19,8 @@ const (
 	ErrCodeForbidden            = "FORBIDDEN"
 	ErrCodeAccountInUse         = "ACCOUNT_IN_USE"
 	ErrCodeCategoryInUse        = "CATEGORY_IN_USE"
+	ErrCodeInvalidRefs          = "INVALID_REFS"
+	ErrCodeSameAccountTransfer  = "SAME_ACCOUNT_TRANSFER"
 )
 
 type FieldError struct {

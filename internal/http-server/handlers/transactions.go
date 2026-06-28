@@ -8,26 +8,30 @@ import (
 
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
+	"expense-tracker-api/internal/util"
 
 	"github.com/gin-gonic/gin"
 )
 
 type TransactionRequest struct {
-	Type        string    `json:"type"        binding:"required,oneof=income expense transfer"`
-	Amount      float64   `json:"amount"      binding:"required,gt=0"`
-	Description string    `json:"description" binding:"omitempty"`
-	OccurredAt  time.Time `json:"occurredAt"  binding:"required"                               time_format:"2006-01-02T15:04:05Z07:00"`
-	AccountId   string    `json:"accountId"   binding:"required,uuid"`
-	CategoryId  string    `json:"categoryId"  binding:"required,uuid"`
+	Type          string    `json:"type"          binding:"required,oneof=income expense transfer"`
+	Amount        float64   `json:"amount"        binding:"required,gt=0"`
+	Description   string    `json:"description"   binding:"omitempty"`
+	OccurredAt    time.Time `json:"occurredAt"    binding:"required"                               time_format:"2006-01-02T15:04:05Z07:00"`
+	AccountId     *string   `json:"accountId"     binding:"omitempty,uuid"`
+	CategoryId    *string   `json:"categoryId"    binding:"omitempty,uuid"`
+	FromAccountId *string   `json:"fromAccountId" binding:"omitempty,uuid"`
+	ToAccountId   *string   `json:"toAccountId"   binding:"omitempty,uuid"`
 }
 
 type UpdateTransactionRequest struct {
-	Type        *string    `json:"type"        binding:"omitempty,oneof=income expense transfer"`
-	Amount      *float64   `json:"amount"      binding:"omitempty,gt=0"`
-	Description *string    `json:"description" binding:"omitempty"`
-	OccurredAt  *time.Time `json:"occurredAt"  binding:"omitempty"                               time_format:"2006-01-02T15:04:05Z07:00"`
-	AccountId   *string    `json:"accountId"   binding:"omitempty,uuid"`
-	CategoryId  *string    `json:"categoryId"  binding:"omitempty,uuid"`
+	Amount        *float64   `json:"amount"        binding:"omitempty,gt=0"`
+	Description   *string    `json:"description"   binding:"omitempty"`
+	OccurredAt    *time.Time `json:"occurredAt"    binding:"omitempty"      time_format:"2006-01-02T15:04:05Z07:00"`
+	AccountId     *string    `json:"accountId"     binding:"omitempty,uuid"`
+	CategoryId    *string    `json:"categoryId"    binding:"omitempty,uuid"`
+	FromAccountId *string    `json:"fromAccountId" binding:"omitempty,uuid"`
+	ToAccountId   *string    `json:"toAccountId"   binding:"omitempty,uuid"`
 }
 
 type GetTransactionsQuery struct {
@@ -38,6 +42,67 @@ type GetTransactionsQuery struct {
 	ToDate     *time.Time         `form:"toDate"     binding:"omitempty,gtefield=FromDate"                           time_format:"2006-01-02"`
 	Limit      *int               `form:"limit"      binding:"omitempty,gt=0"`
 	Sort       *storage.SortParam `form:"sort"       binding:"omitempty,oneof=occurredAt -occurredAt amount -amount"`
+}
+
+func validateTransactionRequest(req TransactionRequest) []FieldError {
+	var errs []FieldError
+	switch req.Type {
+	case "income", "expense":
+		if req.AccountId == nil {
+			errs = append(errs, FieldError{
+				Field:   "accountId",
+				Message: "accountId is required",
+			})
+		}
+
+		if req.CategoryId == nil {
+			errs = append(errs, FieldError{
+				Field:   "categoryId",
+				Message: "categoryId is required",
+			})
+		}
+
+		if req.FromAccountId != nil {
+			errs = append(errs, FieldError{
+				Field:   "fromAccountId",
+				Message: "not allowed for income or expense transactions",
+			})
+		}
+
+		if req.ToAccountId != nil {
+			errs = append(errs, FieldError{
+				Field:   "toAccountId",
+				Message: "not allowed for income or expense transactions",
+			})
+		}
+
+	case "transfer":
+		if req.FromAccountId == nil {
+			errs = append(errs, FieldError{
+				Field:   "fromAccountId",
+				Message: "fromAccountId is required",
+			})
+		}
+		if req.ToAccountId == nil {
+			errs = append(errs, FieldError{
+				Field:   "toAccountId",
+				Message: "toAccountId is required",
+			})
+		}
+		if req.AccountId != nil {
+			errs = append(errs, FieldError{
+				Field:   "accountId",
+				Message: "not allowed for transfer transactions",
+			})
+		}
+		if req.CategoryId != nil {
+			errs = append(errs, FieldError{
+				Field:   "categoryId",
+				Message: "not allowed for transfer transactions",
+			})
+		}
+	}
+	return errs
 }
 
 func (h *Handler) CreateTransaction(c *gin.Context) {
@@ -52,18 +117,34 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		return
 	}
 
+	if errs := validateTransactionRequest(req); len(errs) > 0 {
+		c.JSON(http.StatusBadRequest, ValidationErrorResponse{
+			ErrorResponse: ErrorResponse{
+				Code:    ErrCodeValidationFailed,
+				Message: "validation failed",
+			},
+			Errors: errs,
+		})
+		return
+	}
+
 	transaction, err := h.DB.CreateTransaction(storage.CreateTransactionParams{
-		Type:        req.Type,
-		Amount:      req.Amount,
-		Description: req.Description,
-		OccurredAt:  req.OccurredAt,
-		AccountId:   req.AccountId,
-		CategoryId:  req.CategoryId,
+		Type:          req.Type,
+		Amount:        req.Amount,
+		Description:   req.Description,
+		OccurredAt:    req.OccurredAt,
+		AccountId:     req.AccountId,
+		CategoryId:    req.CategoryId,
+		FromAccountId: req.FromAccountId,
+		ToAccountId:   req.ToAccountId,
 	})
 	if err != nil {
 		switch {
 		case errors.Is(err, storage.ErrAccountNotFound):
-			log.Info("account not found", slog.String("accountId", req.AccountId))
+			log.Info(
+				"account not found",
+				slog.String("accountId", util.FromPtrOr(req.AccountId, "empty")),
+			)
 			writeError(
 				c,
 				http.StatusUnprocessableEntity,
@@ -71,7 +152,10 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 				"account not found",
 			)
 		case errors.Is(err, storage.ErrCategoryNotFound):
-			log.Info("category not found", slog.String("categoryId", req.CategoryId))
+			log.Info(
+				"category not found",
+				slog.String("categoryId", util.FromPtrOr(req.CategoryId, "empty")),
+			)
 			writeError(
 				c,
 				http.StatusUnprocessableEntity,
@@ -81,7 +165,10 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		case errors.Is(err, storage.ErrCategoryTypeMismatch):
 			log.Info(
 				"transaction type does not match category type",
-				slog.String("categoryId", req.CategoryId),
+				slog.String(
+					"categoryId",
+					util.FromPtrOr(req.CategoryId, "empty"),
+				),
 				slog.String("transactionType", req.Type),
 			)
 			writeError(
@@ -89,6 +176,52 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 				http.StatusUnprocessableEntity,
 				ErrCodeCategoryTypeMismatch,
 				"transaction type does not match category type",
+			)
+		case errors.Is(err, storage.ErrSameAccountTransfer):
+			log.Info(
+				"transaction from and to accounts are the same",
+				slog.String("transactionType", req.Type),
+				slog.String(
+					"fromAccountId",
+					util.FromPtrOr(req.FromAccountId, "empty"),
+				),
+				slog.String(
+					"toAccountId",
+					util.FromPtrOr(req.ToAccountId, "empty"),
+				),
+			)
+			writeError(
+				c,
+				http.StatusUnprocessableEntity,
+				ErrCodeSameAccountTransfer,
+				"transaction from and to accounts are the same",
+			)
+		case errors.Is(err, storage.ErrInvalidRefs):
+			log.Info(
+				"invalid references",
+				slog.String("transactionType", req.Type),
+				slog.String(
+					"accountId",
+					util.FromPtrOr(req.AccountId, "empty"),
+				),
+				slog.String(
+					"categoryId",
+					util.FromPtrOr(req.CategoryId, "empty"),
+				),
+				slog.String(
+					"fromAccountId",
+					util.FromPtrOr(req.FromAccountId, "empty"),
+				),
+				slog.String(
+					"toAccountId",
+					util.FromPtrOr(req.ToAccountId, "empty"),
+				),
+			)
+			writeError(
+				c,
+				http.StatusUnprocessableEntity,
+				ErrCodeInvalidRefs,
+				"invalid references",
 			)
 		default:
 			log.Error("failed to create transaction", logger.Error(err))
@@ -117,8 +250,8 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		return
 	}
 
-	if req.AccountId == nil && req.Type == nil && req.Description == nil &&
-		req.OccurredAt == nil && req.CategoryId == nil && req.Amount == nil {
+	if req.AccountId == nil && req.Description == nil &&
+		req.OccurredAt == nil && req.CategoryId == nil && req.Amount == nil && req.FromAccountId == nil && req.ToAccountId == nil {
 		writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "no fields to update")
 		return
 	}
@@ -126,12 +259,13 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 	id := c.Param("id")
 
 	transaction, err := h.DB.UpdateTransaction(id, storage.UpdateTransactionParams{
-		Type:        req.Type,
-		Amount:      req.Amount,
-		Description: req.Description,
-		OccurredAt:  req.OccurredAt,
-		AccountId:   req.AccountId,
-		CategoryId:  req.CategoryId,
+		Amount:        req.Amount,
+		Description:   req.Description,
+		OccurredAt:    req.OccurredAt,
+		AccountId:     req.AccountId,
+		CategoryId:    req.CategoryId,
+		FromAccountId: req.FromAccountId,
+		ToAccountId:   req.ToAccountId,
 	})
 	if err != nil {
 		switch {
@@ -162,6 +296,50 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		case errors.Is(err, storage.ErrTransactionNotFound):
 			log.Info("transaction not found", slog.String("id", id))
 			writeError(c, http.StatusNotFound, ErrCodeTransactionNotFound, "transaction not found")
+		case errors.Is(err, storage.ErrSameAccountTransfer):
+			log.Info(
+				"transaction from and to accounts are the same",
+				slog.String(
+					"fromAccountId",
+					util.FromPtrOr(req.FromAccountId, "empty"),
+				),
+				slog.String(
+					"toAccountId",
+					util.FromPtrOr(req.ToAccountId, "empty"),
+				),
+			)
+			writeError(
+				c,
+				http.StatusUnprocessableEntity,
+				ErrCodeSameAccountTransfer,
+				"transaction from and to accounts are the same",
+			)
+		case errors.Is(err, storage.ErrInvalidRefs):
+			log.Info(
+				"invalid references",
+				slog.String(
+					"accountId",
+					util.FromPtrOr(req.AccountId, "empty"),
+				),
+				slog.String(
+					"categoryId",
+					util.FromPtrOr(req.CategoryId, "empty"),
+				),
+				slog.String(
+					"fromAccountId",
+					util.FromPtrOr(req.FromAccountId, "empty"),
+				),
+				slog.String(
+					"toAccountId",
+					util.FromPtrOr(req.ToAccountId, "empty"),
+				),
+			)
+			writeError(
+				c,
+				http.StatusUnprocessableEntity,
+				ErrCodeInvalidRefs,
+				"invalid references",
+			)
 		default:
 			log.Error("failed to update transaction", logger.Error(err))
 			writeError(

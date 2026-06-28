@@ -75,7 +75,9 @@ type Account = {
   name: string
   openingBalance: number
   manualAdjustment: number
-  balance: number // вычисляется сервером: openingBalance + manualAdjustment + Σ транзакций
+  balance: number // вычисляется сервером: openingBalance + manualAdjustment +
+                  //   income: +amount, expense: −amount (по accountId)
+                  //   transfer: −amount с fromAccountId, +amount на toAccountId
   createdAt: string
   updatedAt: string
 }
@@ -90,7 +92,7 @@ type Account = {
 | `GET` | `/api/accounts/:id` | Один счёт (с `balance`) |
 | `PATCH` | `/api/accounts/:id` | Обновление полей счёта |
 | `DELETE` | `/api/accounts/:id` | Удаление. **409**, если есть привязанные транзакции |
-| `GET` | `/api/accounts/balances` | Сводка `{ [accountId]: balance }` + общий net worth |
+| `GET` | `/api/accounts/balances` | Сводка балансов + общий `netWorth` (см. модель ниже) |
 
 ### Пример тела запроса (POST)
 
@@ -98,6 +100,31 @@ type Account = {
 {
   "name": "Debit card",
   "openingBalance": 1000
+}
+```
+
+### Ответ `GET /api/accounts/balances`
+
+```ts
+type AccountBalancesResponse = {
+  balances: AccountBalance[]
+  netWorth: number // Σ всех balances
+}
+
+type AccountBalance = {
+  id: string
+  name: string
+  balance: number
+}
+```
+
+```json
+{
+  "balances": [
+    { "id": "acc_1", "name": "Debit card", "balance": 850 },
+    { "id": "acc_2", "name": "Savings",    "balance": 5150 }
+  ],
+  "netWorth": 6000
 }
 ```
 
@@ -203,10 +230,17 @@ type Transaction = CashflowTransaction | TransferTransaction
 | `limit` | `number` | Ограничение количества записей |
 | `sort` | `string` | По умолчанию `-occurredAt` (как в сторе) |
 
-### Правила валидации ссылок (соответствует `hasValidTransactionReferences`)
+### Правила валидации
+
+**По типу (shape) — 400 `VALIDATION_FAILED`:**
+
+- **Cashflow (`income`/`expense`):** `accountId`, `categoryId` обязательны; `fromAccountId`, `toAccountId` запрещены
+- **Transfer:** `fromAccountId`, `toAccountId` обязательны; `accountId`, `categoryId` запрещены
+
+**Ссылочная целостность — 422:**
 
 - **Cashflow:** `accountId` существует; `categoryId` существует и `category.type === transaction.type`
-- **Transfer:** `fromAccountId` и `toAccountId` существуют и различаются
+- **Transfer:** `fromAccountId` и `toAccountId` существуют и различаются (`SAME_ACCOUNT_TRANSFER`)
 
 ### Примеры тела запроса
 

@@ -65,17 +65,17 @@ func seedAccountAndCategory(
 	return account, category
 }
 
-type seedTransactionParams struct {
+type seedCashflowTransactionParams struct {
 	amount          float64
 	accountId       string
 	categoryId      string
 	transactionType string
 }
 
-func seedTransaction(
+func seedCashflowTransaction(
 	t *testing.T,
 	db *sqlite.Storage,
-	params seedTransactionParams,
+	params seedCashflowTransactionParams,
 ) *storage.Transaction {
 	t.Helper()
 	transaction, err := db.CreateTransaction(storage.CreateTransactionParams{
@@ -83,8 +83,32 @@ func seedTransaction(
 		Amount:      params.amount,
 		Description: "Transaction",
 		OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-		AccountId:   params.accountId,
-		CategoryId:  params.categoryId,
+		AccountId:   &params.accountId,
+		CategoryId:  &params.categoryId,
+	})
+	require.NoError(t, err)
+	return transaction
+}
+
+type seedTransferTransactionParams struct {
+	amount        float64
+	fromAccountId string
+	toAccountId   string
+}
+
+func seedTransferTransaction(
+	t *testing.T,
+	db *sqlite.Storage,
+	params seedTransferTransactionParams,
+) *storage.Transaction {
+	t.Helper()
+	transaction, err := db.CreateTransaction(storage.CreateTransactionParams{
+		Type:          "transfer",
+		Amount:        params.amount,
+		Description:   "Transaction",
+		OccurredAt:    *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
+		FromAccountId: &params.fromAccountId,
+		ToAccountId:   &params.toAccountId,
 	})
 	require.NoError(t, err)
 	return transaction

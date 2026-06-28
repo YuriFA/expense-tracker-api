@@ -116,13 +116,13 @@ func TestDeleteAccount(t *testing.T) {
 		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 
-	t.Run("account with transactions", func(t *testing.T) {
+	t.Run("account with cashflow transaction", func(t *testing.T) {
 		account := seedAccount(t, db, 1000.0)
 		category := seedCategory(t, db, "income")
-		_ = seedTransaction(
+		_ = seedCashflowTransaction(
 			t,
 			db,
-			seedTransactionParams{
+			seedCashflowTransactionParams{
 				amount:          200.0,
 				accountId:       account.Id,
 				categoryId:      category.Id,
@@ -130,6 +130,22 @@ func TestDeleteAccount(t *testing.T) {
 			},
 		)
 		err := db.DeleteAccount(account.Id)
+		require.ErrorIs(t, err, storage.ErrAccountHasTransactions)
+	})
+
+	t.Run("account with transfer transaction", func(t *testing.T) {
+		account1 := seedAccount(t, db, 1000.0)
+		account2 := seedAccount(t, db, 1000.0)
+		_ = seedTransferTransaction(
+			t,
+			db,
+			seedTransferTransactionParams{
+				amount:        200.0,
+				fromAccountId: account1.Id,
+				toAccountId:   account2.Id,
+			},
+		)
+		err := db.DeleteAccount(account1.Id)
 		require.ErrorIs(t, err, storage.ErrAccountHasTransactions)
 	})
 
@@ -185,13 +201,19 @@ func TestGetAccount(t *testing.T) {
 
 	t.Run("account with transactions returns correct balance", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		account := seedAccount(t, db, 100.0)
+		account := seedAccount(t, db, 400.0)
+		account2 := seedAccount(t, db, 300.0)
 		category := seedCategory(t, db, "income")
-		transaction := seedTransaction(t, db, seedTransactionParams{
+		transaction := seedCashflowTransaction(t, db, seedCashflowTransactionParams{
 			amount:          50.0,
 			accountId:       account.Id,
 			categoryId:      category.Id,
 			transactionType: "income",
+		})
+		transaction2 := seedTransferTransaction(t, db, seedTransferTransactionParams{
+			amount:        150.0,
+			fromAccountId: account2.Id,
+			toAccountId:   account.Id,
 		})
 
 		fetched, err := db.GetAccount(account.Id)
@@ -199,7 +221,7 @@ func TestGetAccount(t *testing.T) {
 		require.Equal(t, account.Id, fetched.Id)
 		assert.Equal(
 			t,
-			account.OpeningBalance+account.ManualAdjustment+transaction.Amount,
+			account.OpeningBalance+account.ManualAdjustment+transaction.Amount+transaction2.Amount,
 			fetched.Balance,
 		)
 	})
@@ -225,7 +247,7 @@ func TestGetAccounts(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		account1 := seedAccount(t, db, 100.0)
 		incomeCategory := seedCategory(t, db, "income")
-		transaction1 := seedTransaction(t, db, seedTransactionParams{
+		transaction1 := seedCashflowTransaction(t, db, seedCashflowTransactionParams{
 			amount:          50.0,
 			accountId:       account1.Id,
 			categoryId:      incomeCategory.Id,
@@ -233,11 +255,16 @@ func TestGetAccounts(t *testing.T) {
 		})
 		account2 := seedAccount(t, db, 200.0)
 		expenseCategory := seedCategory(t, db, "expense")
-		transaction2 := seedTransaction(t, db, seedTransactionParams{
+		transaction2 := seedCashflowTransaction(t, db, seedCashflowTransactionParams{
 			amount:          100.0,
 			accountId:       account2.Id,
 			categoryId:      expenseCategory.Id,
 			transactionType: "expense",
+		})
+		transaction3 := seedTransferTransaction(t, db, seedTransferTransactionParams{
+			amount:        100.0,
+			fromAccountId: account2.Id,
+			toAccountId:   account1.Id,
 		})
 
 		fetched, err := db.GetAccounts()
@@ -248,7 +275,7 @@ func TestGetAccounts(t *testing.T) {
 			if account.Id == account1.Id {
 				assert.Equal(
 					t,
-					account1.OpeningBalance+account1.ManualAdjustment+transaction1.Amount,
+					account1.OpeningBalance+account1.ManualAdjustment+transaction1.Amount+transaction3.Amount,
 					account.Balance,
 				)
 			}
@@ -256,7 +283,7 @@ func TestGetAccounts(t *testing.T) {
 			if account.Id == account2.Id {
 				assert.Equal(
 					t,
-					account2.OpeningBalance+account2.ManualAdjustment-transaction2.Amount,
+					account2.OpeningBalance+account2.ManualAdjustment-transaction2.Amount-transaction3.Amount,
 					account.Balance,
 				)
 			}
@@ -292,8 +319,8 @@ func TestGetAccountBalances(t *testing.T) {
 			Amount:      50.0,
 			Description: "Income Transaction",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-			AccountId:   account.Id,
-			CategoryId:  category.Id,
+			AccountId:   &account.Id,
+			CategoryId:  &category.Id,
 		})
 		require.NoError(t, err)
 		balances, err := db.GetAccountBalances()
@@ -317,8 +344,8 @@ func TestGetAccountBalances(t *testing.T) {
 			Amount:      50.0,
 			Description: "Expense Transaction",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-			AccountId:   account.Id,
-			CategoryId:  category.Id,
+			AccountId:   &account.Id,
+			CategoryId:  &category.Id,
 		})
 		require.NoError(t, err)
 		balances, err := db.GetAccountBalances()
@@ -340,20 +367,20 @@ func TestGetAccountBalances(t *testing.T) {
 			db := sqlite.NewTestDB(t)
 			account, incomeCategory := seedAccountAndCategory(t, db, "income")
 			expenseCategory := seedCategory(t, db, "expense")
-			transaction1 := seedTransaction(
+			transaction1 := seedCashflowTransaction(
 				t,
 				db,
-				seedTransactionParams{
+				seedCashflowTransactionParams{
 					amount:          100.0,
 					accountId:       account.Id,
 					categoryId:      incomeCategory.Id,
 					transactionType: "income",
 				},
 			)
-			transaction2 := seedTransaction(
+			transaction2 := seedCashflowTransaction(
 				t,
 				db,
-				seedTransactionParams{
+				seedCashflowTransactionParams{
 					amount:          100.0,
 					accountId:       account.Id,
 					categoryId:      expenseCategory.Id,
@@ -386,60 +413,67 @@ func TestGetAccountBalances(t *testing.T) {
 		incomeCategory := seedCategory(t, db, "income")
 		expenseCategory := seedCategory(t, db, "expense")
 
-		transaction1 := seedTransaction(
+		transaction1 := seedCashflowTransaction(
 			t,
 			db,
-			seedTransactionParams{
+			seedCashflowTransactionParams{
 				amount:          100.0,
 				accountId:       account1.Id,
 				categoryId:      incomeCategory.Id,
 				transactionType: "income",
 			},
 		)
-		transaction2 := seedTransaction(
+		transaction2 := seedCashflowTransaction(
 			t,
 			db,
-			seedTransactionParams{
+			seedCashflowTransactionParams{
 				amount:          100.0,
 				accountId:       account1.Id,
 				categoryId:      expenseCategory.Id,
 				transactionType: "expense",
 			},
 		)
-		transaction3 := seedTransaction(
+		transaction3 := seedCashflowTransaction(
 			t,
 			db,
-			seedTransactionParams{
+			seedCashflowTransactionParams{
 				amount:          200.0,
 				accountId:       account1.Id,
 				categoryId:      expenseCategory.Id,
 				transactionType: "expense",
 			},
 		)
-		transaction4 := seedTransaction(
+		transaction4 := seedCashflowTransaction(
 			t,
 			db,
-			seedTransactionParams{
+			seedCashflowTransactionParams{
 				amount:          300.0,
 				accountId:       account1.Id,
 				categoryId:      incomeCategory.Id,
 				transactionType: "income",
 			},
 		)
-		acc2transaction1 := seedTransaction(
+		transaction5 := seedTransferTransaction(
+			t, db, seedTransferTransactionParams{
+				amount:        500.0,
+				fromAccountId: account1.Id,
+				toAccountId:   account2.Id,
+			},
+		)
+		acc2transaction1 := seedCashflowTransaction(
 			t,
 			db,
-			seedTransactionParams{
+			seedCashflowTransactionParams{
 				amount:          2500.0,
 				accountId:       account2.Id,
 				categoryId:      incomeCategory.Id,
 				transactionType: "income",
 			},
 		)
-		acc2transaction2 := seedTransaction(
+		acc2transaction2 := seedCashflowTransaction(
 			t,
 			db,
-			seedTransactionParams{
+			seedCashflowTransactionParams{
 				amount:          500.0,
 				accountId:       account2.Id,
 				categoryId:      expenseCategory.Id,
@@ -454,7 +488,7 @@ func TestGetAccountBalances(t *testing.T) {
 			if balance.Id == account1.Id {
 				assert.Equal(
 					t,
-					account1.OpeningBalance+account1.ManualAdjustment+transaction1.Amount-transaction2.Amount-transaction3.Amount+transaction4.Amount,
+					account1.OpeningBalance+account1.ManualAdjustment+transaction1.Amount-transaction2.Amount-transaction3.Amount+transaction4.Amount-transaction5.Amount,
 					balance.Balance,
 				)
 			}
@@ -462,7 +496,7 @@ func TestGetAccountBalances(t *testing.T) {
 			if balance.Id == account2.Id {
 				assert.Equal(
 					t,
-					account2.OpeningBalance+account2.ManualAdjustment+acc2transaction1.Amount-acc2transaction2.Amount,
+					account2.OpeningBalance+account2.ManualAdjustment+acc2transaction1.Amount-acc2transaction2.Amount+transaction5.Amount,
 					balance.Balance,
 				)
 			}

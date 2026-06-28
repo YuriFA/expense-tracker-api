@@ -115,16 +115,32 @@ func seedCommonTransaction(
 	t.Helper()
 
 	occurredAt := time.Now()
-	category, account := seedCommonCategoryAndAccount(t, db, transactionType)
 
-	transaction := seedTransaction(t, db, storage.CreateTransactionParams{
-		Type:        transactionType,
-		Amount:      1000.0,
-		Description: "Common transaction",
-		OccurredAt:  occurredAt,
-		AccountId:   account.Id,
-		CategoryId:  category.Id,
-	})
+	var transaction *storage.Transaction
+	switch transactionType {
+	case "income", "expense":
+		category, account := seedCommonCategoryAndAccount(t, db, transactionType)
+
+		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
+			Type:        transactionType,
+			Amount:      1000.0,
+			Description: "Common transaction",
+			OccurredAt:  occurredAt,
+			AccountId:   &account.Id,
+			CategoryId:  &category.Id,
+		})
+	case "transfer":
+		accountFrom := seedAccount(t, db, "Bank", 500.0)
+		accountTo := seedAccount(t, db, "Cash", 200.0)
+		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
+			Type:          transactionType,
+			Amount:        300.0,
+			Description:   "Common transfer",
+			OccurredAt:    occurredAt,
+			FromAccountId: &accountFrom.Id,
+			ToAccountId:   &accountTo.Id,
+		})
+	}
 
 	return transaction
 }
@@ -137,15 +153,31 @@ func seedTransactionAt(
 	amount float64,
 ) *storage.Transaction {
 	t.Helper()
-	category, account := seedCommonCategoryAndAccount(t, db, transactionType)
-	transaction := seedTransaction(t, db, storage.CreateTransactionParams{
-		Type:        transactionType,
-		Amount:      amount,
-		Description: "Common transaction",
-		OccurredAt:  occurredAt,
-		AccountId:   account.Id,
-		CategoryId:  category.Id,
-	})
+
+	var transaction *storage.Transaction
+	switch transactionType {
+	case "income", "expense":
+		category, account := seedCommonCategoryAndAccount(t, db, transactionType)
+		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
+			Type:        transactionType,
+			Amount:      amount,
+			Description: "Common transaction",
+			OccurredAt:  occurredAt,
+			AccountId:   &account.Id,
+			CategoryId:  &category.Id,
+		})
+	case "transfer":
+		fromAccount := seedAccount(t, db, "Bank", 500.0)
+		toaccount := seedAccount(t, db, "Cash", 200.0)
+		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
+			Type:          transactionType,
+			Amount:        amount,
+			Description:   "Common transfer",
+			OccurredAt:    occurredAt,
+			FromAccountId: &fromAccount.Id,
+			ToAccountId:   &toaccount.Id,
+		})
+	}
 
 	return transaction
 }

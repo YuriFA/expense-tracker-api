@@ -17,7 +17,7 @@ import (
 )
 
 func TestCreateTransaction(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Success cashflow", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
 		transactionType := "income"
@@ -41,8 +41,40 @@ func TestCreateTransaction(t *testing.T) {
 		assert.Equal(t, 1000.0, response.Amount)
 		assert.Equal(t, "Salary for June", response.Description)
 		testutil.AssertTimeEqual(t, occurredAt, testutil.ParseDatetime(t, response.OccurredAt))
-		assert.Equal(t, account.Id, response.AccountId)
-		assert.Equal(t, category.Id, response.CategoryId)
+		assert.Equal(t, account.Id, *response.AccountId)
+		assert.Equal(t, category.Id, *response.CategoryId)
+		assert.Nil(t, response.FromAccountId)
+		assert.Nil(t, response.ToAccountId)
+	})
+
+	t.Run("Success transfer", func(t *testing.T) {
+		router, db := setupTestEnv(t)
+
+		occurredAt := time.Now()
+		account := seedAccount(t, db, "Card", 1000.0)
+		account2 := seedAccount(t, db, "Bank", 2000.0)
+
+		req := newJSONRequest(t, http.MethodPost, "/api/transactions", map[string]any{
+			"type":          "transfer",
+			"amount":        1000.0,
+			"description":   "Salary for June",
+			"occurredAt":    occurredAt,
+			"fromAccountId": account.Id,
+			"toAccountId":   account2.Id,
+		})
+		w := performRequest(t, router, req)
+
+		assert.Equal(t, http.StatusCreated, w.Code)
+		var response storage.Transaction
+		parseBody(t, w, &response)
+		assert.Equal(t, "transfer", response.Type)
+		assert.Equal(t, 1000.0, response.Amount)
+		assert.Equal(t, "Salary for June", response.Description)
+		testutil.AssertTimeEqual(t, occurredAt, testutil.ParseDatetime(t, response.OccurredAt))
+		assert.Equal(t, account.Id, *response.FromAccountId)
+		assert.Equal(t, account2.Id, *response.ToAccountId)
+		assert.Nil(t, response.AccountId)
+		assert.Nil(t, response.CategoryId)
 	})
 
 	t.Run("ValidationFail", func(t *testing.T) {
@@ -50,6 +82,7 @@ func TestCreateTransaction(t *testing.T) {
 
 		occurredAt := time.Now()
 		category, account := seedCommonCategoryAndAccount(t, db, "income")
+		account2 := seedAccount(t, db, "Bank", 1000.0)
 
 		cases := map[string]struct {
 			body        map[string]any
@@ -57,6 +90,82 @@ func TestCreateTransaction(t *testing.T) {
 			wantMessage string
 			errorsLen   int
 		}{
+			"cashflow without accountId": {
+				body: map[string]any{
+					"type":        "income",
+					"amount":      1000.0,
+					"description": "Salary for June",
+					"occurredAt":  occurredAt,
+					"categoryId":  category.Id,
+				},
+				wantField:   "accountId",
+				wantMessage: "accountId is required",
+				errorsLen:   1,
+			},
+			"cashflow without categoryId": {
+				body: map[string]any{
+					"type":        "income",
+					"amount":      1000.0,
+					"description": "Salary for June",
+					"occurredAt":  occurredAt,
+					"accountId":   account.Id,
+				},
+				wantField:   "categoryId",
+				wantMessage: "categoryId is required",
+				errorsLen:   1,
+			},
+			"cashflow + fromAccountId": {
+				body: map[string]any{
+					"type":          "income",
+					"amount":        1000.0,
+					"description":   "Salary for June",
+					"occurredAt":    occurredAt,
+					"accountId":     account.Id,
+					"categoryId":    category.Id,
+					"fromAccountId": uuid.NewString(),
+				},
+				wantField:   "fromAccountId",
+				wantMessage: "not allowed for income or expense transactions",
+				errorsLen:   1,
+			},
+			"transfer without fromAccountId": {
+				body: map[string]any{
+					"type":        "transfer",
+					"amount":      1000.0,
+					"description": "Salary for June",
+					"occurredAt":  occurredAt,
+					"toAccountId": account2.Id,
+				},
+				wantField:   "fromAccountId",
+				wantMessage: "fromAccountId is required",
+				errorsLen:   1,
+			},
+			"transfer without toAccountId": {
+				body: map[string]any{
+					"type":          "transfer",
+					"amount":        1000.0,
+					"description":   "Salary for June",
+					"occurredAt":    occurredAt,
+					"fromAccountId": account.Id,
+				},
+				wantField:   "toAccountId",
+				wantMessage: "toAccountId is required",
+				errorsLen:   1,
+			},
+			"transfer with categoryId": {
+				body: map[string]any{
+					"type":          "transfer",
+					"amount":        1000.0,
+					"description":   "Salary for June",
+					"fromAccountId": account.Id,
+					"occurredAt":    occurredAt,
+					"toAccountId":   account2.Id,
+					"categoryId":    category.Id,
+				},
+				wantField:   "categoryId",
+				wantMessage: "not allowed for transfer transactions",
+				errorsLen:   1,
+			},
 			"missing type": {
 				body: map[string]any{
 					"amount":      1000.0,
@@ -147,7 +256,7 @@ func TestCreateTransaction(t *testing.T) {
 				body:        map[string]any{},
 				wantField:   "type",
 				wantMessage: "type is required",
-				errorsLen:   5,
+				errorsLen:   3,
 			},
 			"wrong type": {
 				body: map[string]any{
@@ -180,6 +289,83 @@ func TestCreateTransaction(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("NonExistAccountForCashflow", func(t *testing.T) {
+		router, _ := setupTestEnv(t)
+
+		req := newJSONRequest(
+			t,
+			http.MethodPost,
+			"/api/transactions",
+			map[string]any{
+				"type":        "income",
+				"amount":      1000.0,
+				"description": "Salary for June",
+				"occurredAt":  time.Now(),
+				"accountId":   uuid.NewString(),
+				"categoryId":  uuid.NewString(),
+			},
+		)
+		w := performRequest(t, router, req)
+
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+		var response handlers.ErrorResponse
+		parseBody(t, w, &response)
+		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, "account not found", response.Message)
+	})
+
+	t.Run("NonExistAccountForTransfer", func(t *testing.T) {
+		router, _ := setupTestEnv(t)
+
+		req := newJSONRequest(
+			t,
+			http.MethodPost,
+			"/api/transactions",
+			map[string]any{
+				"type":          "transfer",
+				"amount":        1000.0,
+				"description":   "Transfer to bank",
+				"occurredAt":    time.Now(),
+				"fromAccountId": uuid.NewString(),
+				"toAccountId":   uuid.NewString(),
+			},
+		)
+		w := performRequest(t, router, req)
+
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+		var response handlers.ErrorResponse
+		parseBody(t, w, &response)
+		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, "account not found", response.Message)
+	})
+
+	t.Run("SameAccountForTransfer", func(t *testing.T) {
+		router, db := setupTestEnv(t)
+
+		account := seedAccount(t, db, "Bank", 1000.0)
+
+		req := newJSONRequest(
+			t,
+			http.MethodPost,
+			"/api/transactions",
+			map[string]any{
+				"type":          "transfer",
+				"amount":        1000.0,
+				"description":   "Transfer to bank",
+				"occurredAt":    time.Now(),
+				"fromAccountId": account.Id,
+				"toAccountId":   account.Id,
+			},
+		)
+		w := performRequest(t, router, req)
+
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+		var response handlers.ErrorResponse
+		parseBody(t, w, &response)
+		assert.Equal(t, handlers.ErrCodeSameAccountTransfer, response.Code)
+		assert.Equal(t, "transaction from and to accounts are the same", response.Message)
+	})
 }
 
 func TestUpdateTransaction(t *testing.T) {
@@ -196,7 +382,6 @@ func TestUpdateTransaction(t *testing.T) {
 		})
 
 		params := map[string]any{
-			"type":        "income",
 			"amount":      500.0,
 			"description": "Some expense",
 			"occurredAt":  time.Now(),
@@ -214,7 +399,6 @@ func TestUpdateTransaction(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 		var response storage.Transaction
 		parseBody(t, w, &response)
-		assert.Equal(t, params["type"], response.Type)
 		assert.Equal(t, params["amount"], response.Amount)
 		assert.Equal(t, params["description"], response.Description)
 		testutil.AssertTimeEqual(
@@ -222,8 +406,8 @@ func TestUpdateTransaction(t *testing.T) {
 			params["occurredAt"].(time.Time),
 			testutil.ParseDatetime(t, response.OccurredAt),
 		)
-		assert.Equal(t, params["accountId"], response.AccountId)
-		assert.Equal(t, params["categoryId"], response.CategoryId)
+		assert.Equal(t, params["accountId"], *response.AccountId)
+		assert.Equal(t, params["categoryId"], *response.CategoryId)
 	})
 
 	t.Run("PartialUpdate", func(t *testing.T) {
@@ -356,7 +540,7 @@ func TestUpdateTransaction(t *testing.T) {
 			http.MethodPatch,
 			"/api/transactions/"+uuid.NewString(),
 			map[string]any{
-				"type": "income",
+				"amount": 100.0,
 			},
 		)
 		w := performRequest(t, router, req)
@@ -397,7 +581,7 @@ func TestDeleteTransaction(t *testing.T) {
 }
 
 func TestGetTransaction(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Success for cashflow", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
 		existing := seedCommonTransaction(t, db, "income")
@@ -414,6 +598,31 @@ func TestGetTransaction(t *testing.T) {
 		assert.Equal(t, existing.Description, response.Description)
 		assert.Equal(t, existing.OccurredAt, response.OccurredAt)
 		assert.Equal(t, existing.AccountId, response.AccountId)
+		assert.Equal(t, existing.CategoryId, response.CategoryId)
+		assert.Nil(t, response.FromAccountId)
+		assert.Nil(t, response.ToAccountId)
+	})
+
+	t.Run("Success for transfer", func(t *testing.T) {
+		router, db := setupTestEnv(t)
+
+		existing := seedCommonTransaction(t, db, "transfer")
+
+		req := httptest.NewRequest(http.MethodGet, "/api/transactions/"+existing.Id, nil)
+		w := performRequest(t, router, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response storage.Transaction
+		parseBody(t, w, &response)
+		assert.Equal(t, existing.Id, response.Id)
+		assert.Equal(t, existing.Type, response.Type)
+		assert.Equal(t, existing.Amount, response.Amount)
+		assert.Equal(t, existing.Description, response.Description)
+		assert.Equal(t, existing.FromAccountId, response.FromAccountId)
+		assert.Equal(t, existing.ToAccountId, response.ToAccountId)
+		assert.Equal(t, existing.OccurredAt, response.OccurredAt)
+		assert.Nil(t, response.AccountId)
+		assert.Nil(t, response.CategoryId)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
@@ -437,8 +646,17 @@ func TestListTransactions(t *testing.T) {
 		seeded1 := seedCommonTransaction(t, db, "income")
 		seeded2 := seedCommonTransaction(t, db, "expense")
 		seeded3 := seedCommonTransaction(t, db, "income")
-		seeded4 := seedCommonTransaction(t, db, "expense")
-		seededTransactions := []*storage.Transaction{seeded1, seeded2, seeded3, seeded4}
+		seeded4 := seedCommonTransaction(t, db, "transfer")
+		seeded5 := seedCommonTransaction(t, db, "expense")
+		seeded6 := seedCommonTransaction(t, db, "transfer")
+		seededTransactions := []*storage.Transaction{
+			seeded1,
+			seeded2,
+			seeded3,
+			seeded4,
+			seeded5,
+			seeded6,
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/api/transactions", nil)
 		w := performRequest(t, router, req)
@@ -490,7 +708,13 @@ func TestListTransactions(t *testing.T) {
 			time.Date(2024, 5, 15, 12, 12, 30, 0, time.UTC),
 			3000.0,
 		)
-		// seededTransactions := []*storage.Transaction{seeded1, seeded2, seeded3, seeded4}
+		seeded5 := seedTransactionAt(
+			t,
+			db,
+			"transfer",
+			time.Date(2024, 2, 10, 12, 15, 30, 0, time.UTC),
+			3000.0,
+		)
 
 		cases := []struct {
 			params   map[string]string
@@ -505,34 +729,34 @@ func TestListTransactions(t *testing.T) {
 				expected: []*storage.Transaction{seeded2, seeded4},
 			},
 			{
-				params:   map[string]string{"accountId": seeded1.AccountId},
+				params:   map[string]string{"accountId": *seeded1.AccountId},
 				expected: []*storage.Transaction{seeded1},
 			},
 			{
-				params:   map[string]string{"categoryId": seeded2.CategoryId},
+				params:   map[string]string{"categoryId": *seeded2.CategoryId},
 				expected: []*storage.Transaction{seeded2},
 			},
 			{
-				params:   map[string]string{"type": "income", "accountId": seeded3.AccountId},
+				params:   map[string]string{"type": "income", "accountId": *seeded3.AccountId},
 				expected: []*storage.Transaction{seeded3},
 			},
 			{
-				params:   map[string]string{"type": "expense", "categoryId": seeded4.CategoryId},
+				params:   map[string]string{"type": "expense", "categoryId": *seeded4.CategoryId},
 				expected: []*storage.Transaction{seeded4},
 			},
 			{
 				params: map[string]string{
 					"type":       "income",
-					"accountId":  seeded1.AccountId,
-					"categoryId": seeded1.CategoryId,
+					"accountId":  *seeded1.AccountId,
+					"categoryId": *seeded1.CategoryId,
 				},
 				expected: []*storage.Transaction{seeded1},
 			},
 			{
 				params: map[string]string{
 					"type":       "expense",
-					"accountId":  seeded2.AccountId,
-					"categoryId": seeded2.CategoryId,
+					"accountId":  *seeded2.AccountId,
+					"categoryId": *seeded2.CategoryId,
 				},
 				expected: []*storage.Transaction{seeded2},
 			},
@@ -571,6 +795,12 @@ func TestListTransactions(t *testing.T) {
 			{
 				params:   map[string]string{"type": "income", "sort": "occurredAt"},
 				expected: []*storage.Transaction{seeded3, seeded1},
+			},
+			{
+				params: map[string]string{
+					"accountId": *seeded5.FromAccountId,
+				},
+				expected: []*storage.Transaction{seeded5},
 			},
 		}
 

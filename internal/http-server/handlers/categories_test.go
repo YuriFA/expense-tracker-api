@@ -318,8 +318,8 @@ func TestDeleteCategory(t *testing.T) {
 			Amount:      100.0,
 			Description: "Salary",
 			OccurredAt:  time.Now(),
-			AccountId:   account.Id,
-			CategoryId:  existing.Id,
+			AccountId:   &account.Id,
+			CategoryId:  &existing.Id,
 		})
 
 		req := httptest.NewRequest(http.MethodDelete, "/api/categories/"+existing.Id, nil)
