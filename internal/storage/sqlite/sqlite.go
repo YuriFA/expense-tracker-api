@@ -19,6 +19,8 @@ func New(storagePath string) (*Storage, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
+	db.SetMaxOpenConns(1)
+
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS accounts (
 			id TEXT PRIMARY KEY,
