@@ -1,0 +1,979 @@
+{
+  "info": {
+    "name": "Expense Tracker API",
+    "description": "REST API collection for the Expense Tracker backend (Gin + SQLite).\n\nBase path: `/api`. All dates are ISO 8601 in UTC. Server-generated fields:\n`id`, `createdAt`, `updatedAt`.\n\nRun `Create Account`, `Create Category`, `Create Income Transaction` first —\ntheir `Tests` scripts capture the generated IDs into the active environment\n(`accountId`, `categoryId`, `transactionId`), so subsequent GET/PATCH/DELETE\nrequests just work.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Accounts",
+      "description": "CRUD for accounts + balance summary.",
+      "item": [
+        {
+          "name": "List Accounts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "accounts"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — list with computed balances",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accounts"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"name\": \"Debit card\",\n    \"balance\": 850,\n    \"openingBalance\": 1000,\n    \"manualAdjustment\": 0,\n    \"createdAt\": \"2026-06-01T10:00:00Z\",\n    \"updatedAt\": \"2026-06-14T08:30:00Z\"\n  },\n  {\n    \"id\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\",\n    \"name\": \"Savings\",\n    \"balance\": 5150,\n    \"openingBalance\": 5000,\n    \"manualAdjustment\": 0,\n    \"createdAt\": \"2026-06-01T10:05:00Z\",\n    \"updatedAt\": \"2026-06-14T10:00:00Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Create Account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.environment.set('accountId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Debit card\",\n  \"openingBalance\": 1000\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "accounts"]
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Debit card\",\n  \"openingBalance\": 1000\n}"
+                },
+                "url": "{{baseUrl}}/api/accounts"
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card\",\n  \"balance\": 1000,\n  \"openingBalance\": 1000,\n  \"manualAdjustment\": 0,\n  \"createdAt\": \"2026-06-14T08:30:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — missing required fields",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                },
+                "url": "{{baseUrl}}/api/accounts"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"name\", \"message\": \"name is required\" },\n    { \"field\": \"openingBalance\", \"message\": \"openingBalance is required\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Account",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/{{accountId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "accounts", "{{accountId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accounts/{{accountId}}"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card\",\n  \"balance\": 850,\n  \"openingBalance\": 1000,\n  \"manualAdjustment\": 0,\n  \"createdAt\": \"2026-06-01T10:00:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
+            },
+            {
+              "name": "404 ACCOUNT_NOT_FOUND",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accounts/00000000-0000-0000-0000-000000000000"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"ACCOUNT_NOT_FOUND\",\n  \"message\": \"account not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Account",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Debit card (renamed)\",\n  \"manualAdjustment\": -50\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/{{accountId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "accounts", "{{accountId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — partial update (pointer/PATCH semantics)",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Debit card (renamed)\",\n  \"manualAdjustment\": -50\n}"
+                },
+                "url": "{{baseUrl}}/api/accounts/{{accountId}}"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card (renamed)\",\n  \"balance\": 950,\n  \"openingBalance\": 1000,\n  \"manualAdjustment\": -50,\n  \"createdAt\": \"2026-06-01T10:00:00Z\",\n  \"updatedAt\": \"2026-06-14T09:00:00Z\"\n}"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — no fields to update",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{}" },
+                "url": "{{baseUrl}}/api/accounts/{{accountId}}"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"no fields to update\"\n}"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — name too short (min=3)",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{ \"name\": \"ab\" }" },
+                "url": "{{baseUrl}}/api/accounts/{{accountId}}"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"name\", \"message\": \"name must be at least 3 characters\" }\n  ]\n}"
+            },
+            {
+              "name": "404 ACCOUNT_NOT_FOUND",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{ \"name\": \"x\" }" },
+                "url": "{{baseUrl}}/api/accounts/00000000-0000-0000-0000-000000000000"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"ACCOUNT_NOT_FOUND\",\n  \"message\": \"account not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/{{accountId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "accounts", "{{accountId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/accounts/{{accountId}}"
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            },
+            {
+              "name": "404 ACCOUNT_NOT_FOUND",
+              "originalRequest": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/accounts/00000000-0000-0000-0000-000000000000"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"ACCOUNT_NOT_FOUND\",\n  \"message\": \"account not found\"\n}"
+            },
+            {
+              "name": "409 ACCOUNT_IN_USE — has linked transactions",
+              "originalRequest": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/accounts/{{accountId}}"
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"ACCOUNT_IN_USE\",\n  \"message\": \"account in use\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Account Balances",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/accounts/balances",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "accounts", "balances"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — balances + netWorth",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accounts/balances"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"balances\": [\n    { \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\", \"name\": \"Debit card\", \"balance\": 850 },\n    { \"id\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\", \"name\": \"Savings\", \"balance\": 5150 }\n  ],\n  \"netWorth\": 6000\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "description": "CRUD for categories. Default categories (seeded) are read-only: PATCH/DELETE return 403.",
+      "item": [
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories?type=expense",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"],
+              "query": [
+                { "key": "type", "value": "expense", "description": "Optional. Filter by 'income' | 'expense'." }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — expense categories (mix of default + custom)",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/categories?type=expense"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\",\n    \"name\": \"Groceries\",\n    \"slug\": \"groceries\",\n    \"type\": \"expense\",\n    \"icon\": \"🛒\",\n    \"color\": \"#4CAF50\",\n    \"isDefault\": true,\n    \"createdAt\": \"2026-06-01T10:00:00Z\",\n    \"updatedAt\": \"2026-06-01T10:00:00Z\"\n  },\n  {\n    \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n    \"name\": \"Pet supplies\",\n    \"slug\": null,\n    \"type\": \"expense\",\n    \"icon\": \"🐾\",\n    \"color\": \"#FFA500\",\n    \"isDefault\": false,\n    \"createdAt\": \"2026-06-14T08:30:00Z\",\n    \"updatedAt\": \"2026-06-14T08:30:00Z\"\n  }\n]"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — invalid type value",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/categories?type=invalid"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"type\", \"message\": \"type must be either 'income' or 'expense'\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.environment.set('categoryId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pet supplies\",\n  \"type\": \"expense\",\n  \"icon\": \"🐾\",\n  \"color\": \"#FFA500\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"]
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created — isDefault is always false via API",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Pet supplies\",\n  \"type\": \"expense\",\n  \"icon\": \"🐾\",\n  \"color\": \"#FFA500\"\n}"
+                },
+                "url": "{{baseUrl}}/api/categories"
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n  \"name\": \"Pet supplies\",\n  \"slug\": null,\n  \"type\": \"expense\",\n  \"icon\": \"🐾\",\n  \"color\": \"#FFA500\",\n  \"isDefault\": false,\n  \"createdAt\": \"2026-06-14T08:30:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — type not in enum",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"name\": \"X\", \"type\": \"savings\", \"icon\": \"💰\", \"color\": \"#000\" }"
+                },
+                "url": "{{baseUrl}}/api/categories"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"type\", \"message\": \"type must be either 'income' or 'expense'\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Category",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", "{{categoryId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/categories/{{categoryId}}"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n  \"name\": \"Pet supplies\",\n  \"slug\": null,\n  \"type\": \"expense\",\n  \"icon\": \"🐾\",\n  \"color\": \"#FFA500\",\n  \"isDefault\": false,\n  \"createdAt\": \"2026-06-14T08:30:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
+            },
+            {
+              "name": "404 CATEGORY_NOT_FOUND",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/categories/00000000-0000-0000-0000-000000000000"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"CATEGORY_NOT_FOUND\",\n  \"message\": \"category not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pet food & supplies\",\n  \"color\": \"#FF8C00\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", "{{categoryId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — partial update",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Pet food & supplies\",\n  \"color\": \"#FF8C00\"\n}"
+                },
+                "url": "{{baseUrl}}/api/categories/{{categoryId}}"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n  \"name\": \"Pet food & supplies\",\n  \"slug\": null,\n  \"type\": \"expense\",\n  \"icon\": \"🐾\",\n  \"color\": \"#FF8C00\",\n  \"isDefault\": false,\n  \"createdAt\": \"2026-06-14T08:30:00Z\",\n  \"updatedAt\": \"2026-06-14T09:00:00Z\"\n}"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — no fields to update",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{}" },
+                "url": "{{baseUrl}}/api/categories/{{categoryId}}"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"no fields to update\"\n}"
+            },
+            {
+              "name": "403 FORBIDDEN — cannot modify default category",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{ \"name\": \"x\" }" },
+                "url": "{{baseUrl}}/api/categories/3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c"
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"FORBIDDEN\",\n  \"message\": \"cannot update default category\"\n}"
+            },
+            {
+              "name": "404 CATEGORY_NOT_FOUND",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{ \"name\": \"x\" }" },
+                "url": "{{baseUrl}}/api/categories/00000000-0000-0000-0000-000000000000"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"CATEGORY_NOT_FOUND\",\n  \"message\": \"category not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories", "{{categoryId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/categories/{{categoryId}}"
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            },
+            {
+              "name": "403 FORBIDDEN — cannot delete default category",
+              "originalRequest": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/categories/3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c"
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"FORBIDDEN\",\n  \"message\": \"cannot delete default category\"\n}"
+            },
+            {
+              "name": "404 CATEGORY_NOT_FOUND",
+              "originalRequest": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/categories/00000000-0000-0000-0000-000000000000"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"CATEGORY_NOT_FOUND\",\n  \"message\": \"category not found\"\n}"
+            },
+            {
+              "name": "409 CATEGORY_IN_USE — has linked transactions",
+              "originalRequest": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/categories/{{categoryId}}"
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"CATEGORY_IN_USE\",\n  \"message\": \"category in use\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "description": "CRUD for transactions of 3 types: `income`, `expense`, `transfer`.\n\nShape rules (400 VALIDATION_FAILED):\n- cashflow (income/expense): `accountId`, `categoryId` required; `fromAccountId`, `toAccountId` forbidden.\n- transfer: `fromAccountId`, `toAccountId` required; `accountId`, `categoryId` forbidden.\n\nReferential integrity (422): non-existent account/category, type mismatch between transaction and category, same-account transfer.\n\n`type` is immutable via PATCH.",
+      "item": [
+        {
+          "name": "List Transactions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions?type=expense&accountId={{accountId}}&fromDate=2026-06-01&toDate=2026-06-30&limit=50&sort=-occurredAt",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"],
+              "query": [
+                { "key": "type", "value": "expense", "description": "Optional. 'income' | 'expense' | 'transfer'." },
+                { "key": "accountId", "value": "{{accountId}}", "description": "Optional. For transfer, matches both fromAccountId and toAccountId." },
+                { "key": "categoryId", "value": "", "disabled": true, "description": "Optional. Cashflow only." },
+                { "key": "fromDate", "value": "2026-06-01", "description": "Optional. ISO date, inclusive." },
+                { "key": "toDate", "value": "2026-06-30", "description": "Optional. ISO date, inclusive. Must be >= fromDate." },
+                { "key": "limit", "value": "50", "description": "Optional. Positive integer." },
+                { "key": "sort", "value": "-occurredAt", "description": "Optional. occurredAt | -occurredAt | amount | -amount." }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — list of transactions",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/transactions"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n    \"type\": \"expense\",\n    \"amount\": 12.5,\n    \"description\": \"Coffee\",\n    \"occurredAt\": \"2026-06-14T08:30:00Z\",\n    \"createdAt\": \"2026-06-14T08:31:00Z\",\n    \"updatedAt\": \"2026-06-14T08:31:00Z\",\n    \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n  },\n  {\n    \"id\": \"a2b3c4d5-e6f7-8901-2345-67890abcdef1\",\n    \"type\": \"transfer\",\n    \"amount\": 500,\n    \"description\": \"Move to savings\",\n    \"occurredAt\": \"2026-06-14T10:00:00Z\",\n    \"createdAt\": \"2026-06-14T10:01:00Z\",\n    \"updatedAt\": \"2026-06-14T10:01:00Z\",\n    \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n  }\n]"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — toDate before fromDate",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/transactions?fromDate=2026-06-30&toDate=2026-06-01"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"toDate\", \"message\": \"toDate must be greater than or equal to FromDate\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Income Transaction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.environment.set('transactionId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 12.50,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00.000Z\",\n  \"accountId\": \"{{accountId}}\",\n  \"categoryId\": \"{{categoryId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"]
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created — cashflow (expense)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 12.50,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00.000Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+                },
+                "url": "{{baseUrl}}/api/transactions"
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 12.5,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T08:31:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — cashflow shape rule broken (missing accountId/categoryId)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"type\": \"expense\", \"amount\": 1, \"occurredAt\": \"2026-06-14T08:30:00.000Z\" }"
+                },
+                "url": "{{baseUrl}}/api/transactions"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"accountId\", \"message\": \"accountId is required\" },\n    { \"field\": \"categoryId\", \"message\": \"categoryId is required\" }\n  ]\n}"
+            },
+            {
+              "name": "422 CATEGORY_TYPE_MISMATCH — expense tx with income category",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"type\": \"expense\", \"amount\": 10, \"occurredAt\": \"2026-06-14T08:30:00.000Z\", \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\", \"categoryId\": \"<income-category-id>\" }"
+                },
+                "url": "{{baseUrl}}/api/transactions"
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"CATEGORY_TYPE_MISMATCH\",\n  \"message\": \"transaction type does not match category type\"\n}"
+            },
+            {
+              "name": "422 ACCOUNT_NOT_FOUND — foreign-key violation",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"type\": \"expense\", \"amount\": 10, \"occurredAt\": \"2026-06-14T08:30:00.000Z\", \"accountId\": \"00000000-0000-0000-0000-000000000000\", \"categoryId\": \"{{categoryId}}\" }"
+                },
+                "url": "{{baseUrl}}/api/transactions"
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"ACCOUNT_NOT_FOUND\",\n  \"message\": \"account not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create Transfer Transaction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.environment.set('transactionId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 500,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00.000Z\",\n  \"fromAccountId\": \"{{accountId}}\",\n  \"toAccountId\": \"{{secondAccountId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"]
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created — transfer",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 500,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00.000Z\",\n  \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n}"
+                },
+                "url": "{{baseUrl}}/api/transactions"
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"a2b3c4d5-e6f7-8901-2345-67890abcdef1\",\n  \"type\": \"transfer\",\n  \"amount\": 500,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00Z\",\n  \"createdAt\": \"2026-06-14T10:01:00Z\",\n  \"updatedAt\": \"2026-06-14T10:01:00Z\",\n  \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n}"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — transfer shape rule broken (missing toAccountId)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"type\": \"transfer\", \"amount\": 100, \"occurredAt\": \"2026-06-14T10:00:00.000Z\", \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\" }"
+                },
+                "url": "{{baseUrl}}/api/transactions"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"toAccountId\", \"message\": \"toAccountId is required\" }\n  ]\n}"
+            },
+            {
+              "name": "422 SAME_ACCOUNT_TRANSFER — from and to are identical",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"type\": \"transfer\", \"amount\": 100, \"occurredAt\": \"2026-06-14T10:00:00.000Z\", \"fromAccountId\": \"{{accountId}}\", \"toAccountId\": \"{{accountId}}\" }"
+                },
+                "url": "{{baseUrl}}/api/transactions"
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"SAME_ACCOUNT_TRANSFER\",\n  \"message\": \"transaction from and to accounts are the same\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Transaction",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/{{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "{{transactionId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/transactions/{{transactionId}}"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 12.5,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T08:31:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+            },
+            {
+              "name": "404 TRANSACTION_NOT_FOUND",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/transactions/00000000-0000-0000-0000-000000000000"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"TRANSACTION_NOT_FOUND\",\n  \"message\": \"transaction not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Transaction",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 15.00,\n  \"description\": \"Coffee + pastry\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/{{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "{{transactionId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — partial update (type immutable)",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": 15.00,\n  \"description\": \"Coffee + pastry\"\n}"
+                },
+                "url": "{{baseUrl}}/api/transactions/{{transactionId}}"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 15,\n  \"description\": \"Coffee + pastry\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T09:00:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — no fields to update",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{}" },
+                "url": "{{baseUrl}}/api/transactions/{{transactionId}}"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"no fields to update\"\n}"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — cashflow tx cannot accept fromAccountId",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"amount\": 10, \"fromAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\" }"
+                },
+                "url": "{{baseUrl}}/api/transactions/{{transactionId}}"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"fromAccountId\", \"message\": \"not allowed for income or expense transactions\" }\n  ]\n}"
+            },
+            {
+              "name": "404 TRANSACTION_NOT_FOUND",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{ \"amount\": 10 }" },
+                "url": "{{baseUrl}}/api/transactions/00000000-0000-0000-0000-000000000000"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"TRANSACTION_NOT_FOUND\",\n  \"message\": \"transaction not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Transaction",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions/{{transactionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions", "{{transactionId}}"]
+            }
+          },
+          "response": [
+            {
+              "name": "204 No Content",
+              "originalRequest": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/transactions/{{transactionId}}"
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            },
+            {
+              "name": "404 TRANSACTION_NOT_FOUND",
+              "originalRequest": {
+                "method": "DELETE",
+                "url": "{{baseUrl}}/api/transactions/00000000-0000-0000-0000-000000000000"
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"TRANSACTION_NOT_FOUND\",\n  \"message\": \"transaction not found\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
