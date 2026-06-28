@@ -86,7 +86,7 @@ func TestCreateAccount(t *testing.T) {
 				parseBody(t, w, &response)
 				assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
 				assert.Equal(t, "validation failed", response.Message)
-				assert.Equal(t, tc.errorsLen, len(response.Errors))
+				require.Equal(t, tc.errorsLen, len(response.Errors))
 				assert.Equal(t, tc.wantField, response.Errors[0].Field)
 				assert.Equal(t, tc.wantMessage, response.Errors[0].Message)
 			})
