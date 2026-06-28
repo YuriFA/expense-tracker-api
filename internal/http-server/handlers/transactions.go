@@ -105,6 +105,114 @@ func validateTransactionRequest(req TransactionRequest) []FieldError {
 	return errs
 }
 
+type commonTransactionParamsReq struct {
+	AccountId     *string
+	CategoryId    *string
+	FromAccountId *string
+	ToAccountId   *string
+}
+
+func writeTransactionError(
+	c *gin.Context,
+	log *slog.Logger,
+	err error,
+	req commonTransactionParamsReq,
+) {
+	switch {
+	case errors.Is(err, storage.ErrTransactionNotFound):
+		log.Info("transaction not found")
+		writeError(c, http.StatusNotFound, ErrCodeTransactionNotFound, "transaction not found")
+	case errors.Is(err, storage.ErrAccountNotFound):
+		log.Info(
+			"account not found",
+			slog.String("accountId", util.FromPtrOr(req.AccountId, "empty")),
+		)
+		writeError(
+			c,
+			http.StatusUnprocessableEntity,
+			ErrCodeAccountNotFound,
+			"account not found",
+		)
+	case errors.Is(err, storage.ErrCategoryNotFound):
+		log.Info(
+			"category not found",
+			slog.String("categoryId", util.FromPtrOr(req.CategoryId, "empty")),
+		)
+		writeError(
+			c,
+			http.StatusUnprocessableEntity,
+			ErrCodeCategoryNotFound,
+			"category not found",
+		)
+	case errors.Is(err, storage.ErrCategoryTypeMismatch):
+		log.Info(
+			"transaction type does not match category type",
+			slog.String(
+				"categoryId",
+				util.FromPtrOr(req.CategoryId, "empty"),
+			),
+		)
+		writeError(
+			c,
+			http.StatusUnprocessableEntity,
+			ErrCodeCategoryTypeMismatch,
+			"transaction type does not match category type",
+		)
+	case errors.Is(err, storage.ErrSameAccountTransfer):
+		log.Info(
+			"transaction from and to accounts are the same",
+			slog.String(
+				"fromAccountId",
+				util.FromPtrOr(req.FromAccountId, "empty"),
+			),
+			slog.String(
+				"toAccountId",
+				util.FromPtrOr(req.ToAccountId, "empty"),
+			),
+		)
+		writeError(
+			c,
+			http.StatusUnprocessableEntity,
+			ErrCodeSameAccountTransfer,
+			"transaction from and to accounts are the same",
+		)
+	case errors.Is(err, storage.ErrInvalidRefs):
+		log.Info(
+			"invalid references",
+			slog.String(
+				"accountId",
+				util.FromPtrOr(req.AccountId, "empty"),
+			),
+			slog.String(
+				"categoryId",
+				util.FromPtrOr(req.CategoryId, "empty"),
+			),
+			slog.String(
+				"fromAccountId",
+				util.FromPtrOr(req.FromAccountId, "empty"),
+			),
+			slog.String(
+				"toAccountId",
+				util.FromPtrOr(req.ToAccountId, "empty"),
+			),
+		)
+		writeError(
+			c,
+			http.StatusUnprocessableEntity,
+			ErrCodeInvalidRefs,
+			"invalid references",
+		)
+	default:
+		log.Error("failed to create transaction", logger.Error(err))
+		writeError(
+			c,
+			http.StatusInternalServerError,
+			ErrCodeInternal,
+			"failed to create transaction",
+		)
+	}
+}
+
 func (h *Handler) CreateTransaction(c *gin.Context) {
 	op := "handlers.transactions.CreateTransaction"
 
@@ -139,99 +247,13 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		ToAccountId:   req.ToAccountId,
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, storage.ErrAccountNotFound):
-			log.Info(
-				"account not found",
-				slog.String("accountId", util.FromPtrOr(req.AccountId, "empty")),
-			)
-			writeError(
-				c,
-				http.StatusUnprocessableEntity,
-				ErrCodeAccountNotFound,
-				"account not found",
-			)
-		case errors.Is(err, storage.ErrCategoryNotFound):
-			log.Info(
-				"category not found",
-				slog.String("categoryId", util.FromPtrOr(req.CategoryId, "empty")),
-			)
-			writeError(
-				c,
-				http.StatusUnprocessableEntity,
-				ErrCodeCategoryNotFound,
-				"category not found",
-			)
-		case errors.Is(err, storage.ErrCategoryTypeMismatch):
-			log.Info(
-				"transaction type does not match category type",
-				slog.String(
-					"categoryId",
-					util.FromPtrOr(req.CategoryId, "empty"),
-				),
-				slog.String("transactionType", req.Type),
-			)
-			writeError(
-				c,
-				http.StatusUnprocessableEntity,
-				ErrCodeCategoryTypeMismatch,
-				"transaction type does not match category type",
-			)
-		case errors.Is(err, storage.ErrSameAccountTransfer):
-			log.Info(
-				"transaction from and to accounts are the same",
-				slog.String("transactionType", req.Type),
-				slog.String(
-					"fromAccountId",
-					util.FromPtrOr(req.FromAccountId, "empty"),
-				),
-				slog.String(
-					"toAccountId",
-					util.FromPtrOr(req.ToAccountId, "empty"),
-				),
-			)
-			writeError(
-				c,
-				http.StatusUnprocessableEntity,
-				ErrCodeSameAccountTransfer,
-				"transaction from and to accounts are the same",
-			)
-		case errors.Is(err, storage.ErrInvalidRefs):
-			log.Info(
-				"invalid references",
-				slog.String("transactionType", req.Type),
-				slog.String(
-					"accountId",
-					util.FromPtrOr(req.AccountId, "empty"),
-				),
-				slog.String(
-					"categoryId",
-					util.FromPtrOr(req.CategoryId, "empty"),
-				),
-				slog.String(
-					"fromAccountId",
-					util.FromPtrOr(req.FromAccountId, "empty"),
-				),
-				slog.String(
-					"toAccountId",
-					util.FromPtrOr(req.ToAccountId, "empty"),
-				),
-			)
-			writeError(
-				c,
-				http.StatusUnprocessableEntity,
-				ErrCodeInvalidRefs,
-				"invalid references",
-			)
-		default:
-			log.Error("failed to create transaction", logger.Error(err))
-			writeError(
-				c,
-				http.StatusInternalServerError,
-				ErrCodeInternal,
-				"failed to create transaction",
-			)
-		}
+		log.Info("info", slog.String("type", req.Type))
+		writeTransactionError(c, log, err, commonTransactionParamsReq{
+			AccountId:     req.AccountId,
+			CategoryId:    req.CategoryId,
+			FromAccountId: req.FromAccountId,
+			ToAccountId:   req.ToAccountId,
+		})
 		return
 	}
 
@@ -268,88 +290,13 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		ToAccountId:   req.ToAccountId,
 	})
 	if err != nil {
-		switch {
-		case errors.Is(err, storage.ErrAccountNotFound):
-			log.Info("account not found")
-			writeError(
-				c,
-				http.StatusUnprocessableEntity,
-				ErrCodeAccountNotFound,
-				"account not found",
-			)
-		case errors.Is(err, storage.ErrCategoryNotFound):
-			log.Info("category not found")
-			writeError(
-				c,
-				http.StatusUnprocessableEntity,
-				ErrCodeCategoryNotFound,
-				"category not found",
-			)
-		case errors.Is(err, storage.ErrCategoryTypeMismatch):
-			log.Info("transaction type does not match category type")
-			writeError(
-				c,
-				http.StatusUnprocessableEntity,
-				ErrCodeCategoryTypeMismatch,
-				"transaction type does not match category type",
-			)
-		case errors.Is(err, storage.ErrTransactionNotFound):
-			log.Info("transaction not found", slog.String("id", id))
-			writeError(c, http.StatusNotFound, ErrCodeTransactionNotFound, "transaction not found")
-		case errors.Is(err, storage.ErrSameAccountTransfer):
-			log.Info(
-				"transaction from and to accounts are the same",
-				slog.String(
-					"fromAccountId",
-					util.FromPtrOr(req.FromAccountId, "empty"),
-				),
-				slog.String(
-					"toAccountId",
-					util.FromPtrOr(req.ToAccountId, "empty"),
-				),
-			)
-			writeError(
-				c,
-				http.StatusUnprocessableEntity,
-				ErrCodeSameAccountTransfer,
-				"transaction from and to accounts are the same",
-			)
-		case errors.Is(err, storage.ErrInvalidRefs):
-			log.Info(
-				"invalid references",
-				slog.String(
-					"accountId",
-					util.FromPtrOr(req.AccountId, "empty"),
-				),
-				slog.String(
-					"categoryId",
-					util.FromPtrOr(req.CategoryId, "empty"),
-				),
-				slog.String(
-					"fromAccountId",
-					util.FromPtrOr(req.FromAccountId, "empty"),
-				),
-				slog.String(
-					"toAccountId",
-					util.FromPtrOr(req.ToAccountId, "empty"),
-				),
-			)
-			writeError(
-				c,
-				http.StatusUnprocessableEntity,
-				ErrCodeInvalidRefs,
-				"invalid references",
-			)
-		default:
-			log.Error("failed to update transaction", logger.Error(err))
-			writeError(
-				c,
-				http.StatusInternalServerError,
-				ErrCodeInternal,
-				"failed to update transaction",
-			)
-		}
-
+		log.Info("info", slog.String("id", id))
+		writeTransactionError(c, log, err, commonTransactionParamsReq{
+			AccountId:     req.AccountId,
+			CategoryId:    req.CategoryId,
+			FromAccountId: req.FromAccountId,
+			ToAccountId:   req.ToAccountId,
+		})
 		return
 	}
 
