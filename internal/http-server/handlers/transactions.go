@@ -105,6 +105,39 @@ func validateTransactionRequest(req TransactionRequest) []FieldError {
 	return errs
 }
 
+func validateUpdateTransactionRequest(currentType string, req UpdateTransactionRequest) []FieldError {
+	var errs []FieldError
+	switch currentType {
+	case "income", "expense":
+		if req.FromAccountId != nil {
+			errs = append(errs, FieldError{
+				Field:   "fromAccountId",
+				Message: "not allowed for income or expense transactions",
+			})
+		}
+		if req.ToAccountId != nil {
+			errs = append(errs, FieldError{
+				Field:   "toAccountId",
+				Message: "not allowed for income or expense transactions",
+			})
+		}
+	case "transfer":
+		if req.AccountId != nil {
+			errs = append(errs, FieldError{
+				Field:   "accountId",
+				Message: "not allowed for transfer transactions",
+			})
+		}
+		if req.CategoryId != nil {
+			errs = append(errs, FieldError{
+				Field:   "categoryId",
+				Message: "not allowed for transfer transactions",
+			})
+		}
+	}
+	return errs
+}
+
 type commonTransactionParamsReq struct {
 	AccountId     *string
 	CategoryId    *string
@@ -279,6 +312,29 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 	}
 
 	id := c.Param("id")
+
+	current, err := h.DB.GetTransaction(id)
+	if err != nil {
+		if errors.Is(err, storage.ErrTransactionNotFound) {
+			log.Info("transaction not found", slog.String("id", id))
+			writeError(c, http.StatusNotFound, ErrCodeTransactionNotFound, "transaction not found")
+			return
+		}
+		log.Error("failed to get transaction", logger.Error(err))
+		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to get transaction")
+		return
+	}
+
+	if errs := validateUpdateTransactionRequest(current.Type, req); len(errs) > 0 {
+		c.JSON(http.StatusBadRequest, ValidationErrorResponse{
+			ErrorResponse: ErrorResponse{
+				Code:    ErrCodeValidationFailed,
+				Message: "validation failed",
+			},
+			Errors: errs,
+		})
+		return
+	}
 
 	transaction, err := h.DB.UpdateTransaction(id, storage.UpdateTransactionParams{
 		Amount:        req.Amount,

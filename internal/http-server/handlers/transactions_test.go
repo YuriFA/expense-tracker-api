@@ -479,6 +479,29 @@ func TestUpdateTransaction(t *testing.T) {
 		assert.Equal(t, "account not found", response.Message)
 	})
 
+	t.Run("TypeParamIgnored", func(t *testing.T) {
+		router, db := setupTestEnv(t)
+
+		existing := seedCommonTransaction(t, db, "income")
+
+		req := newJSONRequest(
+			t,
+			http.MethodPatch,
+			"/api/transactions/"+existing.Id,
+			map[string]any{
+				"type":        "expense",
+				"description": "Updated Transaction",
+			},
+		)
+		w := performRequest(t, router, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response storage.Transaction
+		parseBody(t, w, &response)
+		assert.Equal(t, existing.Type, response.Type)
+		assert.Equal(t, "Updated Transaction", response.Description)
+	})
+
 	t.Run("NonExistCategory", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
@@ -550,6 +573,74 @@ func TestUpdateTransaction(t *testing.T) {
 		parseBody(t, w, &response)
 		assert.Equal(t, handlers.ErrCodeTransactionNotFound, response.Code)
 		assert.Equal(t, "transaction not found", response.Message)
+	})
+
+	t.Run("ShapeViolation", func(t *testing.T) {
+		router, db := setupTestEnv(t)
+
+		cashflowTransaction := seedCommonTransaction(t, db, "income")
+		transferTransaction := seedCommonTransaction(t, db, "transfer")
+
+		cases := map[string]struct {
+			id          string
+			body        map[string]any
+			wantField   string
+			wantMessage string
+		}{
+			"cashflow with fromAccountId": {
+				id: cashflowTransaction.Id,
+				body: map[string]any{
+					"fromAccountId": uuid.NewString(),
+				},
+				wantField:   "fromAccountId",
+				wantMessage: "not allowed for income or expense transactions",
+			},
+			"cashflow with toAccountId": {
+				id: cashflowTransaction.Id,
+				body: map[string]any{
+					"toAccountId": uuid.NewString(),
+				},
+				wantField:   "toAccountId",
+				wantMessage: "not allowed for income or expense transactions",
+			},
+			"transfer with accountId": {
+				id: transferTransaction.Id,
+				body: map[string]any{
+					"accountId": uuid.NewString(),
+				},
+				wantField:   "accountId",
+				wantMessage: "not allowed for transfer transactions",
+			},
+			"transfer with categoryId": {
+				id: transferTransaction.Id,
+				body: map[string]any{
+					"categoryId": uuid.NewString(),
+				},
+				wantField:   "categoryId",
+				wantMessage: "not allowed for transfer transactions",
+			},
+		}
+
+		for name, tc := range cases {
+			t.Run(name, func(t *testing.T) {
+				req := newJSONRequest(
+					t,
+					http.MethodPatch,
+					"/api/transactions/"+tc.id,
+					tc.body,
+				)
+				w := performRequest(t, router, req)
+
+				assert.Equal(t, http.StatusBadRequest, w.Code)
+				var response handlers.ValidationErrorResponse
+				parseBody(t, w, &response)
+				assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+				assert.Equal(t, "validation failed", response.Message)
+				assert.Equal(t, 1, len(response.Errors))
+				assert.Equal(t, tc.wantField, response.Errors[0].Field)
+				assert.Equal(t, tc.wantMessage, response.Errors[0].Message)
+			})
+		}
 	})
 }
 

@@ -215,7 +215,7 @@ type Transaction = CashflowTransaction | TransferTransaction
 | `GET` | `/api/transactions` | Список с фильтрами (см. ниже) |
 | `POST` | `/api/transactions` | Создание. Сервер валидирует ссылки; **422** при нарушении |
 | `GET` | `/api/transactions/:id` | Одна транзакция |
-| `PATCH` | `/api/transactions/:id` | Обновление. Сервер обновляет `updatedAt` |
+| `PATCH` | `/api/transactions/:id` | Обновление. `type` иммутабелен; сервер обновляет `updatedAt` |
 | `DELETE` | `/api/transactions/:id` | Удаление |
 
 ### Query-параметры `GET /api/transactions`
@@ -241,6 +241,12 @@ type Transaction = CashflowTransaction | TransferTransaction
 
 - **Cashflow:** `accountId` существует; `categoryId` существует и `category.type === transaction.type`
 - **Transfer:** `fromAccountId` и `toAccountId` существуют и различаются (`SAME_ACCOUNT_TRANSFER`)
+
+**PATCH-семантика:**
+
+- Поле `type` иммутабельно — его нельзя изменить после создания. Попытка передать `type` в теле PATCH игнорируется (поле отсутствует в `UpdateTransactionRequest`).
+- Тип транзакции определяет, какие ссылочные поля валидны (см. shape-правила выше): нельзя PATCH'ем добавить `fromAccountId`/`toAccountId` в cashflow-транзакцию или `accountId`/`categoryId` в transfer.
+- Ссылочные поля, не соответствующие `type`, остаются `null` в storage.
 
 ### Примеры тела запроса
 
