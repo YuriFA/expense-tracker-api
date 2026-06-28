@@ -253,6 +253,32 @@ func TestCreateTransaction(t *testing.T) {
 				wantMessage: "categoryId must be a valid UUID",
 				errorsLen:   1,
 			},
+			"zero amount": {
+				body: map[string]any{
+					"type":        "income",
+					"amount":      0.0,
+					"description": "Salary for June",
+					"occurredAt":  occurredAt,
+					"accountId":   account.Id,
+					"categoryId":  category.Id,
+				},
+				wantField:   "amount",
+				wantMessage: "amount is required",
+				errorsLen:   1,
+			},
+			"negative amount": {
+				body: map[string]any{
+					"type":        "income",
+					"amount":      -1000.0,
+					"description": "Salary for June",
+					"occurredAt":  occurredAt,
+					"accountId":   account.Id,
+					"categoryId":  category.Id,
+				},
+				wantField:   "amount",
+				wantMessage: "amount must be greater than 0",
+				errorsLen:   1,
+			},
 			"empty body": {
 				body:        map[string]any{},
 				wantField:   "type",
@@ -835,6 +861,12 @@ func TestListTransactions(t *testing.T) {
 			{
 				params:   map[string]string{"type": "expense", "categoryId": *seeded4.CategoryId},
 				expected: []*storage.Transaction{seeded4},
+			},
+			{
+				params: map[string]string{
+					"categoryId": *seeded1.CategoryId,
+				},
+				expected: []*storage.Transaction{seeded1},
 			},
 			{
 				params: map[string]string{

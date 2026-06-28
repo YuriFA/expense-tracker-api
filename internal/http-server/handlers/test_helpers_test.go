@@ -140,6 +140,9 @@ func seedCommonTransaction(
 			FromAccountId: &accountFrom.Id,
 			ToAccountId:   &accountTo.Id,
 		})
+	default:
+		t.Fatalf("unsupported transaction type: %s", transactionType)
+		return nil
 	}
 
 	return transaction
@@ -177,6 +180,9 @@ func seedTransactionAt(
 			FromAccountId: &fromAccount.Id,
 			ToAccountId:   &toaccount.Id,
 		})
+	default:
+		t.Fatalf("unsupported transaction type: %s", transactionType)
+		return nil
 	}
 
 	return transaction
