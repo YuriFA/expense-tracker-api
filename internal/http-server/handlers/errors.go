@@ -66,6 +66,8 @@ func formatValidationMessage(fe validator.FieldError) string {
 	switch fe.Tag() {
 	case "required":
 		return fe.Field() + " is required"
+	case "gt":
+		return fe.Field() + " must be greater than " + fe.Param()
 	case "gte":
 		return fe.Field() + " must be greater than or equal to " + fe.Param()
 	case "min":
