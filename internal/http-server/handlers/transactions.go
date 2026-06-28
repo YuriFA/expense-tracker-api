@@ -280,7 +280,6 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		ToAccountId:   req.ToAccountId,
 	})
 	if err != nil {
-		log.Info("info", slog.String("type", req.Type))
 		writeTransactionError(c, log, err, commonTransactionParamsReq{
 			AccountId:     req.AccountId,
 			CategoryId:    req.CategoryId,
@@ -346,7 +345,6 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		ToAccountId:   req.ToAccountId,
 	})
 	if err != nil {
-		log.Info("info", slog.String("id", id))
 		writeTransactionError(c, log, err, commonTransactionParamsReq{
 			AccountId:     req.AccountId,
 			CategoryId:    req.CategoryId,
