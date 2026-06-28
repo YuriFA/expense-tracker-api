@@ -1,7 +1,7 @@
-include .env
-export
+-include .env
+export CONFIG_PATH
 
-.PHONY: run build tidy
+.PHONY: run build tidy test
 
 run:
 	@echo "Starting Expense Tracker API..."
@@ -15,3 +15,6 @@ tidy:
 	go mod tidy
 
 dev: tidy run
+
+test:
+	go test ./... -v
