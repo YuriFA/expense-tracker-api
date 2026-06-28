@@ -572,15 +572,18 @@ func TestGetAccountBalances(t *testing.T) {
 		w := performRequest(t, router, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		var response []storage.AccountBalance
+		var response struct {
+			Balances []storage.AccountBalance `json:"balances"`
+			NetWorth float64                  `json:"netWorth"`
+		}
 		parseBody(t, w, &response)
-		assert.Equal(t, 1, len(response))
-		assert.Equal(t, account.Id, response[0].Id)
-		assert.Equal(t, account.Name, response[0].Name)
+		assert.Equal(t, 1, len(response.Balances))
+		assert.Equal(t, account.Id, response.Balances[0].Id)
+		assert.Equal(t, account.Name, response.Balances[0].Name)
 		assert.Equal(
 			t,
 			account.OpeningBalance+account.ManualAdjustment+transaction.Amount,
-			response[0].Balance,
+			response.Balances[0].Balance,
 		)
 	})
 
@@ -593,15 +596,18 @@ func TestGetAccountBalances(t *testing.T) {
 		w := performRequest(t, router, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		var response []storage.AccountBalance
+		var response struct {
+			Balances []storage.AccountBalance `json:"balances"`
+			NetWorth float64                  `json:"netWorth"`
+		}
 		parseBody(t, w, &response)
-		assert.Equal(t, 1, len(response))
-		assert.Equal(t, account.Id, response[0].Id)
-		assert.Equal(t, account.Name, response[0].Name)
+		assert.Equal(t, 1, len(response.Balances))
+		assert.Equal(t, account.Id, response.Balances[0].Id)
+		assert.Equal(t, account.Name, response.Balances[0].Name)
 		assert.Equal(
 			t,
 			account.OpeningBalance+account.ManualAdjustment,
-			response[0].Balance,
+			response.Balances[0].Balance,
 		)
 	})
 
@@ -612,9 +618,12 @@ func TestGetAccountBalances(t *testing.T) {
 		w := performRequest(t, router, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		var response []storage.AccountBalance
+		var response struct {
+			Balances []storage.AccountBalance `json:"balances"`
+			NetWorth float64                  `json:"netWorth"`
+		}
 		parseBody(t, w, &response)
-		assert.Equal(t, 0, len(response))
+		assert.Equal(t, 0, len(response.Balances))
 	})
 
 	t.Run("MultipleAccountsWithTransactions", func(t *testing.T) {
@@ -663,30 +672,40 @@ func TestGetAccountBalances(t *testing.T) {
 			AccountId:   &account2.Id,
 			CategoryId:  &incomeCategory.Id,
 		})
+		acc2transaction2 := seedTransaction(t, db, storage.CreateTransactionParams{
+			Type:          "transfer",
+			Amount:        50.0,
+			Description:   "Transfer",
+			OccurredAt:    time.Now(),
+			FromAccountId: &account2.Id,
+			ToAccountId:   &account1.Id,
+		})
 
 		req := httptest.NewRequest(http.MethodGet, "/api/accounts/balances", nil)
 		w := performRequest(t, router, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		var response []storage.AccountBalance
+		var response struct {
+			Balances []storage.AccountBalance `json:"balances"`
+			NetWorth float64                  `json:"netWorth"`
+		}
 		parseBody(t, w, &response)
-		assert.Equal(t, 2, len(response))
+		assert.Equal(t, 2, len(response.Balances))
+		acc1ExpectedBalance := account1.OpeningBalance + account1.ManualAdjustment - acc1transaction.Amount + acc1transaction2.Amount + acc2transaction2.Amount
+		acc2ExpectedBalance := account2.OpeningBalance + account2.ManualAdjustment + acc2transaction.Amount - acc2transaction2.Amount
+		assert.Equal(
+			t,
+			acc1ExpectedBalance+acc2ExpectedBalance,
+			response.NetWorth,
+		)
 
-		for _, accBalance := range response {
+		for _, accBalance := range response.Balances {
 			if accBalance.Id == account1.Id {
-				assert.Equal(
-					t,
-					account1.OpeningBalance+account1.ManualAdjustment-acc1transaction.Amount+acc1transaction2.Amount,
-					accBalance.Balance,
-				)
+				assert.Equal(t, acc1ExpectedBalance, accBalance.Balance)
 			}
 
 			if accBalance.Id == account2.Id {
-				assert.Equal(
-					t,
-					account2.OpeningBalance+account2.ManualAdjustment+acc2transaction.Amount,
-					accBalance.Balance,
-				)
+				assert.Equal(t, acc2ExpectedBalance, accBalance.Balance)
 			}
 
 		}

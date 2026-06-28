@@ -151,13 +151,21 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 	c.JSON(http.StatusOK, accounts)
 }
 
+func calculateNetWorth(balances []storage.AccountBalance) float64 {
+	var netWorth float64
+	for _, balance := range balances {
+		netWorth += balance.Balance
+	}
+	return netWorth
+}
+
 func (h *Handler) GetAccountBalances(c *gin.Context) {
 	op := "handlers.accounts.GetAccountBalances"
 	log := h.Logger.With(
 		slog.String("op", op),
 	)
 
-	accountBalances, err := h.DB.GetAccountBalances()
+	balances, err := h.DB.GetAccountBalances()
 	if err != nil {
 		log.Error("failed to get account balances", logger.Error(err))
 		writeError(
@@ -169,5 +177,8 @@ func (h *Handler) GetAccountBalances(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, accountBalances)
+	c.JSON(http.StatusOK, gin.H{
+		"balances": balances,
+		"netWorth": calculateNetWorth(balances),
+	})
 }
