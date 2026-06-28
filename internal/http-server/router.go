@@ -1,17 +1,19 @@
 package httpserver
 
 import (
+	"log/slog"
 	"reflect"
 	"strings"
 
 	"expense-tracker-api/internal/http-server/handlers"
+	"expense-tracker-api/internal/http-server/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 )
 
-func NewRouter(handlers *handlers.Handler) *gin.Engine {
+func NewRouter(log *slog.Logger, handlers *handlers.Handler) *gin.Engine {
 	// Format validation error messages to use JSON field names instead of struct field names
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterTagNameFunc(func(fld reflect.StructField) string {
@@ -26,6 +28,7 @@ func NewRouter(handlers *handlers.Handler) *gin.Engine {
 	router := gin.New()
 
 	router.Use(gin.Recovery())
+	router.Use(middleware.SlogLogger(log))
 
 	api := router.Group("/api")
 	api.GET("/accounts", handlers.ListAccounts)

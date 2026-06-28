@@ -26,7 +26,7 @@ func setupTestEnv(t *testing.T) (*gin.Engine, *sqlite.Storage) {
 	db := sqlite.NewTestDB(t)
 	log := logger.NewDiscardLogger()
 	h := handlers.NewHandler(log, db)
-	return httpserver.NewRouter(h), db
+	return httpserver.NewRouter(log, h), db
 }
 
 func newJSONRequest(t *testing.T, method, path string, body any) *http.Request {
