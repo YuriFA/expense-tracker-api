@@ -19,8 +19,8 @@ func TestCreateTransaction(t *testing.T) {
 	account2 := seedAccount(t, db, 1000.0)
 
 	cases := map[string]struct {
-		params    storage.CreateTransactionParams
-		respError bool
+		params      storage.CreateTransactionParams
+		respError   bool
 		expectedErr error
 	}{
 		"cashflow with existing category and account": {
@@ -43,7 +43,7 @@ func TestCreateTransaction(t *testing.T) {
 				AccountId:   &account.Id,
 				CategoryId:  &category.Id,
 			},
-			respError: true,
+			respError:   true,
 			expectedErr: storage.ErrCategoryTypeMismatch,
 		},
 		"cashflow with non existing category and account": {
@@ -55,7 +55,7 @@ func TestCreateTransaction(t *testing.T) {
 				AccountId:   new(uuid.NewString()),
 				CategoryId:  new(uuid.NewString()),
 			},
-			respError: true,
+			respError:   true,
 			expectedErr: storage.ErrAccountNotFound,
 		},
 		"transfer with existing account": {
@@ -78,7 +78,7 @@ func TestCreateTransaction(t *testing.T) {
 				FromAccountId: &account.Id,
 				ToAccountId:   new(uuid.NewString()),
 			},
-			respError: true,
+			respError:   true,
 			expectedErr: storage.ErrAccountNotFound,
 		},
 		"transfer with same from and to account": {
@@ -90,7 +90,7 @@ func TestCreateTransaction(t *testing.T) {
 				FromAccountId: &account.Id,
 				ToAccountId:   &account.Id,
 			},
-			respError: true,
+			respError:   true,
 			expectedErr: storage.ErrSameAccountTransfer,
 		},
 	}
@@ -169,9 +169,9 @@ func TestUpdateTransaction(t *testing.T) {
 			t,
 			db,
 			seedTransferTransactionParams{
-				amount:          100,
-				fromAccountId:   account1.Id,
-				toAccountId:     account2.Id,
+				amount:        100,
+				fromAccountId: account1.Id,
+				toAccountId:   account2.Id,
 			},
 		)
 		params := storage.UpdateTransactionParams{
@@ -225,9 +225,9 @@ func TestUpdateTransaction(t *testing.T) {
 			t,
 			db,
 			seedTransferTransactionParams{
-				amount:          1000,
-				fromAccountId:   account1.Id,
-				toAccountId:     account2.Id,
+				amount:        1000,
+				fromAccountId: account1.Id,
+				toAccountId:   account2.Id,
 			},
 		)
 		params := storage.UpdateTransactionParams{
@@ -251,9 +251,9 @@ func TestUpdateTransaction(t *testing.T) {
 			t,
 			db,
 			seedTransferTransactionParams{
-				amount:          1000,
-				fromAccountId:   account1.Id,
-				toAccountId:     account2.Id,
+				amount:        1000,
+				fromAccountId: account1.Id,
+				toAccountId:   account2.Id,
 			},
 		)
 		params := storage.UpdateTransactionParams{
@@ -262,6 +262,49 @@ func TestUpdateTransaction(t *testing.T) {
 
 		_, err := db.UpdateTransaction(transaction.Id, params)
 		require.ErrorIs(t, err, storage.ErrSameAccountTransfer)
+	})
+
+	t.Run("transfer with cashflow params", func(t *testing.T) {
+		account1 := seedAccount(t, db, 200.0)
+		account2 := seedAccount(t, db, 300.0)
+		transaction := seedTransferTransaction(
+			t,
+			db,
+			seedTransferTransactionParams{
+				amount:        1000,
+				fromAccountId: account1.Id,
+				toAccountId:   account2.Id,
+			},
+		)
+		params := storage.UpdateTransactionParams{
+			AccountId:     new(account1.Id),
+			FromAccountId: new(account2.Id),
+		}
+
+		_, err := db.UpdateTransaction(transaction.Id, params)
+		require.ErrorIs(t, err, storage.ErrInvalidRefs)
+	})
+
+	t.Run("cashflow with transfer params", func(t *testing.T) {
+		account, category := seedAccountAndCategory(t, db, "income")
+		expenseCategory := seedCategory(t, db, "expense")
+		transaction := seedCashflowTransaction(
+			t,
+			db,
+			seedCashflowTransactionParams{
+				amount:          1000,
+				accountId:       account.Id,
+				categoryId:      category.Id,
+				transactionType: "income",
+			},
+		)
+		params := storage.UpdateTransactionParams{
+			CategoryId:    new(expenseCategory.Id),
+			FromAccountId: new(account.Id),
+		}
+
+		_, err := db.UpdateTransaction(transaction.Id, params)
+		require.ErrorIs(t, err, storage.ErrInvalidRefs)
 	})
 
 	t.Run("wrong transaction id return not found", func(t *testing.T) {
@@ -376,9 +419,9 @@ func TestGetTransaction(t *testing.T) {
 			t,
 			db,
 			seedTransferTransactionParams{
-				amount:          100,
-				fromAccountId:   account1.Id,
-				toAccountId:     account2.Id,
+				amount:        100,
+				fromAccountId: account1.Id,
+				toAccountId:   account2.Id,
 			},
 		)
 

@@ -21,6 +21,10 @@ type validateTransactionRefsParams struct {
 func (s *Storage) validateTransactionRefs(params validateTransactionRefsParams) error {
 	switch params.Type {
 	case "income", "expense":
+		if params.FromAccountId != nil || params.ToAccountId != nil {
+			return storage.ErrInvalidRefs
+		}
+
 		if params.AccountId == nil || params.CategoryId == nil {
 			return storage.ErrInvalidRefs
 		}
@@ -40,6 +44,10 @@ func (s *Storage) validateTransactionRefs(params validateTransactionRefsParams) 
 			return storage.ErrCategoryTypeMismatch
 		}
 	case "transfer":
+		if params.AccountId != nil || params.CategoryId != nil {
+			return storage.ErrInvalidRefs
+		}
+
 		if params.FromAccountId == nil || params.ToAccountId == nil {
 			return storage.ErrInvalidRefs
 		}
