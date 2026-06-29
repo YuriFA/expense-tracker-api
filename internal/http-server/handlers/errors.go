@@ -45,6 +45,16 @@ func writeError(c *gin.Context, status int, code, message string) {
 	})
 }
 
+func writeValidationFieldErrors(c *gin.Context, errors []FieldError) {
+	c.JSON(http.StatusBadRequest, ValidationErrorResponse{
+		ErrorResponse: ErrorResponse{
+			Code:    ErrCodeValidationFailed,
+			Message: "validation failed",
+		},
+		Errors: errors,
+	})
+}
+
 func writeValidationError(c *gin.Context, verrs validator.ValidationErrors) {
 	fields := make([]FieldError, len(verrs))
 	for i, fe := range verrs {
@@ -53,13 +63,7 @@ func writeValidationError(c *gin.Context, verrs validator.ValidationErrors) {
 			Message: formatValidationMessage(fe),
 		}
 	}
-	c.JSON(http.StatusBadRequest, ValidationErrorResponse{
-		ErrorResponse: ErrorResponse{
-			Code:    ErrCodeValidationFailed,
-			Message: "validation failed",
-		},
-		Errors: fields,
-	})
+	writeValidationFieldErrors(c, fields)
 }
 
 func formatValidationMessage(fe validator.FieldError) string {

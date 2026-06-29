@@ -105,7 +105,10 @@ func validateTransactionRequest(req TransactionRequest) []FieldError {
 	return errs
 }
 
-func validateUpdateTransactionRequest(currentType string, req UpdateTransactionRequest) []FieldError {
+func validateUpdateTransactionRequest(
+	currentType string,
+	req UpdateTransactionRequest,
+) []FieldError {
 	var errs []FieldError
 	switch currentType {
 	case "income", "expense":
@@ -259,13 +262,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 	}
 
 	if errs := validateTransactionRequest(req); len(errs) > 0 {
-		c.JSON(http.StatusBadRequest, ValidationErrorResponse{
-			ErrorResponse: ErrorResponse{
-				Code:    ErrCodeValidationFailed,
-				Message: "validation failed",
-			},
-			Errors: errs,
-		})
+		writeValidationFieldErrors(c, errs)
 		return
 	}
 
@@ -325,13 +322,7 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 	}
 
 	if errs := validateUpdateTransactionRequest(current.Type, req); len(errs) > 0 {
-		c.JSON(http.StatusBadRequest, ValidationErrorResponse{
-			ErrorResponse: ErrorResponse{
-				Code:    ErrCodeValidationFailed,
-				Message: "validation failed",
-			},
-			Errors: errs,
-		})
+		writeValidationFieldErrors(c, errs)
 		return
 	}
 
