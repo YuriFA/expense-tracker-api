@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"expense-tracker-api/internal/config"
 	httpserver "expense-tracker-api/internal/http-server"
@@ -41,14 +45,31 @@ func main() {
 	srv := &http.Server{
 		Addr:         cfg.Address,
 		Handler:      router,
-		ReadTimeout:  cfg.Timeout,
-		WriteTimeout: cfg.Timeout,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
 		IdleTimeout:  cfg.IdleTimeout,
 	}
 
-	if err := srv.ListenAndServe(); err != nil {
-		log.Error("failed to start server", logger.Error(err))
-	}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("failed to start server", logger.Error(err))
+			os.Exit(1)
+		}
+	}()
 
-	log.Error("Server stopped unexpectedly")
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quit
+	log.Info("shutting down server", slog.String("signal", sig.String()))
+
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.WriteTimeout)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Error("Server forced to shutdown", logger.Error(err))
+		os.Exit(1)
+	}
+	if err := db.Close(); err != nil {
+		log.Error("failed to close database", logger.Error(err))
+	}
+	log.Info("Server exiting")
 }
