@@ -17,4 +17,4 @@ tidy:
 dev: tidy run
 
 test:
-	go test ./... -v
+	go test ./...
