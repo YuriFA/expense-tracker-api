@@ -4,10 +4,12 @@ import (
 	"log/slog"
 	"reflect"
 	"strings"
+	"time"
 
 	"expense-tracker-api/internal/http-server/handlers"
 	"expense-tracker-api/internal/http-server/middleware"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
@@ -26,7 +28,14 @@ func NewRouter(log *slog.Logger, handlers *handlers.Handler) *gin.Engine {
 	}
 
 	router := gin.New()
-
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"https://localhost:5173", "http://localhost:5174"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 	router.Use(gin.Recovery())
 	router.Use(middleware.SlogLogger(log))
 
