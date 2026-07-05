@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Expense Tracker API",
-    "description": "REST API collection for the Expense Tracker backend (Gin + SQLite).\n\nBase path: `/api`. All dates are ISO 8601 in UTC. Server-generated fields:\n`id`, `createdAt`, `updatedAt`.\n\nRun `Create Account`, `Create Category`, `Create Income Transaction` first —\ntheir `Tests` scripts capture the generated IDs into the active environment\n(`accountId`, `categoryId`, `transactionId`), so subsequent GET/PATCH/DELETE\nrequests just work.",
+    "description": "REST API collection for the Expense Tracker backend (Gin + SQLite).\n\nBase path: `/api`. All dates are ISO 8601 in UTC. Server-generated fields:\n`id`, `createdAt`, `updatedAt`.\n\n**Money:** all monetary fields (`amount`, `openingBalance`, `manualAdjustment`,\n`balance`, `netWorth`) are `integer` (int64) in **minor units** (cents for\nUSD/EUR/RUB). $12.50 → `1250`. No fractional part on the wire.\n\nRun `Create Account`, `Create Category`, `Create Income Transaction` first —\ntheir `Tests` scripts capture the generated IDs into the active environment\n(`accountId`, `categoryId`, `transactionId`), so subsequent GET/PATCH/DELETE\nrequests just work.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -33,7 +33,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "[\n  {\n    \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"name\": \"Debit card\",\n    \"balance\": 850,\n    \"openingBalance\": 1000,\n    \"manualAdjustment\": 0,\n    \"createdAt\": \"2026-06-01T10:00:00Z\",\n    \"updatedAt\": \"2026-06-14T08:30:00Z\"\n  },\n  {\n    \"id\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\",\n    \"name\": \"Savings\",\n    \"balance\": 5150,\n    \"openingBalance\": 5000,\n    \"manualAdjustment\": 0,\n    \"createdAt\": \"2026-06-01T10:05:00Z\",\n    \"updatedAt\": \"2026-06-14T10:00:00Z\"\n  }\n]"
+              "body": "[\n  {\n    \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"name\": \"Debit card\",\n    \"currency\": \"USD\",\n    \"balance\": 85000,\n    \"openingBalance\": 100000,\n    \"manualAdjustment\": 0,\n    \"createdAt\": \"2026-06-01T10:00:00Z\",\n    \"updatedAt\": \"2026-06-14T08:30:00Z\"\n  },\n  {\n    \"id\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\",\n    \"name\": \"Savings\",\n    \"currency\": \"USD\",\n    \"balance\": 515000,\n    \"openingBalance\": 500000,\n    \"manualAdjustment\": 0,\n    \"createdAt\": \"2026-06-01T10:05:00Z\",\n    \"updatedAt\": \"2026-06-14T10:00:00Z\"\n  }\n]"
             }
           ]
         },
@@ -64,7 +64,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Debit card\",\n  \"openingBalance\": 1000\n}",
+              "raw": "{\n  \"name\": \"Debit card\",\n  \"currency\": \"USD\",\n  \"openingBalance\": 100000\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -81,14 +81,14 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Debit card\",\n  \"openingBalance\": 1000\n}"
+                  "raw": "{\n  \"name\": \"Debit card\",\n  \"currency\": \"USD\",\n  \"openingBalance\": 100000\n}"
                 },
                 "url": "{{baseUrl}}/api/accounts"
               },
               "status": "Created",
               "code": 201,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card\",\n  \"balance\": 1000,\n  \"openingBalance\": 1000,\n  \"manualAdjustment\": 0,\n  \"createdAt\": \"2026-06-14T08:30:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
+              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card\",\n  \"currency\": \"USD\",\n  \"balance\": 100000,\n  \"openingBalance\": 100000,\n  \"manualAdjustment\": 0,\n  \"createdAt\": \"2026-06-14T08:30:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — missing required fields",
@@ -104,7 +104,7 @@
               "status": "Bad Request",
               "code": 400,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"name\", \"message\": \"name is required\" },\n    { \"field\": \"openingBalance\", \"message\": \"openingBalance is required\" }\n  ]\n}"
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"name\", \"message\": \"name is required\" },\n    { \"field\": \"openingBalance\", \"message\": \"openingBalance is required\" },\n    { \"field\": \"currency\", \"message\": \"currency is required\" }\n  ]\n}"
             }
           ]
         },
@@ -129,7 +129,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card\",\n  \"balance\": 850,\n  \"openingBalance\": 1000,\n  \"manualAdjustment\": 0,\n  \"createdAt\": \"2026-06-01T10:00:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
+              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card\",\n  \"currency\": \"USD\",\n  \"balance\": 85000,\n  \"openingBalance\": 100000,\n  \"manualAdjustment\": 0,\n  \"createdAt\": \"2026-06-01T10:00:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
             },
             {
               "name": "404 ACCOUNT_NOT_FOUND",
@@ -154,7 +154,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Debit card (renamed)\",\n  \"manualAdjustment\": -50\n}",
+              "raw": "{\n  \"name\": \"Debit card (renamed)\",\n  \"manualAdjustment\": -5000\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -171,14 +171,14 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Debit card (renamed)\",\n  \"manualAdjustment\": -50\n}"
+                  "raw": "{\n  \"name\": \"Debit card (renamed)\",\n  \"manualAdjustment\": -5000\n}"
                 },
                 "url": "{{baseUrl}}/api/accounts/{{accountId}}"
               },
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card (renamed)\",\n  \"balance\": 950,\n  \"openingBalance\": 1000,\n  \"manualAdjustment\": -50,\n  \"createdAt\": \"2026-06-01T10:00:00Z\",\n  \"updatedAt\": \"2026-06-14T09:00:00Z\"\n}"
+              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card (renamed)\",\n  \"currency\": \"USD\",\n  \"balance\": 95000,\n  \"openingBalance\": 100000,\n  \"manualAdjustment\": -5000,\n  \"createdAt\": \"2026-06-01T10:00:00Z\",\n  \"updatedAt\": \"2026-06-14T09:00:00Z\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — no fields to update",
@@ -289,7 +289,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"balances\": [\n    { \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\", \"name\": \"Debit card\", \"balance\": 850 },\n    { \"id\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\", \"name\": \"Savings\", \"balance\": 5150 }\n  ],\n  \"netWorth\": 6000\n}"
+              "body": "{\n  \"balances\": [\n    { \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\", \"name\": \"Debit card\", \"currency\": \"USD\", \"balance\": 85000 },\n    { \"id\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\", \"name\": \"Savings\", \"currency\": \"USD\", \"balance\": 515000 }\n  ],\n  \"netWorth\": 600000\n}"
             }
           ]
         }
@@ -616,7 +616,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "[\n  {\n    \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n    \"type\": \"expense\",\n    \"amount\": 12.5,\n    \"description\": \"Coffee\",\n    \"occurredAt\": \"2026-06-14T08:30:00Z\",\n    \"createdAt\": \"2026-06-14T08:31:00Z\",\n    \"updatedAt\": \"2026-06-14T08:31:00Z\",\n    \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n  },\n  {\n    \"id\": \"a2b3c4d5-e6f7-8901-2345-67890abcdef1\",\n    \"type\": \"transfer\",\n    \"amount\": 500,\n    \"description\": \"Move to savings\",\n    \"occurredAt\": \"2026-06-14T10:00:00Z\",\n    \"createdAt\": \"2026-06-14T10:01:00Z\",\n    \"updatedAt\": \"2026-06-14T10:01:00Z\",\n    \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n  }\n]"
+              "body": "[\n  {\n    \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n    \"type\": \"expense\",\n    \"amount\": 1250,\n    \"description\": \"Coffee\",\n    \"occurredAt\": \"2026-06-14T08:30:00Z\",\n    \"createdAt\": \"2026-06-14T08:31:00Z\",\n    \"updatedAt\": \"2026-06-14T08:31:00Z\",\n    \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n  },\n  {\n    \"id\": \"a2b3c4d5-e6f7-8901-2345-67890abcdef1\",\n    \"type\": \"transfer\",\n    \"amount\": 50000,\n    \"description\": \"Move to savings\",\n    \"occurredAt\": \"2026-06-14T10:00:00Z\",\n    \"createdAt\": \"2026-06-14T10:01:00Z\",\n    \"updatedAt\": \"2026-06-14T10:01:00Z\",\n    \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n  }\n]"
             },
             {
               "name": "400 VALIDATION_FAILED — toDate before fromDate",
@@ -658,7 +658,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 12.50,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00.000Z\",\n  \"accountId\": \"{{accountId}}\",\n  \"categoryId\": \"{{categoryId}}\"\n}",
+              "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00.000Z\",\n  \"accountId\": \"{{accountId}}\",\n  \"categoryId\": \"{{categoryId}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -675,14 +675,14 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 12.50,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00.000Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+                  "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00.000Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
               "status": "Created",
               "code": 201,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 12.5,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T08:31:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T08:31:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — cashflow shape rule broken (missing accountId/categoryId)",
@@ -691,7 +691,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{ \"type\": \"expense\", \"amount\": 1, \"occurredAt\": \"2026-06-14T08:30:00.000Z\" }"
+                  "raw": "{ \"type\": \"expense\", \"amount\": 10000, \"occurredAt\": \"2026-06-14T08:30:00.000Z\" }"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
@@ -707,7 +707,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{ \"type\": \"expense\", \"amount\": 10, \"occurredAt\": \"2026-06-14T08:30:00.000Z\", \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\", \"categoryId\": \"<income-category-id>\" }"
+                  "raw": "{ \"type\": \"expense\", \"amount\": 1000, \"occurredAt\": \"2026-06-14T08:30:00.000Z\", \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\", \"categoryId\": \"<income-category-id>\" }"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
@@ -723,7 +723,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{ \"type\": \"expense\", \"amount\": 10, \"occurredAt\": \"2026-06-14T08:30:00.000Z\", \"accountId\": \"00000000-0000-0000-0000-000000000000\", \"categoryId\": \"{{categoryId}}\" }"
+                  "raw": "{ \"type\": \"expense\", \"amount\": 1000, \"occurredAt\": \"2026-06-14T08:30:00.000Z\", \"accountId\": \"00000000-0000-0000-0000-000000000000\", \"categoryId\": \"{{categoryId}}\" }"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
@@ -761,7 +761,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 500,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00.000Z\",\n  \"fromAccountId\": \"{{accountId}}\",\n  \"toAccountId\": \"{{secondAccountId}}\"\n}",
+              "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 50000,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00.000Z\",\n  \"fromAccountId\": \"{{accountId}}\",\n  \"toAccountId\": \"{{secondAccountId}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -778,14 +778,14 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 500,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00.000Z\",\n  \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n}"
+                  "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 50000,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00.000Z\",\n  \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n}"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
               "status": "Created",
               "code": 201,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"a2b3c4d5-e6f7-8901-2345-67890abcdef1\",\n  \"type\": \"transfer\",\n  \"amount\": 500,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00Z\",\n  \"createdAt\": \"2026-06-14T10:01:00Z\",\n  \"updatedAt\": \"2026-06-14T10:01:00Z\",\n  \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n}"
+              "body": "{\n  \"id\": \"a2b3c4d5-e6f7-8901-2345-67890abcdef1\",\n  \"type\": \"transfer\",\n  \"amount\": 50000,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00Z\",\n  \"createdAt\": \"2026-06-14T10:01:00Z\",\n  \"updatedAt\": \"2026-06-14T10:01:00Z\",\n  \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — transfer shape rule broken (missing toAccountId)",
@@ -794,7 +794,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{ \"type\": \"transfer\", \"amount\": 100, \"occurredAt\": \"2026-06-14T10:00:00.000Z\", \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\" }"
+                  "raw": "{ \"type\": \"transfer\", \"amount\": 10000, \"occurredAt\": \"2026-06-14T10:00:00.000Z\", \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\" }"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
@@ -810,7 +810,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{ \"type\": \"transfer\", \"amount\": 100, \"occurredAt\": \"2026-06-14T10:00:00.000Z\", \"fromAccountId\": \"{{accountId}}\", \"toAccountId\": \"{{accountId}}\" }"
+                  "raw": "{ \"type\": \"transfer\", \"amount\": 10000, \"occurredAt\": \"2026-06-14T10:00:00.000Z\", \"fromAccountId\": \"{{accountId}}\", \"toAccountId\": \"{{accountId}}\" }"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
@@ -842,7 +842,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 12.5,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T08:31:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T08:31:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
             },
             {
               "name": "404 TRANSACTION_NOT_FOUND",
@@ -867,7 +867,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 15.00,\n  \"description\": \"Coffee + pastry\"\n}",
+              "raw": "{\n  \"amount\": 1500,\n  \"description\": \"Coffee + pastry\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -884,14 +884,14 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"amount\": 15.00,\n  \"description\": \"Coffee + pastry\"\n}"
+                  "raw": "{\n  \"amount\": 1500,\n  \"description\": \"Coffee + pastry\"\n}"
                 },
                 "url": "{{baseUrl}}/api/transactions/{{transactionId}}"
               },
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 15,\n  \"description\": \"Coffee + pastry\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T09:00:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 1500,\n  \"description\": \"Coffee + pastry\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T09:00:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — no fields to update",
@@ -913,7 +913,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{ \"amount\": 10, \"fromAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\" }"
+                  "raw": "{ \"amount\": 1000, \"fromAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\" }"
                 },
                 "url": "{{baseUrl}}/api/transactions/{{transactionId}}"
               },
@@ -927,7 +927,7 @@
               "originalRequest": {
                 "method": "PATCH",
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
-                "body": { "mode": "raw", "raw": "{ \"amount\": 10 }" },
+                "body": { "mode": "raw", "raw": "{ \"amount\": 1000 }" },
                 "url": "{{baseUrl}}/api/transactions/00000000-0000-0000-0000-000000000000"
               },
               "status": "Not Found",
