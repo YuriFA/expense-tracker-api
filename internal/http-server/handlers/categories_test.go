@@ -305,7 +305,7 @@ func TestDeleteCategory(t *testing.T) {
 	t.Run("CategoryWithTransactions", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		account := seedAccount(t, db, "Wallet", 1000.0)
+		account := seedAccount(t, db, "Wallet", 100000)
 		existing := seedCategory(
 			t, db, storage.CreateCategoryParams{
 				Name:  "Salary",
@@ -316,7 +316,7 @@ func TestDeleteCategory(t *testing.T) {
 		)
 		_ = seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        "income",
-			Amount:      100.0,
+			Amount:      10000,
 			Description: "Salary",
 			OccurredAt:  time.Now(),
 			AccountId:   &account.Id,

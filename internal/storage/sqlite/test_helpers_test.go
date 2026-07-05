@@ -36,9 +36,13 @@ func seedCategories(t *testing.T, db *sqlite.Storage, count int) []*storage.Cate
 	return results
 }
 
-func seedAccount(t *testing.T, db *sqlite.Storage, openingBalance float64) *storage.Account {
+func seedAccount(t *testing.T, db *sqlite.Storage, openingBalance int64) *storage.Account {
 	t.Helper()
-	account, err := db.CreateAccount("Account1", openingBalance)
+	account, err := db.CreateAccount(storage.CreateAccountParams{
+		Name:           "Account1",
+		Currency:       "USD",
+		OpeningBalance: openingBalance,
+	})
 	require.NoError(t, err)
 	return account
 }
@@ -47,7 +51,7 @@ func seedAccounts(t *testing.T, db *sqlite.Storage, count int) []*storage.Accoun
 	t.Helper()
 	results := make([]*storage.Account, 0, count)
 	for i := range count {
-		results = append(results, seedAccount(t, db, float64(i+10)*100.0))
+		results = append(results, seedAccount(t, db, int64(i+10)*100))
 	}
 	return results
 }
@@ -59,14 +63,14 @@ func seedAccountAndCategory(
 ) (*storage.Account, *storage.Category) {
 	t.Helper()
 
-	account := seedAccount(t, db, 1000.0)
+	account := seedAccount(t, db, 100000)
 	category := seedCategory(t, db, categoryType)
 
 	return account, category
 }
 
 type seedCashflowTransactionParams struct {
-	amount          float64
+	amount          int64
 	accountId       string
 	categoryId      string
 	transactionType string
@@ -91,7 +95,7 @@ func seedCashflowTransaction(
 }
 
 type seedTransferTransactionParams struct {
-	amount        float64
+	amount        int64
 	fromAccountId string
 	toAccountId   string
 }

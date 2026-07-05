@@ -16,7 +16,7 @@ func TestCreateTransaction(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	account, category := seedAccountAndCategory(t, db, "income")
-	account2 := seedAccount(t, db, 1000.0)
+	account2 := seedAccount(t, db, 100000)
 
 	cases := map[string]struct {
 		params      storage.CreateTransactionParams
@@ -141,7 +141,7 @@ func TestUpdateTransaction(t *testing.T) {
 			},
 		)
 		params := storage.UpdateTransactionParams{
-			Amount:      new(2000.0),
+			Amount:      new(int64(2000)),
 			Description: new("Updated Salary"),
 			OccurredAt:  testutil.GetTimeFromStr(t, "2024-06-02T00:00:00Z"),
 			AccountId:   new(account.Id),
@@ -163,8 +163,8 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("transfer full params updates", func(t *testing.T) {
-		account1 := seedAccount(t, db, 200.0)
-		account2 := seedAccount(t, db, 300.0)
+		account1 := seedAccount(t, db, 20000)
+		account2 := seedAccount(t, db, 30000)
 		transaction := seedTransferTransaction(
 			t,
 			db,
@@ -175,7 +175,7 @@ func TestUpdateTransaction(t *testing.T) {
 			},
 		)
 		params := storage.UpdateTransactionParams{
-			Amount:        new(2000.0),
+			Amount:        new(int64(20000)),
 			Description:   new("Updated Salary"),
 			OccurredAt:    testutil.GetTimeFromStr(t, "2024-06-02T00:00:00Z"),
 			FromAccountId: new(account1.Id),
@@ -218,9 +218,9 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("transfer only fromAccountId change", func(t *testing.T) {
-		account1 := seedAccount(t, db, 200.0)
-		account2 := seedAccount(t, db, 300.0)
-		account3 := seedAccount(t, db, 400.0)
+		account1 := seedAccount(t, db, 20000)
+		account2 := seedAccount(t, db, 30000)
+		account3 := seedAccount(t, db, 40000)
 		transaction := seedTransferTransaction(
 			t,
 			db,
@@ -245,8 +245,8 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("transfer same fromAccountId toAccountId change", func(t *testing.T) {
-		account1 := seedAccount(t, db, 200.0)
-		account2 := seedAccount(t, db, 300.0)
+		account1 := seedAccount(t, db, 20000)
+		account2 := seedAccount(t, db, 30000)
 		transaction := seedTransferTransaction(
 			t,
 			db,
@@ -265,8 +265,8 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("transfer with cashflow params", func(t *testing.T) {
-		account1 := seedAccount(t, db, 200.0)
-		account2 := seedAccount(t, db, 300.0)
+		account1 := seedAccount(t, db, 20000)
+		account2 := seedAccount(t, db, 30000)
 		transaction := seedTransferTransaction(
 			t,
 			db,
@@ -413,8 +413,8 @@ func TestGetTransaction(t *testing.T) {
 	t.Run("transfer", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		account1 := seedAccount(t, db, 1000.0)
-		account2 := seedAccount(t, db, 1000.0)
+		account1 := seedAccount(t, db, 100000)
+		account2 := seedAccount(t, db, 100000)
 		transaction := seedTransferTransaction(
 			t,
 			db,
@@ -465,7 +465,7 @@ func TestGetTransaction(t *testing.T) {
 func createTestTransactions(t *testing.T, db *sqlite.Storage) ([]storage.Transaction, error) {
 	t.Helper()
 	account, incomeCategory := seedAccountAndCategory(t, db, "income")
-	account2 := seedAccount(t, db, 1000.0)
+	account2 := seedAccount(t, db, 100000)
 	expenseCategory := seedCategory(t, db, "expense")
 	transactionCreationParams := []storage.CreateTransactionParams{
 		{

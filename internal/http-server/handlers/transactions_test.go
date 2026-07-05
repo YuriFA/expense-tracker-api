@@ -27,7 +27,7 @@ func TestCreateTransaction(t *testing.T) {
 
 		req := newJSONRequest(t, http.MethodPost, "/api/transactions", map[string]any{
 			"type":        transactionType,
-			"amount":      1000.0,
+			"amount":      100000,
 			"description": "Salary for June",
 			"occurredAt":  occurredAt,
 			"accountId":   account.Id,
@@ -39,7 +39,7 @@ func TestCreateTransaction(t *testing.T) {
 		var response storage.Transaction
 		parseBody(t, w, &response)
 		assert.Equal(t, "income", response.Type)
-		assert.Equal(t, 1000.0, response.Amount)
+		assert.Equal(t, int64(100000), response.Amount)
 		assert.Equal(t, "Salary for June", response.Description)
 		testutil.AssertTimeEqual(t, occurredAt, testutil.ParseDatetime(t, response.OccurredAt))
 		assert.Equal(t, account.Id, *response.AccountId)
@@ -52,12 +52,12 @@ func TestCreateTransaction(t *testing.T) {
 		router, db := setupTestEnv(t)
 
 		occurredAt := time.Now()
-		account := seedAccount(t, db, "Card", 1000.0)
-		account2 := seedAccount(t, db, "Bank", 2000.0)
+		account := seedAccount(t, db, "Card", 100000)
+		account2 := seedAccount(t, db, "Bank", 200000)
 
 		req := newJSONRequest(t, http.MethodPost, "/api/transactions", map[string]any{
 			"type":          "transfer",
-			"amount":        1000.0,
+			"amount":        100000,
 			"description":   "Salary for June",
 			"occurredAt":    occurredAt,
 			"fromAccountId": account.Id,
@@ -69,7 +69,7 @@ func TestCreateTransaction(t *testing.T) {
 		var response storage.Transaction
 		parseBody(t, w, &response)
 		assert.Equal(t, "transfer", response.Type)
-		assert.Equal(t, 1000.0, response.Amount)
+		assert.Equal(t, int64(100000), response.Amount)
 		assert.Equal(t, "Salary for June", response.Description)
 		testutil.AssertTimeEqual(t, occurredAt, testutil.ParseDatetime(t, response.OccurredAt))
 		assert.Equal(t, account.Id, *response.FromAccountId)
@@ -83,7 +83,7 @@ func TestCreateTransaction(t *testing.T) {
 
 		occurredAt := time.Now()
 		category, account := seedCommonCategoryAndAccount(t, db, "income")
-		account2 := seedAccount(t, db, "Bank", 1000.0)
+		account2 := seedAccount(t, db, "Bank", 100000)
 
 		cases := map[string]struct {
 			body        map[string]any
@@ -94,7 +94,7 @@ func TestCreateTransaction(t *testing.T) {
 			"cashflow without accountId": {
 				body: map[string]any{
 					"type":        "income",
-					"amount":      1000.0,
+					"amount":      100000,
 					"description": "Salary for June",
 					"occurredAt":  occurredAt,
 					"categoryId":  category.Id,
@@ -106,7 +106,7 @@ func TestCreateTransaction(t *testing.T) {
 			"cashflow without categoryId": {
 				body: map[string]any{
 					"type":        "income",
-					"amount":      1000.0,
+					"amount":      100000,
 					"description": "Salary for June",
 					"occurredAt":  occurredAt,
 					"accountId":   account.Id,
@@ -118,7 +118,7 @@ func TestCreateTransaction(t *testing.T) {
 			"cashflow + fromAccountId": {
 				body: map[string]any{
 					"type":          "income",
-					"amount":        1000.0,
+					"amount":        100000,
 					"description":   "Salary for June",
 					"occurredAt":    occurredAt,
 					"accountId":     account.Id,
@@ -132,7 +132,7 @@ func TestCreateTransaction(t *testing.T) {
 			"transfer without fromAccountId": {
 				body: map[string]any{
 					"type":        "transfer",
-					"amount":      1000.0,
+					"amount":      100000,
 					"description": "Salary for June",
 					"occurredAt":  occurredAt,
 					"toAccountId": account2.Id,
@@ -144,7 +144,7 @@ func TestCreateTransaction(t *testing.T) {
 			"transfer without toAccountId": {
 				body: map[string]any{
 					"type":          "transfer",
-					"amount":        1000.0,
+					"amount":        100000,
 					"description":   "Salary for June",
 					"occurredAt":    occurredAt,
 					"fromAccountId": account.Id,
@@ -156,7 +156,7 @@ func TestCreateTransaction(t *testing.T) {
 			"transfer with categoryId": {
 				body: map[string]any{
 					"type":          "transfer",
-					"amount":        1000.0,
+					"amount":        100000,
 					"description":   "Salary for June",
 					"fromAccountId": account.Id,
 					"occurredAt":    occurredAt,
@@ -169,7 +169,7 @@ func TestCreateTransaction(t *testing.T) {
 			},
 			"missing type": {
 				body: map[string]any{
-					"amount":      1000.0,
+					"amount":      100000,
 					"description": "Salary for June",
 					"occurredAt":  occurredAt,
 					"accountId":   account.Id,
@@ -194,7 +194,7 @@ func TestCreateTransaction(t *testing.T) {
 			"missing occurredAt": {
 				body: map[string]any{
 					"type":        "income",
-					"amount":      1000.0,
+					"amount":      100000,
 					"description": "Salary for June",
 					"accountId":   account.Id,
 					"categoryId":  category.Id,
@@ -206,7 +206,7 @@ func TestCreateTransaction(t *testing.T) {
 			"missing accountId": {
 				body: map[string]any{
 					"type":        "income",
-					"amount":      1000.0,
+					"amount":      100000,
 					"description": "Salary for June",
 					"occurredAt":  occurredAt,
 					"categoryId":  category.Id,
@@ -218,7 +218,7 @@ func TestCreateTransaction(t *testing.T) {
 			"missing categoryId": {
 				body: map[string]any{
 					"type":        "income",
-					"amount":      1000.0,
+					"amount":      100000,
 					"description": "Salary for June",
 					"occurredAt":  occurredAt,
 					"accountId":   account.Id,
@@ -230,7 +230,7 @@ func TestCreateTransaction(t *testing.T) {
 			"invalid accountId": {
 				body: map[string]any{
 					"type":        "income",
-					"amount":      1000.0,
+					"amount":      100000,
 					"description": "Salary for June",
 					"occurredAt":  occurredAt,
 					"accountId":   "invalid-id",
@@ -243,7 +243,7 @@ func TestCreateTransaction(t *testing.T) {
 			"invalid categoryId": {
 				body: map[string]any{
 					"type":        "income",
-					"amount":      1000.0,
+					"amount":      100000,
 					"description": "Salary for June",
 					"occurredAt":  occurredAt,
 					"accountId":   account.Id,
@@ -256,7 +256,7 @@ func TestCreateTransaction(t *testing.T) {
 			"zero amount": {
 				body: map[string]any{
 					"type":        "income",
-					"amount":      0.0,
+					"amount":      0,
 					"description": "Salary for June",
 					"occurredAt":  occurredAt,
 					"accountId":   account.Id,
@@ -269,7 +269,7 @@ func TestCreateTransaction(t *testing.T) {
 			"negative amount": {
 				body: map[string]any{
 					"type":        "income",
-					"amount":      -1000.0,
+					"amount":      -100000,
 					"description": "Salary for June",
 					"occurredAt":  occurredAt,
 					"accountId":   account.Id,
@@ -288,7 +288,7 @@ func TestCreateTransaction(t *testing.T) {
 			"wrong type": {
 				body: map[string]any{
 					"type":        "outcome",
-					"amount":      1000.0,
+					"amount":      100000,
 					"description": "Salary for June",
 					"occurredAt":  occurredAt,
 					"accountId":   account.Id,
@@ -326,7 +326,7 @@ func TestCreateTransaction(t *testing.T) {
 			"/api/transactions",
 			map[string]any{
 				"type":        "income",
-				"amount":      1000.0,
+				"amount":      100000,
 				"description": "Salary for June",
 				"occurredAt":  time.Now(),
 				"accountId":   uuid.NewString(),
@@ -351,7 +351,7 @@ func TestCreateTransaction(t *testing.T) {
 			"/api/transactions",
 			map[string]any{
 				"type":          "transfer",
-				"amount":        1000.0,
+				"amount":        100000,
 				"description":   "Transfer to bank",
 				"occurredAt":    time.Now(),
 				"fromAccountId": uuid.NewString(),
@@ -370,7 +370,7 @@ func TestCreateTransaction(t *testing.T) {
 	t.Run("SameAccountForTransfer", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		account := seedAccount(t, db, "Bank", 1000.0)
+		account := seedAccount(t, db, "Bank", 100000)
 
 		req := newJSONRequest(
 			t,
@@ -378,7 +378,7 @@ func TestCreateTransaction(t *testing.T) {
 			"/api/transactions",
 			map[string]any{
 				"type":          "transfer",
-				"amount":        1000.0,
+				"amount":        100000,
 				"description":   "Transfer to bank",
 				"occurredAt":    time.Now(),
 				"fromAccountId": account.Id,
@@ -400,7 +400,7 @@ func TestUpdateTransaction(t *testing.T) {
 		router, db := setupTestEnv(t)
 
 		existing := seedCommonTransaction(t, db, "income")
-		nextAccount := seedAccount(t, db, "Bank", 2000.0)
+		nextAccount := seedAccount(t, db, "Bank", 200000)
 		nextCategory := seedCategory(t, db, storage.CreateCategoryParams{
 			Name:  "Groceries",
 			Type:  "income",
@@ -409,7 +409,7 @@ func TestUpdateTransaction(t *testing.T) {
 		})
 
 		params := map[string]any{
-			"amount":      500.0,
+			"amount":      int64(50000),
 			"description": "Some expense",
 			"occurredAt":  time.Now(),
 			"accountId":   nextAccount.Id,
@@ -590,7 +590,7 @@ func TestUpdateTransaction(t *testing.T) {
 			http.MethodPatch,
 			"/api/transactions/"+uuid.NewString(),
 			map[string]any{
-				"amount": 100.0,
+				"amount": 10000,
 			},
 		)
 		w := performRequest(t, router, req)
@@ -803,35 +803,35 @@ func TestListTransactions(t *testing.T) {
 			db,
 			"income",
 			time.Date(2024, 5, 10, 12, 0, 0, 0, time.UTC),
-			800.0,
+			80000,
 		)
 		seeded2 := seedTransactionAt(
 			t,
 			db,
 			"expense",
 			time.Date(2024, 5, 15, 12, 14, 30, 0, time.UTC),
-			200.0,
+			20000,
 		)
 		seeded3 := seedTransactionAt(
 			t,
 			db,
 			"income",
 			time.Date(2024, 4, 1, 12, 0, 0, 0, time.UTC),
-			10000.0,
+			1000000,
 		)
 		seeded4 := seedTransactionAt(
 			t,
 			db,
 			"expense",
 			time.Date(2024, 5, 15, 12, 12, 30, 0, time.UTC),
-			3000.0,
+			300000,
 		)
 		seeded5 := seedTransactionAt(
 			t,
 			db,
 			"transfer",
 			time.Date(2024, 2, 10, 12, 15, 30, 0, time.UTC),
-			3000.0,
+			300000,
 		)
 
 		cases := []struct {
@@ -958,27 +958,27 @@ func TestListTransactions(t *testing.T) {
 		router, db := setupTestEnv(t)
 
 		beforeRange := seedTransactionAt(t, db, "income",
-			time.Date(2024, 5, 15, 12, 0, 0, 0, time.UTC), 100.0)
+			time.Date(2024, 5, 15, 12, 0, 0, 0, time.UTC), 10000)
 		onUpperBoundary := seedTransactionAt(
 			t,
 			db,
 			"expense",
 			time.Date(2024, 6, 30, 23, 59, 0, 0, time.UTC),
-			100.0,
+			10000,
 		)
 		justAfterUpper := seedTransactionAt(
 			t,
 			db,
 			"income",
 			time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
-			100.0,
+			10000,
 		)
 		onLowerBoundary := seedTransactionAt(t, db, "income",
-			time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC), 100.0)
+			time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC), 10000)
 		inMiddle := seedTransactionAt(t, db, "expense",
-			time.Date(2024, 6, 15, 14, 30, 0, 0, time.UTC), 100.0)
+			time.Date(2024, 6, 15, 14, 30, 0, 0, time.UTC), 10000)
 		afterRange := seedTransactionAt(t, db, "income",
-			time.Date(2024, 7, 15, 12, 0, 0, 0, time.UTC), 100.0)
+			time.Date(2024, 7, 15, 12, 0, 0, 0, time.UTC), 10000)
 
 		req := httptest.NewRequest(http.MethodGet,
 			"/api/transactions?fromDate=2024-06-01&toDate=2024-06-30", nil)

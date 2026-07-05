@@ -68,6 +68,16 @@
 
 Клиент может различать их, например, для разных UX-сообщений («некорректный запрос» vs «проверьте поля»).
 
+### Денежные суммы (minor units)
+
+Все денежные поля (`amount`, `openingBalance`, `manualAdjustment`, `balance`, `netWorth`) — **`integer` (int64) в минорных единицах валюты** (cents для USD/EUR/RUB). Дробная часть на wire-уровне отсутствует.
+
+- $12.50 передаётся как `1250`
+- $1000 → `100000`
+- Отрицательные значения допустимы для полей, где это семантически возможно (`openingBalance`, `manualAdjustment`, `balance`); `amount` всегда `> 0`.
+
+Divisor зависит от валюты. Для supported currencies (USD/EUR/RUB) — `100`. См. также Roadmap §2 — там зафиксирована future-совместимость с не-2-decimal валютами (крипта).
+
 ### Формат дат
 
 ISO 8601 (как текущее поле `occurredAt`).
@@ -84,9 +94,11 @@ ISO 8601 (как текущее поле `occurredAt`).
 type Account = {
   id: string
   name: string
-  openingBalance: number
-  manualAdjustment: number
-  balance: number // вычисляется сервером: openingBalance + manualAdjustment +
+  currency: string // ISO 4217 (USD, EUR, RUB, ...)
+  openingBalance: number /* int64, minor units */
+  manualAdjustment: number /* int64, minor units */
+  balance: number // int64, minor units. Вычисляется сервером:
+                  //   openingBalance + manualAdjustment +
                   //   income: +amount, expense: −amount (по accountId)
                   //   transfer: −amount с fromAccountId, +amount на toAccountId
   createdAt: string
@@ -110,7 +122,8 @@ type Account = {
 ```json
 {
   "name": "Debit card",
-  "openingBalance": 1000
+  "currency": "USD",
+  "openingBalance": 100000
 }
 ```
 
@@ -119,23 +132,24 @@ type Account = {
 ```ts
 type AccountBalancesResponse = {
   balances: AccountBalance[]
-  netWorth: number // Σ всех balances
+  netWorth: number /* int64, minor units — сумма всех balances */
 }
 
 type AccountBalance = {
   id: string
   name: string
-  balance: number
+  currency: string
+  balance: number // int64, minor units
 }
 ```
 
 ```json
 {
   "balances": [
-    { "id": "acc_1", "name": "Debit card", "balance": 850 },
-    { "id": "acc_2", "name": "Savings",    "balance": 5150 }
+    { "id": "acc_1", "name": "Debit card", "balance": 85000 },
+    { "id": "acc_2", "name": "Savings",    "balance": 515000 }
   ],
-  "netWorth": 6000
+  "netWorth": 600000
 }
 ```
 
@@ -198,7 +212,7 @@ type Category = {
 type BaseTransaction = {
   id: string
   type: 'income' | 'expense' | 'transfer'
-  amount: number
+  amount: number /* int64, minor units, > 0 */
   description?: string // если не присласть → сервер выставит "" (NOT NULL DEFAULT '' в storage). Семантически empty string ≈ absent.
   occurredAt: string
   createdAt: string
@@ -252,7 +266,7 @@ type Transaction = CashflowTransaction | TransferTransaction
 **Ссылочная целостность — 422:**
 
 - **Cashflow:** `accountId` существует; `categoryId` существует и `category.type === transaction.type`
-- **Transfer:** `fromAccountId` и `toAccountId` существуют и различаются (`SAME_ACCOUNT_TRANSFER`)
+- **Transfer:** `fromAccountId` и `toAccountId` существуют и различаются (`SAME_ACCOUNT_TRANSFER`), currency совпадает (оба в одной валюте)
 
 **PATCH-семантика:**
 
@@ -267,7 +281,7 @@ Cashflow (POST):
 ```json
 {
   "type": "expense",
-  "amount": 12.50,
+  "amount": 1250,
   "description": "Coffee",
   "occurredAt": "2026-06-14T08:30:00.000Z",
   "accountId": "acc_1",
@@ -280,7 +294,7 @@ Transfer (POST):
 ```json
 {
   "type": "transfer",
-  "amount": 500,
+  "amount": 50000,
   "description": "Move to savings",
   "occurredAt": "2026-06-14T10:00:00.000Z",
   "fromAccountId": "acc_1",
@@ -329,30 +343,56 @@ Transfer (POST):
 
 ---
 
-### 2. Деньги (int64 минорных единиц)
+### 2. Деньги (int64 минорных единиц) — ✅ ПРИНЯТО
 
-**Цель:** точность до копейки/цента, без `0.1 + 0.2 = 0.30000000000000004` артефактов.
+**Статус:** решение принято и реализовано раньше, чем наступил реальный pain от `float64`. Это сознательный выбор (см. `AGENTS.md` → Conscious decisions).
 
-**Production-подходы (trade-offs):**
+**Реализация:**
 
-| Подход | Example | Pros | Cons |
-|---|---|---|---|
-| **int64 центов** | `1250` = $12.50 | Точность, performance, simple | Breaking change API contract |
-| **Decimal type** (shopspring/decimal) | `decimal.New(1250, -2)` | Удобство, точность, multi-currency | Внешняя зависимость, медленнее |
-| **String representation** | `"12.50"` | Точность | Serialisation hassle всем клиентам |
-| **Custom JSON type** | Внутри int64, снаружи `"12.50"` | Backward-compatible, точность | Больше кода (MarshalJSON/UnmarshalJSON) |
+- Все денежные поля (`amount`, `openingBalance`, `manualAdjustment`, `balance`, `netWorth`) — **`INTEGER` в storage, `int64` в Go, integer в JSON**.
+- Семантика — **минорные единицы валюты** (cents для USD/EUR/RUB): $12.50 хранится и передаётся как `1250`.
+- Backend **не делает** никакого `* 100` / `/ 100` — что хранится, то и шлётся. Conversion ответственность клиента (display layer).
+- Custom JSON marshalling **не нужен**: нет клиентов → breaking change free.
 
-**Рекомендация:** `int64` центов + custom JSON marshalling (внутри int64, в API как `12.50`) — backward-compatible путь.
+**Почему не `float64` (рассмотренные альтернативы):**
 
-**Breaking change aspects:**
-- Если перешёл на `amount: 1250` (cents) — клиенты должны знать, что число в минорных единицах.
-- Если на custom marshalling `12.50` — обратно совместим для клиентов, но внутри Go и storage меняется всё.
-- **Migration:** конвертация существующих `float64` значений в БД (`UPDATE transactions SET amount_cents = ROUND(amount * 100)`).
-- **Testing:** обновить все assertion'ы в handler/storage тестах.
+| Подход | Почему нет |
+|---|---|
+| **`float64`** | `0.1 + 0.2 = 0.30000000000000004`, расхождения на 1 цент на больших выборках |
+| **Decimal type** (shopspring/decimal) | Внешняя зависимость, медленнее — избыточно для single-user |
+| **String representation** (`"12.50"`) | Serialisation hassle, type-info loss для клиентов |
+| **Custom JSON type** (внутри int64, снаружи `"12.50"`) | Backward-compat подход, но клиенты ещё не подключены — лишний код |
 
-**Triggers:**
-- Реальный баг с rounding (видимое расхождение на 1 цент).
-- Подключение реальных клиентов (после этого breaking change дороже).
+**Почему не bare int64 (без cents):** bare int64 (`1250` = $1250) несовместим с дробными суммами. Minor units — единственный способ хранить precise cent-значения в integer-типе.
+
+**Migration notes:** при запуске без production-данных schema migration свелась к изменению DDL (`REAL` → `INTEGER`) — без backfill SQL, без migration tooling. При наличии данных потребовалось бы `UPDATE transactions SET amount = ROUND(amount * 100)` + аналогично для `opening_balance`/`manual_adjustment` (см. §7 — migrations tooling).
+
+### Future: не-2-decimal валюты (крипта)
+
+Текущая схема (`divisor = 100`) корректна для USD/EUR/RUB (все с 2 decimals). При добавлении валют с другим числом decimal places:
+
+| Валюта | Decimals | Minor unit |
+|---|---|---|
+| BTC | 8 | satoshi (1 BTC = 10⁸ sat) |
+| ETH | 18 | wei |
+| XRP | 6 | drop |
+| JPY | 0 | (no minor unit — integer yen) |
+| KWD / BHD | 3 | mill (fils) |
+
+**Forward-compatibility:** int64 minor units **не требует** storage-layer breaking change при добавлении крипты. Меняется только **divisor per currency**. План перехода:
+
+1. Добавить таблицу `currencies (code TEXT PRIMARY KEY, minor_units INTEGER)` (с сидом: USD=100, EUR=100, RUB=100, BTC=10⁸, ETH=10¹⁸, ...).
+2. FK `accounts.currency → currencies.code`.
+3. Client logic использует `currency.minor_units` для display вместо захардкоженного `/100`.
+4. Storage остаётся int64 minor units — `amount` в satoshi для BTC-транзакции, в cents для USD-транзакции.
+
+**Triggers (для активации этого future-плана):**
+- Подключение крипты как supported currency.
+- Появление пользователей с не-USD/EUR/RUB счетами.
+
+---
+
+**Migration status:** ✅ DDL мигрирован, Go-слой в `int64`, API contract в integer. Test fixtures отмасштабированы (×100) с сохранением семантики (например, `1000.0` долларов → `100000` cents).
 
 ---
 
@@ -457,7 +497,7 @@ Breaking change — клиенты должны адаптироваться.
 
 **Цель:** эволюция schema без потери данных.
 
-**Сейчас:** `CREATE TABLE IF NOT EXISTS`. Не позволяет изменять существующие таблицы (например, добавить `user_id`, конвертировать `amount` в int64).
+**Сейчас:** `CREATE TABLE IF NOT EXISTS`. Не позволяет изменять существующие таблицы (например, добавить `user_id`). На текущий момент int64 money-миграция прошла через изменение DDL с нуля (без production-данных), но любое следующее schema change потребует настоящего migration tooling.
 
 **Options:**
 
@@ -470,7 +510,7 @@ Breaking change — клиенты должны адаптироваться.
 **Рекомендация:** `golang-migrate` — industry standard, хорошо документирован.
 
 **Triggers:**
-- Любой schema change на existing таблице (для auth, для int64 money).
+- Любой schema change на existing таблице (для auth — добавление `user_id`).
 - Появление production данных, которые нельзя потерять.
 
 ---
@@ -536,8 +576,8 @@ Storage (sqlite)          Service (business logic, orchetration, tx)
 
 | Этап | Urgency | Trigger |
 |---|---|---|
-| **Database migrations** | 🟡 Medium | Любой schema change (например, для auth или money) |
-| **Деньги (int64)** | 🟡 Medium | Реальный rounding баг. Сам решил раньше времени — твоё право. |
+| **Database migrations** | 🟡 Medium | Любой schema change (например, для auth) |
+| **Деньги (int64)** | ✅ Done | Решено раньше pain (conscious choice) |
 | **Pagination** | 🟡 Medium | > 1000 transactions в БД |
 | **Auth (multi-user)** | 🟡 Medium-High | 2+ реальных пользователей, public deployment |
 | **Архитектура (service/repository)** | 🟡 Medium | Сразу после/вместе с auth — `userId` болево |

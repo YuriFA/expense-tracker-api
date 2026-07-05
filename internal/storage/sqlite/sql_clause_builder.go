@@ -73,9 +73,9 @@ func (b *sqlClauseBuilder) addTimeOp(
 	return b
 }
 
-func (b *sqlClauseBuilder) addFloat(
+func (b *sqlClauseBuilder) addAmount(
 	col string,
-	arg *float64,
+	arg *int64,
 ) *sqlClauseBuilder {
 	if arg != nil {
 		b.clauses = append(b.clauses, col+" = ?")

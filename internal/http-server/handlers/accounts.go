@@ -11,14 +11,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type AccountRequest struct {
-	Name           string   `json:"name"           binding:"required"`
-	OpeningBalance *float64 `json:"openingBalance" binding:"required"`
+type CreateAccountRequest struct {
+	Name           string `json:"name"           binding:"required"`
+	Currency       string `json:"currency"       binding:"required"`
+	OpeningBalance *int64 `json:"openingBalance" binding:"required"`
 }
 
 type UpdateAccountRequest struct {
-	Name             *string  `json:"name"             binding:"omitempty,min=3"`
-	ManualAdjustment *float64 `json:"manualAdjustment" binding:"omitempty"`
+	Name             *string `json:"name"             binding:"omitempty,min=3"`
+	ManualAdjustment *int64  `json:"manualAdjustment" binding:"omitempty"`
 }
 
 func (h *Handler) CreateAccount(c *gin.Context) {
@@ -28,12 +29,16 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	var req AccountRequest
+	var req CreateAccountRequest
 	if !bindAndValidateJSON(c, log, &req) {
 		return
 	}
 
-	account, err := h.DB.CreateAccount(req.Name, *req.OpeningBalance)
+	account, err := h.DB.CreateAccount(storage.CreateAccountParams{
+		Name:           req.Name,
+		Currency:       req.Currency,
+		OpeningBalance: *req.OpeningBalance,
+	})
 	if err != nil {
 		log.Error("failed to create account", logger.Error(err))
 		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to create account")
@@ -151,8 +156,8 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 	c.JSON(http.StatusOK, accounts)
 }
 
-func calculateNetWorth(balances []storage.AccountBalance) float64 {
-	var netWorth float64
+func calculateNetWorth(balances []storage.AccountBalance) int64 {
+	var netWorth int64
 	for _, balance := range balances {
 		netWorth += balance.Balance
 	}

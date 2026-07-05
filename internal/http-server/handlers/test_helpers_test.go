@@ -61,9 +61,13 @@ func seedAccount(
 	t *testing.T,
 	db *sqlite.Storage,
 	name string,
-	openingBalance float64,
+	openingBalance int64,
 ) *storage.Account {
-	account, err := db.CreateAccount(name, openingBalance)
+	account, err := db.CreateAccount(storage.CreateAccountParams{
+		Name:           name,
+		Currency:       "USD",
+		OpeningBalance: openingBalance,
+	})
 	require.NoError(t, err)
 	return account
 }
@@ -91,7 +95,7 @@ func seedCommonCategoryAndAccount(
 		Icon:  "dollar-sign",
 		Color: "green",
 	})
-	account := seedAccount(t, db, "Cash", 1000.0)
+	account := seedAccount(t, db, "Cash", 100000)
 
 	return category, account
 }
@@ -123,18 +127,18 @@ func seedCommonTransaction(
 
 		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        transactionType,
-			Amount:      1000.0,
+			Amount:      100000,
 			Description: "Common transaction",
 			OccurredAt:  occurredAt,
 			AccountId:   &account.Id,
 			CategoryId:  &category.Id,
 		})
 	case "transfer":
-		accountFrom := seedAccount(t, db, "Bank", 500.0)
-		accountTo := seedAccount(t, db, "Cash", 200.0)
+		accountFrom := seedAccount(t, db, "Bank", 50000)
+		accountTo := seedAccount(t, db, "Cash", 20000)
 		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:          transactionType,
-			Amount:        300.0,
+			Amount:        30000,
 			Description:   "Common transfer",
 			OccurredAt:    occurredAt,
 			FromAccountId: &accountFrom.Id,
@@ -153,7 +157,7 @@ func seedTransactionAt(
 	db *sqlite.Storage,
 	transactionType string,
 	occurredAt time.Time,
-	amount float64,
+	amount int64,
 ) *storage.Transaction {
 	t.Helper()
 
@@ -170,8 +174,8 @@ func seedTransactionAt(
 			CategoryId:  &category.Id,
 		})
 	case "transfer":
-		fromAccount := seedAccount(t, db, "Bank", 500.0)
-		toaccount := seedAccount(t, db, "Cash", 200.0)
+		fromAccount := seedAccount(t, db, "Bank", 50000)
+		toaccount := seedAccount(t, db, "Cash", 20000)
 		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:          transactionType,
 			Amount:        amount,

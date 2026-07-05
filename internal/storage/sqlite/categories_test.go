@@ -120,13 +120,13 @@ func TestDeleteCategory(t *testing.T) {
 	})
 
 	t.Run("category with transactions", func(t *testing.T) {
-		account := seedAccount(t, db, 1000.0)
+		account := seedAccount(t, db, 100000)
 		category := seedCategory(t, db, "income")
 		_ = seedCashflowTransaction(
 			t,
 			db,
 			seedCashflowTransactionParams{
-				amount:          200.0,
+				amount:          20000,
 				accountId:       account.Id,
 				categoryId:      category.Id,
 				transactionType: "income",

@@ -143,7 +143,7 @@ func (s *Storage) UpdateTransaction(
 	}
 
 	setParts, args := newUpdateBuilder().
-		addFloat("amount", params.Amount).
+		addAmount("amount", params.Amount).
 		addString("description", params.Description).
 		addTimeSet("occurred_at", params.OccurredAt).
 		addString("account_id", params.AccountId).

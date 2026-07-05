@@ -6,24 +6,32 @@ import (
 )
 
 type Account struct {
-	Id               string  `json:"id"`
-	Name             string  `json:"name"`
-	Balance          float64 `json:"balance"`
-	OpeningBalance   float64 `json:"openingBalance"`
-	ManualAdjustment float64 `json:"manualAdjustment"`
-	CreatedAt        string  `json:"createdAt"`
-	UpdatedAt        string  `json:"updatedAt"`
+	Id               string `json:"id"`
+	Name             string `json:"name"`
+	Balance          int64  `json:"balance"`
+	Currency         string `json:"currency"`
+	OpeningBalance   int64  `json:"openingBalance"`
+	ManualAdjustment int64  `json:"manualAdjustment"`
+	CreatedAt        string `json:"createdAt"`
+	UpdatedAt        string `json:"updatedAt"`
 }
 
 type AccountBalance struct {
-	Id      string  `json:"id"`
-	Name    string  `json:"name"`
-	Balance float64 `json:"balance"`
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Balance  int64  `json:"balance"`
+	Currency string `json:"currency"`
+}
+
+type CreateAccountParams struct {
+	Name           string
+	Currency       string
+	OpeningBalance int64
 }
 
 type UpdateAccountParams struct {
 	Name             *string
-	ManualAdjustment *float64
+	ManualAdjustment *int64
 }
 
 type Category struct {
@@ -68,13 +76,13 @@ type GetCategoriesParams struct {
 }
 
 type Transaction struct {
-	Id          string  `json:"id"`
-	Type        string  `json:"type"`
-	Amount      float64 `json:"amount"`
-	Description string  `json:"description"`
-	OccurredAt  string  `json:"occurredAt"`
-	CreatedAt   string  `json:"createdAt"`
-	UpdatedAt   string  `json:"updatedAt"`
+	Id          string `json:"id"`
+	Type        string `json:"type"`
+	Amount      int64  `json:"amount"`
+	Description string `json:"description"`
+	OccurredAt  string `json:"occurredAt"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
 	// Cashflow fields
 	AccountId  *string `json:"accountId,omitempty"`
 	CategoryId *string `json:"categoryId,omitempty"`
@@ -85,7 +93,7 @@ type Transaction struct {
 
 type CreateTransactionParams struct {
 	Type        string
-	Amount      float64
+	Amount      int64
 	Description string
 	OccurredAt  time.Time
 	// Cashflow fields
@@ -97,7 +105,7 @@ type CreateTransactionParams struct {
 }
 
 type UpdateTransactionParams struct {
-	Amount      *float64
+	Amount      *int64
 	Description *string
 	OccurredAt  *time.Time
 	// Cashflow fields

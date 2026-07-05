@@ -25,8 +25,9 @@ func New(storagePath string) (*Storage, error) {
 		CREATE TABLE IF NOT EXISTS accounts (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
-			opening_balance REAL NOT NULL,
-			manual_adjustment REAL NOT NULL,
+			opening_balance INTEGER NOT NULL,
+			manual_adjustment INTEGER NOT NULL,
+			currency TEXT NOT NULL CHECK(currency IN ('USD', 'EUR', 'RUB')),
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
@@ -56,7 +57,7 @@ func New(storagePath string) (*Storage, error) {
 		CREATE TABLE IF NOT EXISTS transactions (
 			id TEXT PRIMARY KEY,
 			type TEXT NOT NULL CHECK(type IN ('income', 'expense', 'transfer')),
-			amount REAL NOT NULL,
+			amount INTEGER NOT NULL,
 			description TEXT NOT NULL DEFAULT '',
 			occurred_at DATETIME NOT NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

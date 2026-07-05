@@ -17,24 +17,31 @@ func TestCreateAccount(t *testing.T) {
 
 	cases := map[string]struct {
 		name           string
-		openingBalance float64
+		openingBalance int64
+		currency       string
 		respError      bool
 	}{
 		"success": {
 			name:           "Account1",
-			openingBalance: 100.0,
+			currency:       "USD",
+			openingBalance: 1000,
 			respError:      false,
 		},
 		"negative opening balance": {
 			name:           "Account2",
-			openingBalance: -100.0,
+			currency:       "USD",
+			openingBalance: -10000,
 			respError:      false,
 		},
 	}
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			account, err := db.CreateAccount(tc.name, tc.openingBalance)
+			account, err := db.CreateAccount(storage.CreateAccountParams{
+				Name:           tc.name,
+				Currency:       tc.currency,
+				OpeningBalance: tc.openingBalance,
+			})
 			if tc.respError {
 				require.Error(t, err)
 				return
@@ -46,7 +53,7 @@ func TestCreateAccount(t *testing.T) {
 			require.Equal(t, tc.openingBalance, account.OpeningBalance)
 
 			testutil.AssertValidUUID(t, account.Id)
-			assert.Equal(t, 0.0, account.ManualAdjustment)
+			assert.Equal(t, int64(0), account.ManualAdjustment)
 			assert.Equal(t, account.OpeningBalance+account.ManualAdjustment, account.Balance)
 
 			createdAt := testutil.ParseDatetime(t, account.CreatedAt)
@@ -56,8 +63,8 @@ func TestCreateAccount(t *testing.T) {
 	}
 
 	t.Run("non duplicate account ids", func(t *testing.T) {
-		account1 := seedAccount(t, db, 100.0)
-		account2 := seedAccount(t, db, 200.0)
+		account1 := seedAccount(t, db, 10000)
+		account2 := seedAccount(t, db, 20000)
 		require.NotEqual(t, account1.Id, account2.Id)
 	})
 }
@@ -66,10 +73,10 @@ func TestUpdateAccount(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	t.Run("full params updates both params", func(t *testing.T) {
-		account := seedAccount(t, db, 100.0)
+		account := seedAccount(t, db, 10000)
 		params := storage.UpdateAccountParams{
 			Name:             new("UpdatedAccount"),
-			ManualAdjustment: new(50.0),
+			ManualAdjustment: new(int64(500)),
 		}
 
 		updatedAccount, err := db.UpdateAccount(account.Id, params)
@@ -80,14 +87,14 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("only name change", func(t *testing.T) {
-		account := seedAccount(t, db, 100.0)
+		account := seedAccount(t, db, 10000)
 		params := storage.UpdateAccountParams{
 			Name: new("UpdatedAccount"),
 		}
 
 		updatedAccount, err := db.UpdateAccount(account.Id, params)
 		require.NoError(t, err)
-		require.Equal(t, 0.0, updatedAccount.ManualAdjustment)
+		require.Equal(t, int64(0), updatedAccount.ManualAdjustment)
 		require.Equal(t, *params.Name, updatedAccount.Name)
 		assert.Equal(
 			t,
@@ -106,7 +113,7 @@ func TestDeleteAccount(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	t.Run("existing account", func(t *testing.T) {
-		account := seedAccount(t, db, 100.0)
+		account := seedAccount(t, db, 10000)
 		err := db.DeleteAccount(account.Id)
 		require.NoError(t, err)
 	})
@@ -117,13 +124,13 @@ func TestDeleteAccount(t *testing.T) {
 	})
 
 	t.Run("account with cashflow transaction", func(t *testing.T) {
-		account := seedAccount(t, db, 1000.0)
+		account := seedAccount(t, db, 100000)
 		category := seedCategory(t, db, "income")
 		_ = seedCashflowTransaction(
 			t,
 			db,
 			seedCashflowTransactionParams{
-				amount:          200.0,
+				amount:          20000,
 				accountId:       account.Id,
 				categoryId:      category.Id,
 				transactionType: "income",
@@ -134,13 +141,13 @@ func TestDeleteAccount(t *testing.T) {
 	})
 
 	t.Run("account with transfer transaction", func(t *testing.T) {
-		account1 := seedAccount(t, db, 1000.0)
-		account2 := seedAccount(t, db, 1000.0)
+		account1 := seedAccount(t, db, 100000)
+		account2 := seedAccount(t, db, 100000)
 		_ = seedTransferTransaction(
 			t,
 			db,
 			seedTransferTransactionParams{
-				amount:        200.0,
+				amount:        20000,
 				fromAccountId: account1.Id,
 				toAccountId:   account2.Id,
 			},
@@ -150,7 +157,7 @@ func TestDeleteAccount(t *testing.T) {
 	})
 
 	t.Run("double delete account", func(t *testing.T) {
-		account := seedAccount(t, db, 100.0)
+		account := seedAccount(t, db, 10000)
 		err := db.DeleteAccount(account.Id)
 		require.NoError(t, err)
 		err = db.DeleteAccount(account.Id)
@@ -161,7 +168,7 @@ func TestDeleteAccount(t *testing.T) {
 func TestGetAccount(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
-	account := seedAccount(t, db, 100.0)
+	account := seedAccount(t, db, 10000)
 
 	cases := map[string]struct {
 		id          string
@@ -201,17 +208,17 @@ func TestGetAccount(t *testing.T) {
 
 	t.Run("account with transactions returns correct balance", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		account := seedAccount(t, db, 400.0)
-		account2 := seedAccount(t, db, 300.0)
+		account := seedAccount(t, db, 40000)
+		account2 := seedAccount(t, db, 30000)
 		category := seedCategory(t, db, "income")
 		transaction := seedCashflowTransaction(t, db, seedCashflowTransactionParams{
-			amount:          50.0,
+			amount:          5000,
 			accountId:       account.Id,
 			categoryId:      category.Id,
 			transactionType: "income",
 		})
 		transaction2 := seedTransferTransaction(t, db, seedTransferTransactionParams{
-			amount:        150.0,
+			amount:        15000,
 			fromAccountId: account2.Id,
 			toAccountId:   account.Id,
 		})
@@ -245,24 +252,24 @@ func TestGetAccounts(t *testing.T) {
 
 	t.Run("accounts with transactions returns correct balances", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		account1 := seedAccount(t, db, 100.0)
+		account1 := seedAccount(t, db, 10000)
 		incomeCategory := seedCategory(t, db, "income")
 		transaction1 := seedCashflowTransaction(t, db, seedCashflowTransactionParams{
-			amount:          50.0,
+			amount:          5000,
 			accountId:       account1.Id,
 			categoryId:      incomeCategory.Id,
 			transactionType: "income",
 		})
-		account2 := seedAccount(t, db, 200.0)
+		account2 := seedAccount(t, db, 20000)
 		expenseCategory := seedCategory(t, db, "expense")
 		transaction2 := seedCashflowTransaction(t, db, seedCashflowTransactionParams{
-			amount:          100.0,
+			amount:          10000,
 			accountId:       account2.Id,
 			categoryId:      expenseCategory.Id,
 			transactionType: "expense",
 		})
 		transaction3 := seedTransferTransaction(t, db, seedTransferTransactionParams{
-			amount:        100.0,
+			amount:        10000,
 			fromAccountId: account2.Id,
 			toAccountId:   account1.Id,
 		})
@@ -301,7 +308,7 @@ func TestGetAccountBalances(t *testing.T) {
 
 	t.Run("accounts without transactions returns opening + adjustment", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		account := seedAccount(t, db, 100.0)
+		account := seedAccount(t, db, 10000)
 		balances, err := db.GetAccountBalances()
 		require.NoError(t, err)
 		require.Len(t, balances, 1)
@@ -316,7 +323,7 @@ func TestGetAccountBalances(t *testing.T) {
 		account, category := seedAccountAndCategory(t, db, "income")
 		transaction, err := db.CreateTransaction(storage.CreateTransactionParams{
 			Type:        "income",
-			Amount:      50.0,
+			Amount:      5000,
 			Description: "Income Transaction",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 			AccountId:   &account.Id,
@@ -341,7 +348,7 @@ func TestGetAccountBalances(t *testing.T) {
 		account, category := seedAccountAndCategory(t, db, "expense")
 		transaction, err := db.CreateTransaction(storage.CreateTransactionParams{
 			Type:        "expense",
-			Amount:      50.0,
+			Amount:      5000,
 			Description: "Expense Transaction",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 			AccountId:   &account.Id,
@@ -371,7 +378,7 @@ func TestGetAccountBalances(t *testing.T) {
 				t,
 				db,
 				seedCashflowTransactionParams{
-					amount:          100.0,
+					amount:          10000,
 					accountId:       account.Id,
 					categoryId:      incomeCategory.Id,
 					transactionType: "income",
@@ -381,7 +388,7 @@ func TestGetAccountBalances(t *testing.T) {
 				t,
 				db,
 				seedCashflowTransactionParams{
-					amount:          100.0,
+					amount:          10000,
 					accountId:       account.Id,
 					categoryId:      expenseCategory.Id,
 					transactionType: "expense",
@@ -403,13 +410,13 @@ func TestGetAccountBalances(t *testing.T) {
 
 	t.Run("multiple accounts with different transactions", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		account1 := seedAccount(t, db, 2000.0)
+		account1 := seedAccount(t, db, 200000)
 		account1, err := db.UpdateAccount(account1.Id, storage.UpdateAccountParams{
 			Name:             new("UpdatedAccount"),
-			ManualAdjustment: new(554.0),
+			ManualAdjustment: new(int64(5540)),
 		})
 		require.NoError(t, err)
-		account2 := seedAccount(t, db, 3300.0)
+		account2 := seedAccount(t, db, 330000)
 		incomeCategory := seedCategory(t, db, "income")
 		expenseCategory := seedCategory(t, db, "expense")
 
@@ -417,7 +424,7 @@ func TestGetAccountBalances(t *testing.T) {
 			t,
 			db,
 			seedCashflowTransactionParams{
-				amount:          100.0,
+				amount:          10000,
 				accountId:       account1.Id,
 				categoryId:      incomeCategory.Id,
 				transactionType: "income",
@@ -427,7 +434,7 @@ func TestGetAccountBalances(t *testing.T) {
 			t,
 			db,
 			seedCashflowTransactionParams{
-				amount:          100.0,
+				amount:          10000,
 				accountId:       account1.Id,
 				categoryId:      expenseCategory.Id,
 				transactionType: "expense",
@@ -437,7 +444,7 @@ func TestGetAccountBalances(t *testing.T) {
 			t,
 			db,
 			seedCashflowTransactionParams{
-				amount:          200.0,
+				amount:          20000,
 				accountId:       account1.Id,
 				categoryId:      expenseCategory.Id,
 				transactionType: "expense",
@@ -447,7 +454,7 @@ func TestGetAccountBalances(t *testing.T) {
 			t,
 			db,
 			seedCashflowTransactionParams{
-				amount:          300.0,
+				amount:          30000,
 				accountId:       account1.Id,
 				categoryId:      incomeCategory.Id,
 				transactionType: "income",
@@ -455,7 +462,7 @@ func TestGetAccountBalances(t *testing.T) {
 		)
 		transaction5 := seedTransferTransaction(
 			t, db, seedTransferTransactionParams{
-				amount:        500.0,
+				amount:        50000,
 				fromAccountId: account1.Id,
 				toAccountId:   account2.Id,
 			},
@@ -464,7 +471,7 @@ func TestGetAccountBalances(t *testing.T) {
 			t,
 			db,
 			seedCashflowTransactionParams{
-				amount:          2500.0,
+				amount:          250000,
 				accountId:       account2.Id,
 				categoryId:      incomeCategory.Id,
 				transactionType: "income",
@@ -474,7 +481,7 @@ func TestGetAccountBalances(t *testing.T) {
 			t,
 			db,
 			seedCashflowTransactionParams{
-				amount:          500.0,
+				amount:          50000,
 				accountId:       account2.Id,
 				categoryId:      expenseCategory.Id,
 				transactionType: "expense",

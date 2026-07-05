@@ -15,7 +15,7 @@ import (
 
 type TransactionRequest struct {
 	Type          string    `json:"type"          binding:"required,oneof=income expense transfer"`
-	Amount        float64   `json:"amount"        binding:"required,gt=0"`
+	Amount        int64     `json:"amount"        binding:"required,gt=0"`
 	Description   string    `json:"description"   binding:"omitempty"`
 	OccurredAt    time.Time `json:"occurredAt"    binding:"required"                               time_format:"2006-01-02T15:04:05Z07:00"`
 	AccountId     *string   `json:"accountId"     binding:"omitempty,uuid"`
@@ -25,7 +25,7 @@ type TransactionRequest struct {
 }
 
 type UpdateTransactionRequest struct {
-	Amount        *float64   `json:"amount"        binding:"omitempty,gt=0"`
+	Amount        *int64     `json:"amount"        binding:"omitempty,gt=0"`
 	Description   *string    `json:"description"   binding:"omitempty"`
 	OccurredAt    *time.Time `json:"occurredAt"    binding:"omitempty"      time_format:"2006-01-02T15:04:05Z07:00"`
 	AccountId     *string    `json:"accountId"     binding:"omitempty,uuid"`

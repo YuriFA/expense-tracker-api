@@ -10,13 +10,13 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Storage) CreateAccount(name string, openingBalance float64) (*storage.Account, error) {
+func (s *Storage) CreateAccount(params storage.CreateAccountParams) (*storage.Account, error) {
 	const op = "storage.sqlite.CreateAccount"
 
 	stmt, err := s.db.Prepare(
-		`INSERT INTO accounts (id, name, opening_balance, manual_adjustment)
-		VALUES (?, ?, ?, ?)
-		RETURNING id, name, opening_balance, manual_adjustment, opening_balance + manual_adjustment, created_at, updated_at`,
+		`INSERT INTO accounts (id, name, currency, opening_balance, manual_adjustment)
+		VALUES (?, ?, ?, ?, ?)
+		RETURNING id, name, currency, opening_balance, manual_adjustment, opening_balance + manual_adjustment, created_at, updated_at`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -25,8 +25,8 @@ func (s *Storage) CreateAccount(name string, openingBalance float64) (*storage.A
 
 	id := uuid.NewString()
 	var account storage.Account
-	err = stmt.QueryRow(id, name, openingBalance, 0.0).
-		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
+	err = stmt.QueryRow(id, params.Name, params.Currency, params.OpeningBalance, int64(0)).
+		Scan(&account.Id, &account.Name, &account.Currency, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -42,7 +42,7 @@ func (s *Storage) UpdateAccount(
 
 	setParts, args := newUpdateBuilder().
 		addString("name", params.Name).
-		addFloat("manual_adjustment", params.ManualAdjustment).
+		addAmount("manual_adjustment", params.ManualAdjustment).
 		build(", ")
 
 	args = append(args, id)
@@ -50,7 +50,7 @@ func (s *Storage) UpdateAccount(
 	query := fmt.Sprintf(
 		`UPDATE accounts SET %s
 		WHERE id = ?
-		RETURNING id, name, opening_balance, manual_adjustment,
+		RETURNING id, name, currency, opening_balance, manual_adjustment,
 		(opening_balance + manual_adjustment +
 			COALESCE(
 				(SELECT SUM(c.signed) FROM account_contributions c WHERE c.account_id = accounts.id),
@@ -62,7 +62,7 @@ func (s *Storage) UpdateAccount(
 
 	var account storage.Account
 	err := s.db.QueryRow(query, args...).
-		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
+		Scan(&account.Id, &account.Name, &account.Currency, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
@@ -107,13 +107,13 @@ func (s *Storage) GetAccount(id string) (*storage.Account, error) {
 	const op = "storage.sqlite.GetAccount"
 
 	stmt, err := s.db.Prepare(
-		`SELECT a.id, a.name, a.opening_balance, a.manual_adjustment, 
+		`SELECT a.id, a.name, a.currency, a.opening_balance, a.manual_adjustment, 
 			a.opening_balance + a.manual_adjustment + COALESCE(SUM(c.signed),0) AS balance,
 			a.created_at, a.updated_at
 		FROM accounts a
 		LEFT JOIN account_contributions c ON c.account_id = a.id
 		WHERE a.id = ?
-		GROUP BY a.id, a.name, a.opening_balance, a.manual_adjustment, a.created_at, a.updated_at`,
+		GROUP BY a.id, a.name, a.currency, a.opening_balance, a.manual_adjustment, a.created_at, a.updated_at`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -122,7 +122,7 @@ func (s *Storage) GetAccount(id string) (*storage.Account, error) {
 
 	var account storage.Account
 	err = stmt.QueryRow(id).
-		Scan(&account.Id, &account.Name, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
+		Scan(&account.Id, &account.Name, &account.Currency, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrAccountNotFound)
@@ -137,12 +137,12 @@ func (s *Storage) GetAccounts() ([]storage.Account, error) {
 	const op = "storage.sqlite.GetAccounts"
 
 	stmt, err := s.db.Prepare(
-		`SELECT a.id, a.name, a.opening_balance, a.manual_adjustment, 
+		`SELECT a.id, a.name, a.currency, a.opening_balance, a.manual_adjustment, 
 			a.opening_balance + a.manual_adjustment + COALESCE(SUM(c.signed),0) AS balance,
 			a.created_at, a.updated_at
 		FROM accounts a
 		LEFT JOIN account_contributions c ON c.account_id = a.id
-		GROUP BY a.id, a.name, a.opening_balance, a.manual_adjustment, a.created_at, a.updated_at`,
+		GROUP BY a.id, a.name, a.currency, a.opening_balance, a.manual_adjustment, a.created_at, a.updated_at`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -161,6 +161,7 @@ func (s *Storage) GetAccounts() ([]storage.Account, error) {
 		err := rows.Scan(
 			&account.Id,
 			&account.Name,
+			&account.Currency,
 			&account.OpeningBalance,
 			&account.ManualAdjustment,
 			&account.Balance,
@@ -184,10 +185,10 @@ func (s *Storage) GetAccountBalances() ([]storage.AccountBalance, error) {
 	const op = "storage.sqlite.GetAccountBalances"
 
 	stmt, err := s.db.Prepare(
-		`SELECT a.id, a.name, a.opening_balance + a.manual_adjustment + COALESCE(SUM(c.signed), 0) AS balance
+		`SELECT a.id, a.name, a.currency, a.opening_balance + a.manual_adjustment + COALESCE(SUM(c.signed), 0) AS balance
 		FROM accounts a
 		LEFT JOIN account_contributions c ON c.account_id = a.id
-		GROUP BY a.id, a.name, a.opening_balance, a.manual_adjustment`,
+		GROUP BY a.id, a.name, a.currency, a.opening_balance, a.manual_adjustment`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -203,7 +204,7 @@ func (s *Storage) GetAccountBalances() ([]storage.AccountBalance, error) {
 
 	for rows.Next() {
 		b := storage.AccountBalance{}
-		if err := rows.Scan(&b.Id, &b.Name, &b.Balance); err != nil {
+		if err := rows.Scan(&b.Id, &b.Name, &b.Currency, &b.Balance); err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
 		balances = append(balances, b)
