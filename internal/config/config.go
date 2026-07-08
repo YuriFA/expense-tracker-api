@@ -11,7 +11,7 @@ import (
 type Config struct {
 	Env         string `yaml:"env"          env:"ENV"          env-required:"true"`
 	StoragePath string `yaml:"storage_path" env:"STORAGE_PATH" env-required:"true"`
-	HTTPServer `       yaml:"http_server"`
+	HTTPServer  `       yaml:"http_server"`
 }
 
 type HTTPServer struct {
@@ -19,6 +19,13 @@ type HTTPServer struct {
 	ReadTimeout  time.Duration `yaml:"read_timeout"  env-default:"5s"`
 	WriteTimeout time.Duration `yaml:"write_timeout" env-default:"30s"`
 	IdleTimeout  time.Duration `yaml:"idle_timeout"  env-default:"60s"`
+	CorsConfig   CORSConfig    `yaml:"cors"`
+}
+
+type CORSConfig struct {
+	AllowedOrigins []string `yaml:"allowed_origins" env:"CORS_ALLOWED_ORIGINS" env-default:"*"                           env-separator:","`
+	AllowedMethods []string `yaml:"allowed_methods" env:"CORS_ALLOWED_METHODS" env-default:"GET,POST,PUT,DELETE,OPTIONS" env-separator:","`
+	AllowedHeaders []string `yaml:"allowed_headers" env:"CORS_ALLOWED_HEADERS" env-default:"Content-Type,Authorization"  env-separator:","`
 }
 
 func MustLoad() *Config {

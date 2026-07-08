@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"expense-tracker-api/internal/config"
 	"expense-tracker-api/internal/http-server/handlers"
 	"expense-tracker-api/internal/http-server/middleware"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-func NewRouter(log *slog.Logger, handlers *handlers.Handler) *gin.Engine {
+func NewRouter(log *slog.Logger, handlers *handlers.Handler, config config.HTTPServer) *gin.Engine {
 	// Format validation error messages to use JSON field names instead of struct field names
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterTagNameFunc(func(fld reflect.StructField) string {
@@ -29,9 +30,9 @@ func NewRouter(log *slog.Logger, handlers *handlers.Handler) *gin.Engine {
 
 	router := gin.New()
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://localhost:5173", "http://localhost:5174"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowOrigins:     config.CorsConfig.AllowedOrigins,
+		AllowMethods:     config.CorsConfig.AllowedMethods,
+		AllowHeaders:     config.CorsConfig.AllowedHeaders,
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,

@@ -38,7 +38,7 @@ func main() {
 	log.Info("Storage initialized and categories seeded")
 
 	handlers := handlers.NewHandler(log, db)
-	router := httpserver.NewRouter(log, handlers)
+	router := httpserver.NewRouter(log, handlers, cfg.HTTPServer)
 
 	log.Info("Starting server", slog.String("address", cfg.Address))
 

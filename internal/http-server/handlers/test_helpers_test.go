@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"expense-tracker-api/internal/config"
 	httpserver "expense-tracker-api/internal/http-server"
 	"expense-tracker-api/internal/http-server/handlers"
 	"expense-tracker-api/internal/logger"
@@ -18,15 +19,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// assertErrorResponse(t, code, body, errCode, errMsg) 	Проверяет формат writeError (тот самый error-response контракт).
-// assertValidationError(t, code, body, expectedFields ...) 	Проверяет формат writeValidationError.
-
 func setupTestEnv(t *testing.T) (*gin.Engine, *sqlite.Storage) {
 	t.Helper()
 	db := sqlite.NewTestDB(t)
 	log := logger.NewDiscardLogger()
 	h := handlers.NewHandler(log, db)
-	return httpserver.NewRouter(log, h), db
+	return httpserver.NewRouter(log, h, config.HTTPServer{
+		CorsConfig: config.CORSConfig{
+			AllowedOrigins: []string{"*"},
+		},
+	}), db
 }
 
 func newJSONRequest(t *testing.T, method, path string, body any) *http.Request {
