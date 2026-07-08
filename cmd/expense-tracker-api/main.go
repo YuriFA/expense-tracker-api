@@ -30,8 +30,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = db.SeedCategories()
-	if err != nil {
+	if err := db.RunMigrations(); err != nil {
+		log.Error("failed to run migrations", logger.Error(err))
+		os.Exit(1)
+	}
+	
+	if err := db.SeedCategories(); err != nil {
 		log.Error("failed to seed categories", logger.Error(err))
 		os.Exit(1)
 	}
