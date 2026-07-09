@@ -41,6 +41,8 @@ func NewRouter(log *slog.Logger, handlers *handlers.Handler, config config.HTTPS
 	router.Use(middleware.SlogLogger(log))
 
 	api := router.Group("/api")
+	api.POST("/auth/register", handlers.Register)
+
 	api.GET("/accounts", handlers.ListAccounts)
 	api.POST("/accounts", handlers.CreateAccount)
 	api.GET("/accounts/:id", handlers.GetAccount)

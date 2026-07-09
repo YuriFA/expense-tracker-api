@@ -15,7 +15,9 @@ import (
 func TestCreateTransaction(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
-	account, category := seedAccountAndCategory(t, db, "income")
+	user := seedUser(t, db, "test@example.com")
+	account := seedAccount(t, db, 100000)
+	category := seedCategory(t, db, "salary", user.Id, "income")
 	account2 := seedAccount(t, db, 100000)
 
 	cases := map[string]struct {
@@ -126,10 +128,11 @@ func TestCreateTransaction(t *testing.T) {
 }
 
 func TestUpdateTransaction(t *testing.T) {
-	db := sqlite.NewTestDB(t)
-
 	t.Run("cashflow full params updates", func(t *testing.T) {
-		account, category := seedAccountAndCategory(t, db, "income")
+		db := sqlite.NewTestDB(t)
+		account := seedAccount(t, db, 100000)
+		user := seedUser(t, db, "test@example.com")
+		category := seedCategory(t, db, "salary", user.Id, "income")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
@@ -163,6 +166,7 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("transfer full params updates", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		account1 := seedAccount(t, db, 20000)
 		account2 := seedAccount(t, db, 30000)
 		transaction := seedTransferTransaction(
@@ -197,8 +201,11 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("cashflow only category change", func(t *testing.T) {
-		account, category := seedAccountAndCategory(t, db, "income")
-		expenseCategory := seedCategory(t, db, "expense")
+		db := sqlite.NewTestDB(t)
+		user := seedUser(t, db, "test@example.com")
+		account := seedAccount(t, db, 100000)
+		category := seedCategory(t, db, "salary", user.Id, "income")
+		expenseCategory := seedCategory(t, db, "rent", user.Id, "expense")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
@@ -218,6 +225,7 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("transfer only fromAccountId change", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		account1 := seedAccount(t, db, 20000)
 		account2 := seedAccount(t, db, 30000)
 		account3 := seedAccount(t, db, 40000)
@@ -245,6 +253,7 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("transfer same fromAccountId toAccountId change", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		account1 := seedAccount(t, db, 20000)
 		account2 := seedAccount(t, db, 30000)
 		transaction := seedTransferTransaction(
@@ -265,6 +274,7 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("transfer with cashflow params", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		account1 := seedAccount(t, db, 20000)
 		account2 := seedAccount(t, db, 30000)
 		transaction := seedTransferTransaction(
@@ -286,8 +296,11 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("cashflow with transfer params", func(t *testing.T) {
-		account, category := seedAccountAndCategory(t, db, "income")
-		expenseCategory := seedCategory(t, db, "expense")
+		db := sqlite.NewTestDB(t)
+		user := seedUser(t, db, "test@example.com")
+		account := seedAccount(t, db, 100000)
+		category := seedCategory(t, db, "salary", user.Id, "income")
+		expenseCategory := seedCategory(t, db, "rent", user.Id, "expense")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
@@ -308,16 +321,18 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("wrong transaction id return not found", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		_, err := db.UpdateTransaction(uuid.NewString(), storage.UpdateTransactionParams{})
 		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 }
 
 func TestDeleteTransaction(t *testing.T) {
-	db := sqlite.NewTestDB(t)
-
 	t.Run("existing transaction", func(t *testing.T) {
-		account, category := seedAccountAndCategory(t, db, "income")
+		db := sqlite.NewTestDB(t)
+		user := seedUser(t, db, "test@example.com")
+		account := seedAccount(t, db, 100000)
+		category := seedCategory(t, db, "salary", user.Id, "income")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
@@ -334,12 +349,16 @@ func TestDeleteTransaction(t *testing.T) {
 	})
 
 	t.Run("non existing transaction", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		err := db.DeleteTransaction(uuid.NewString())
 		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 
 	t.Run("double delete transaction", func(t *testing.T) {
-		account, category := seedAccountAndCategory(t, db, "income")
+		db := sqlite.NewTestDB(t)
+		user := seedUser(t, db, "test@example.com")
+		account := seedAccount(t, db, 100000)
+		category := seedCategory(t, db, "salary", user.Id, "income")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
@@ -362,7 +381,9 @@ func TestGetTransaction(t *testing.T) {
 	t.Run("cashflow", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		account, category := seedAccountAndCategory(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		account := seedAccount(t, db, 100000)
+		category := seedCategory(t, db, "salary", user.Id, "income")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
@@ -464,9 +485,11 @@ func TestGetTransaction(t *testing.T) {
 
 func createTestTransactions(t *testing.T, db *sqlite.Storage) ([]storage.Transaction, error) {
 	t.Helper()
-	account, incomeCategory := seedAccountAndCategory(t, db, "income")
+	user := seedUser(t, db, "test@example.com")
+	account := seedAccount(t, db, 100000)
+	incomeCategory := seedCategory(t, db, "salary", user.Id, "income")
 	account2 := seedAccount(t, db, 100000)
-	expenseCategory := seedCategory(t, db, "expense")
+	expenseCategory := seedCategory(t, db, "rent", user.Id, "expense")
 	transactionCreationParams := []storage.CreateTransactionParams{
 		{
 			Type:        "income",

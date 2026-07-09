@@ -12,7 +12,7 @@ type User struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 
-type CreateUserParams struct {
+type RegisterUserParams struct {
 	Email        string
 	PasswordHash string
 }
@@ -47,33 +47,22 @@ type UpdateAccountParams struct {
 }
 
 type Category struct {
-	Id        string  `json:"id"`
-	Name      string  `json:"name"`
-	Slug      *string `json:"slug"`
-	Type      string  `json:"type"`
-	Icon      string  `json:"icon"`
-	Color     string  `json:"color"`
-	IsDefault bool    `json:"isDefault"`
-	CreatedAt string  `json:"createdAt"`
-	UpdatedAt string  `json:"updatedAt"`
+	Id        string `json:"id"`
+	UserId    string `json:"userId"`
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	Icon      string `json:"icon"`
+	Color     string `json:"color"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 type CreateCategoryParams struct {
-	Name      string
-	Type      string
-	Icon      string
-	Color     string
-	IsDefault bool
-}
-
-type CreateDefaultCategoryParams struct {
-	Id        string
-	Name      string
-	Slug      string
-	Type      string
-	Icon      string
-	Color     string
-	IsDefault bool
+	UserId string
+	Name   string
+	Type   string
+	Icon   string
+	Color  string
 }
 
 type UpdateCategoryParams struct {

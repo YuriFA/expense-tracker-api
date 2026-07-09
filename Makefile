@@ -24,9 +24,6 @@ migrate-up:
 	migrate -path ./internal/storage/sqlite/migrations/ -database "sqlite3://$(DATABASE_URL)" up
 
 migrate-down:
-	migrate -path ./internal/storage/sqlite/migrations/ -database "sqlite3://$(DATABASE_URL)" down
-
-migrate-down-all:
 	migrate -path ./internal/storage/sqlite/migrations/ -database "sqlite3://$(DATABASE_URL)" down --all
 
 migrate-create:

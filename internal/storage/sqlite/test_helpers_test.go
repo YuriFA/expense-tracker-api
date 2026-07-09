@@ -1,6 +1,7 @@
 package sqlite_test
 
 import (
+	"fmt"
 	"testing"
 
 	"expense-tracker-api/internal/storage"
@@ -10,37 +11,53 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func seedUser(t *testing.T, db *sqlite.Storage, email, passwordHash string) *storage.User {
+func seedUser(t *testing.T, db *sqlite.Storage, email string) *storage.User {
 	t.Helper()
-	user, err := db.CreateUser(storage.CreateUserParams{
+	user, err := db.RegisterUser(storage.RegisterUserParams{
 		Email:        email,
-		PasswordHash: passwordHash,
+		PasswordHash: "strongpasswordhash",
 	})
 	require.NoError(t, err)
 	return user
 }
 
-func seedCategory(t *testing.T, db *sqlite.Storage, categoryType string) *storage.Category {
+func seedCategory(
+	t *testing.T,
+	db *sqlite.Storage,
+	name string,
+	userId string,
+	categoryType string,
+) *storage.Category {
 	t.Helper()
 	category, err := db.CreateCategory(storage.CreateCategoryParams{
-		Name:      "Category1",
-		Type:      categoryType,
-		Icon:      "icon2",
-		Color:     "blue",
-		IsDefault: false,
+		UserId: userId,
+		Name:   name,
+		Type:   categoryType,
+		Icon:   "icon2",
+		Color:  "blue",
 	})
 	require.NoError(t, err)
 	return category
 }
 
-func seedCategories(t *testing.T, db *sqlite.Storage, count int) []*storage.Category {
+func seedCategories(
+	t *testing.T,
+	db *sqlite.Storage,
+	userId string,
+	count int,
+) []*storage.Category {
 	t.Helper()
 	results := make([]*storage.Category, 0, count)
 	for i := range count {
 		if i%2 == 0 {
-			results = append(results, seedCategory(t, db, "income"))
+			results = append(
+				results,
+				seedCategory(t, db, fmt.Sprintf("incomeCategory%d", i), userId, "income"),
+			)
 		} else {
-			results = append(results, seedCategory(t, db, "expense"))
+			results = append(
+				results,
+				seedCategory(t, db, fmt.Sprintf("expenseCategory%d", i), userId, "expense"),)
 		}
 	}
 	return results
@@ -64,19 +81,6 @@ func seedAccounts(t *testing.T, db *sqlite.Storage, count int) []*storage.Accoun
 		results = append(results, seedAccount(t, db, int64(i+10)*100))
 	}
 	return results
-}
-
-func seedAccountAndCategory(
-	t *testing.T,
-	db *sqlite.Storage,
-	categoryType string,
-) (*storage.Account, *storage.Category) {
-	t.Helper()
-
-	account := seedAccount(t, db, 100000)
-	category := seedCategory(t, db, categoryType)
-
-	return account, category
 }
 
 type seedCashflowTransactionParams struct {

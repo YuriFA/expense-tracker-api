@@ -11,28 +11,42 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-func (s *Storage) CreateUser(params storage.CreateUserParams) (*storage.User, error) {
-	const op = "storage.sqlite.CreateUser"
+func (s *Storage) RegisterUser(params storage.RegisterUserParams) (*storage.User, error) {
+	const op = "storage.sqlite.RegisterUser"
 
-	stmt, err := s.db.Prepare(
-		`INSERT INTO users (id, email, password_hash)
-		VALUES (?, ?, ?)
-		RETURNING id, email, created_at, updated_at`,
-	)
+	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	defer stmt.Close()
+	defer tx.Rollback()
 
-	id := uuid.NewString()
 	var user storage.User
-	err = stmt.QueryRow(id, params.Email, params.PasswordHash).
-		Scan(&user.Id, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+	err = tx.QueryRow(
+		`INSERT INTO users (id, email, password_hash)
+		VALUES (?, ?, ?)
+		RETURNING id, email, created_at, updated_at`,
+		uuid.NewString(), params.Email, params.PasswordHash,
+	).Scan(&user.Id, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrUserAlreadyExists)
 		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	for _, category := range defaultCategories {
+		_, err = tx.Exec(
+			`INSERT INTO categories (id, user_id, name, type, icon, color)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+			uuid.NewString(), user.Id, category.Name, category.Type, category.Icon, category.Color,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 

@@ -21,12 +21,13 @@ func TestCreateTransaction(t *testing.T) {
 	t.Run("Success cashflow", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		transactionType := "income"
 		occurredAt := time.Now()
-		category, account := seedCommonCategoryAndAccount(t, db, transactionType)
+		user := seedUser(t, db, "test@example.com")
+		category := seedCategory(t, db, "salary", user.Id, "income")
+		account := seedAccount(t, db, "Cash", 100000)
 
 		req := newJSONRequest(t, http.MethodPost, "/api/transactions", map[string]any{
-			"type":        transactionType,
+			"type":        "income",
 			"amount":      100000,
 			"description": "Salary for June",
 			"occurredAt":  occurredAt,
@@ -82,7 +83,9 @@ func TestCreateTransaction(t *testing.T) {
 		router, db := setupTestEnv(t)
 
 		occurredAt := time.Now()
-		category, account := seedCommonCategoryAndAccount(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		category := seedCategory(t, db, "salary", user.Id, "income")
+		account := seedAccount(t, db, "Cash", 100000)
 		account2 := seedAccount(t, db, "Bank", 100000)
 
 		cases := map[string]struct {
@@ -401,12 +404,8 @@ func TestUpdateTransaction(t *testing.T) {
 
 		existing := seedCommonTransaction(t, db, "income")
 		nextAccount := seedAccount(t, db, "Bank", 200000)
-		nextCategory := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Groceries",
-			Type:  "income",
-			Icon:  "shopping-cart",
-			Color: "blue",
-		})
+		user := seedUser(t, db, "test@example.com")
+		nextCategory := seedCategory(t, db, "rent", user.Id, "expense")
 
 		params := map[string]any{
 			"amount":      int64(50000),
@@ -557,12 +556,8 @@ func TestUpdateTransaction(t *testing.T) {
 
 		existing := seedCommonTransaction(t, db, "income")
 
-		nextCategory := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Groceries",
-			Type:  "expense",
-			Icon:  "shopping-cart",
-			Color: "blue",
-		})
+		user := seedUser(t, db, "test@example.com")
+		nextCategory := seedCategory(t, db, "rent", user.Id, "expense")
 
 		req := newJSONRequest(
 			t,

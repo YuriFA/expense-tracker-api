@@ -33,7 +33,6 @@ func TestCreateCategory(t *testing.T) {
 		assert.Equal(t, "income", response.Type)
 		assert.Equal(t, "dollar-sign", response.Icon)
 		assert.Equal(t, "green", response.Color)
-		assert.Equal(t, false, response.IsDefault)
 	})
 
 	t.Run("ValidationFail", func(t *testing.T) {
@@ -117,12 +116,8 @@ func TestUpdateCategory(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Salary",
-			Type:  "income",
-			Icon:  "dollar-sign",
-			Color: "green",
-		})
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCategory(t, db, "rent", user.Id, "expense")
 
 		params := map[string]any{
 			"name":  "Updated Category",
@@ -150,12 +145,8 @@ func TestUpdateCategory(t *testing.T) {
 	t.Run("PartialUpdate", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Salary",
-			Type:  "income",
-			Icon:  "dollar-sign",
-			Color: "green",
-		})
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCategory(t, db, "salary", user.Id, "income")
 
 		req := newJSONRequest(
 			t,
@@ -179,12 +170,8 @@ func TestUpdateCategory(t *testing.T) {
 	t.Run("NoFields", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Salary",
-			Type:  "income",
-			Icon:  "dollar-sign",
-			Color: "green",
-		})
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCategory(t, db, "salary", user.Id, "income")
 
 		req := newJSONRequest(
 			t,
@@ -199,34 +186,6 @@ func TestUpdateCategory(t *testing.T) {
 		parseBody(t, w, &response)
 		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
 		assert.Equal(t, "no fields to update", response.Message)
-	})
-
-	t.Run("ForbiddenDefaultCategory", func(t *testing.T) {
-		router, db := setupTestEnv(t)
-
-		existing := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:      "Some default",
-			Type:      "expense",
-			Icon:      "sign-out",
-			Color:     "red",
-			IsDefault: true,
-		})
-
-		req := newJSONRequest(
-			t,
-			http.MethodPatch,
-			"/api/categories/"+existing.Id,
-			map[string]any{
-				"name": "Updated Salary",
-			},
-		)
-		w := performRequest(t, router, req)
-
-		assert.Equal(t, http.StatusForbidden, w.Code)
-		var response handlers.ErrorResponse
-		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeForbidden, response.Code)
-		assert.Equal(t, "cannot update default category", response.Message)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
@@ -254,39 +213,14 @@ func TestDeleteCategory(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Salary",
-			Type:  "income",
-			Icon:  "dollar-sign",
-			Color: "green",
-		})
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCategory(t, db, "salary", user.Id, "income")
 
 		req := httptest.NewRequest(http.MethodDelete, "/api/categories/"+existing.Id, nil)
 		w := performRequest(t, router, req)
 
 		assert.Equal(t, http.StatusNoContent, w.Code)
 		assert.Equal(t, 0, w.Body.Len())
-	})
-
-	t.Run("ForbiddenDefaultCategory", func(t *testing.T) {
-		router, db := setupTestEnv(t)
-
-		existing := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:      "Some default",
-			Type:      "expense",
-			Icon:      "sign-out",
-			Color:     "red",
-			IsDefault: true,
-		})
-
-		req := httptest.NewRequest(http.MethodDelete, "/api/categories/"+existing.Id, nil)
-		w := performRequest(t, router, req)
-
-		assert.Equal(t, http.StatusForbidden, w.Code)
-		var response handlers.ErrorResponse
-		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeForbidden, response.Code)
-		assert.Equal(t, "cannot delete default category", response.Message)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
@@ -305,15 +239,9 @@ func TestDeleteCategory(t *testing.T) {
 	t.Run("CategoryWithTransactions", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
+		user := seedUser(t, db, "test@example.com")
 		account := seedAccount(t, db, "Wallet", 100000)
-		existing := seedCategory(
-			t, db, storage.CreateCategoryParams{
-				Name:  "Salary",
-				Type:  "income",
-				Icon:  "dollar-sign",
-				Color: "green",
-			},
-		)
+		existing := seedCategory(t, db, "salary", user.Id, "income")
 		_ = seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        "income",
 			Amount:      10000,
@@ -338,12 +266,8 @@ func TestGetCategory(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Salary",
-			Type:  "income",
-			Icon:  "dollar-sign",
-			Color: "green",
-		})
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCategory(t, db, "salary", user.Id, "income")
 
 		req := httptest.NewRequest(http.MethodGet, "/api/categories/"+existing.Id, nil)
 		w := performRequest(t, router, req)
@@ -376,30 +300,11 @@ func TestListCategories(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		seeded1 := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Salary",
-			Type:  "income",
-			Icon:  "dollar-sign",
-			Color: "green",
-		})
-		seeded2 := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Investment",
-			Type:  "income",
-			Icon:  "bank",
-			Color: "blue",
-		})
-		seeded3 := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Shopping",
-			Type:  "expense",
-			Icon:  "cart",
-			Color: "green",
-		})
-		seeded4 := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Transport",
-			Type:  "expense",
-			Icon:  "car",
-			Color: "red",
-		})
+		user := seedUser(t, db, "test@example.com")
+		seeded1 := seedCategory(t, db, "salary", user.Id, "income")
+		seeded2 := seedCategory(t, db, "bonus", user.Id, "income")
+		seeded3 := seedCategory(t, db, "rent", user.Id, "expense")
+		seeded4 := seedCategory(t, db, "groceries", user.Id, "expense")
 		seededCategories := []*storage.Category{seeded1, seeded2, seeded3, seeded4}
 
 		req := httptest.NewRequest(http.MethodGet, "/api/categories", nil)
@@ -424,30 +329,11 @@ func TestListCategories(t *testing.T) {
 	t.Run("OnlyExpense", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		seeded1 := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Salary",
-			Type:  "income",
-			Icon:  "dollar-sign",
-			Color: "green",
-		})
-		seeded2 := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Investment",
-			Type:  "income",
-			Icon:  "bank",
-			Color: "blue",
-		})
-		seeded3 := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Shopping",
-			Type:  "expense",
-			Icon:  "cart",
-			Color: "green",
-		})
-		seeded4 := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Transport",
-			Type:  "expense",
-			Icon:  "car",
-			Color: "red",
-		})
+		user := seedUser(t, db, "test@example.com")
+		seeded1 := seedCategory(t, db, "salary", user.Id, "income")
+		seeded2 := seedCategory(t, db, "bonus", user.Id, "income")
+		seeded3 := seedCategory(t, db, "rent", user.Id, "expense")
+		seeded4 := seedCategory(t, db, "groceries", user.Id, "expense")
 		seededCategories := []*storage.Category{seeded1, seeded2, seeded3, seeded4}
 
 		req := httptest.NewRequest(http.MethodGet, "/api/categories?type=expense", nil)

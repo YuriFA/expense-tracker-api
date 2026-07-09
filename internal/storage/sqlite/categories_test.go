@@ -15,60 +15,35 @@ import (
 func TestCreateCategory(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
-	cases := map[string]struct {
-		params    storage.CreateCategoryParams
-		respError bool
-	}{
-		"non default category": {
-			params: storage.CreateCategoryParams{
-				Name:      "Category 1",
-				Type:      "expense",
-				Icon:      "icon1",
-				Color:     "red",
-				IsDefault: false,
-			},
-			respError: false,
-		},
-		"default category": {
-			params: storage.CreateCategoryParams{
-				Name:      "Category 2",
-				Type:      "income",
-				Icon:      "icon2",
-				Color:     "blue",
-				IsDefault: true,
-			},
-			respError: false,
-		},
-	}
-
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			category, err := db.CreateCategory(tc.params)
-			if tc.respError {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
-
-			assert.Equal(t, tc.params.Name, category.Name)
-			assert.Equal(t, tc.params.Icon, category.Icon)
-			assert.Equal(t, tc.params.Color, category.Color)
-			assert.Equal(t, tc.params.IsDefault, category.IsDefault)
-			testutil.AssertValidUUID(t, category.Id)
-
-			createdAt := testutil.ParseDatetime(t, category.CreatedAt)
-			updatedAt := testutil.ParseDatetime(t, category.UpdatedAt)
-			assert.Equal(t, createdAt, updatedAt)
+	t.Run("success", func(t *testing.T) {
+		user := seedUser(t, db, "test@example.com")
+		category, err := db.CreateCategory(storage.CreateCategoryParams{
+			UserId: user.Id,
+			Name:   "Category1",
+			Type:   "income",
+			Icon:   "icon1",
+			Color:  "blue",
 		})
-	}
+
+		assert.NoError(t, err)
+
+		assert.Equal(t, "Category1", category.Name)
+		assert.Equal(t, "icon1", category.Icon)
+		assert.Equal(t, "blue", category.Color)
+		testutil.AssertValidUUID(t, category.Id)
+
+		createdAt := testutil.ParseDatetime(t, category.CreatedAt)
+		updatedAt := testutil.ParseDatetime(t, category.UpdatedAt)
+		assert.Equal(t, createdAt, updatedAt)
+	})
 }
 
 func TestUpdateCategory(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	t.Run("full params updates both params", func(t *testing.T) {
-		category := seedCategory(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		category := seedCategory(t, db, "salary", user.Id, "income")
 		params := storage.UpdateCategoryParams{
 			Name:  new("UpdatedCategory"),
 			Type:  new("expense"),
@@ -85,7 +60,8 @@ func TestUpdateCategory(t *testing.T) {
 	})
 
 	t.Run("only name change", func(t *testing.T) {
-		category := seedCategory(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		category := seedCategory(t, db, "salary", user.Id, "income")
 		params := storage.UpdateCategoryParams{
 			Name: new("UpdatedCategory"),
 		}
@@ -109,7 +85,8 @@ func TestDeleteCategory(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	t.Run("existing category", func(t *testing.T) {
-		category := seedCategory(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		category := seedCategory(t, db, "salary", user.Id, "income")
 		err := db.DeleteCategory(category.Id)
 		require.NoError(t, err)
 	})
@@ -121,7 +98,8 @@ func TestDeleteCategory(t *testing.T) {
 
 	t.Run("category with transactions", func(t *testing.T) {
 		account := seedAccount(t, db, 100000)
-		category := seedCategory(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		category := seedCategory(t, db, "salary", user.Id, "income")
 		_ = seedCashflowTransaction(
 			t,
 			db,
@@ -137,7 +115,8 @@ func TestDeleteCategory(t *testing.T) {
 	})
 
 	t.Run("double delete category", func(t *testing.T) {
-		category := seedCategory(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		category := seedCategory(t, db, "salary", user.Id, "income")
 		err := db.DeleteCategory(category.Id)
 		require.NoError(t, err)
 		err = db.DeleteCategory(category.Id)
@@ -148,7 +127,8 @@ func TestDeleteCategory(t *testing.T) {
 func TestGetCategory(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
-	testCategory := seedCategory(t, db, "income")
+	user := seedUser(t, db, "test@example.com")
+	testCategory := seedCategory(t, db, "salary", user.Id, "income")
 
 	cases := map[string]struct {
 		id          string
@@ -186,6 +166,14 @@ func TestGetCategory(t *testing.T) {
 	}
 }
 
+func categoryNames(categories []storage.Category) []string {
+	names := make([]string, len(categories))
+	for i, c := range categories {
+		names[i] = c.Name
+	}
+	return names
+}
+
 func TestGetCategories(t *testing.T) {
 	t.Run("empty categories in database", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
@@ -196,7 +184,8 @@ func TestGetCategories(t *testing.T) {
 
 	t.Run("existing categories in database with no params", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		createdCategories := seedCategories(t, db, 4)
+		user := seedUser(t, db, "test@example.com")
+		createdCategories := seedCategories(t, db, user.Id, 4)
 		categories, err := db.GetCategories(storage.GetCategoriesParams{})
 		require.NoError(t, err)
 		assert.Equal(t, len(createdCategories), len(categories))
@@ -205,16 +194,22 @@ func TestGetCategories(t *testing.T) {
 	t.Run("existing categories in database with type param = income", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdCategories := seedCategories(t, db, 4)
+		user := seedUser(t, db, "test@example.com")
+		createdCategories := seedCategories(t, db, user.Id, 4)
 
 		categories, err := db.GetCategories(
 			storage.GetCategoriesParams{Type: new("income")},
 		)
 		require.NoError(t, err)
+		for _, c := range categories {
+			require.Equal(t, "income", c.Type)
+		}
 
-		incomeCategories := testutil.Filter(createdCategories, func(c *storage.Category) bool {
+		incomeFromTest := testutil.Filter(createdCategories, func(c *storage.Category) bool {
 			return c.Type == "income"
 		})
-		require.Equal(t, len(incomeCategories), len(categories))
+		for _, c := range incomeFromTest {
+			require.Contains(t, categoryNames(categories), c.Name)
+		}
 	})
 }

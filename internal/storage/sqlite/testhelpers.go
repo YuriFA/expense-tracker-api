@@ -13,5 +13,6 @@ func NewTestDB(t *testing.T) *Storage {
 	if err := db.RunMigrations(); err != nil {
 		t.Fatalf("failed to run migrations on test database: %v", err)
 	}
+
 	return db
 }

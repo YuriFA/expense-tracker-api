@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	ErrCodeUserAlreadyExists    = "USER_ALREADY_EXISTS"
 	ErrCodeInvalidRequest       = "INVALID_REQUEST"
 	ErrCodeValidationFailed     = "VALIDATION_FAILED"
 	ErrCodeAccountNotFound      = "ACCOUNT_NOT_FOUND"
@@ -86,6 +87,8 @@ func formatValidationMessage(fe validator.FieldError) string {
 		return fe.Field() + " must be either " + strings.Join(params, " or ")
 	case "uuid":
 		return fe.Field() + " must be a valid UUID"
+	case "email":
+		return fe.Field() + " must be a valid email address"
 	default:
 		return fe.Field() + " failed '" + fe.Tag() + "' validation"
 	}

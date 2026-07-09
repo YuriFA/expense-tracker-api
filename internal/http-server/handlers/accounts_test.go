@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -160,23 +161,10 @@ func TestUpdateAccount(t *testing.T) {
 	t.Run("AccountWithTransactions", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
+		user := seedUser(t, db, "test@example.com")
 		existing := seedAccount(t, db, "Wallet", 100000)
-		incomeCategory := seedCategory(
-			t, db, storage.CreateCategoryParams{
-				Name:  "Salary",
-				Type:  "income",
-				Icon:  "dollar-sign",
-				Color: "green",
-			},
-		)
-		expenseCategory := seedCategory(
-			t, db, storage.CreateCategoryParams{
-				Name:  "Groceries",
-				Type:  "expense",
-				Icon:  "shopping-cart",
-				Color: "red",
-			},
-		)
+		incomeCategory := seedCategory(t, db, "salary", user.Id, "income")
+		expenseCategory := seedCategory(t, db, "rent", user.Id, "expense")
 		incomeTransaction := seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        "income",
 			Amount:      10000,
@@ -317,14 +305,8 @@ func TestDeleteAccount(t *testing.T) {
 		router, db := setupTestEnv(t)
 
 		existing := seedAccount(t, db, "Wallet", 100000)
-		category := seedCategory(
-			t, db, storage.CreateCategoryParams{
-				Name:  "Salary",
-				Type:  "income",
-				Icon:  "dollar-sign",
-				Color: "green",
-			},
-		)
+		user := seedUser(t, db, "user@example.com")
+		category := seedCategory(t, db, "salary", user.Id, "income")
 		_ = seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        "income",
 			Amount:      10000,
@@ -367,18 +349,9 @@ func TestGetAccount(t *testing.T) {
 		router, db := setupTestEnv(t)
 
 		existing := seedAccount(t, db, "Wallet", 100000)
-		incomeCategory := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Salary",
-			Type:  "income",
-			Icon:  "dollar-sign",
-			Color: "green",
-		})
-		expenseCategory := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Shopping",
-			Type:  "expense",
-			Icon:  "cart",
-			Color: "red",
-		})
+		user := seedUser(t, db, "user@example.com")
+		incomeCategory := seedCategory(t, db, "salary", user.Id, "income")
+		expenseCategory := seedCategory(t, db, "rent", user.Id, "expense")
 		transaction1 := seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        "expense",
 			Amount:      10000,
@@ -431,23 +404,21 @@ type seedAccountWithTransactionParams struct {
 func seedAccountWithTransaction(
 	t *testing.T,
 	db *sqlite.Storage,
+	categoryName string,
+	userId string,
 	params seedAccountWithTransactionParams,
 ) *storage.Account {
 	t.Helper()
 
 	account := seedAccount(t, db, "Wallet", params.openingBalance)
-	incomeCategory := seedCategory(t, db, storage.CreateCategoryParams{
-		Name:  "Salary",
-		Type:  "income",
-		Icon:  "dollar-sign",
-		Color: "green",
-	})
-	expenseCategory := seedCategory(t, db, storage.CreateCategoryParams{
-		Name:  "Shopping",
-		Type:  "expense",
-		Icon:  "cart",
-		Color: "red",
-	})
+	incomeCategory := seedCategory(t, db, fmt.Sprintf("income_%s", categoryName), userId, "income")
+	expenseCategory := seedCategory(
+		t,
+		db,
+		fmt.Sprintf("expense_%s", categoryName),
+		userId,
+		"expense",
+	)
 	_ = seedTransaction(t, db, storage.CreateTransactionParams{
 		Type:        "expense",
 		Amount:      params.expense,
@@ -500,24 +471,33 @@ func TestListAccounts(t *testing.T) {
 	t.Run("AccountsWithTransactions", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
+		user := seedUser(t, db, "test@example.com")
 		seeded1 := seedAccountWithTransaction(
 			t,
 			db,
+			"category1",
+			user.Id,
 			seedAccountWithTransactionParams{openingBalance: 100000, income: 50000, expense: 20000},
 		)
 		seeded2 := seedAccountWithTransaction(
 			t,
 			db,
+			"category2",
+			user.Id,
 			seedAccountWithTransactionParams{openingBalance: 50000, income: 20000, expense: 10000},
 		)
 		seeded3 := seedAccountWithTransaction(
 			t,
 			db,
+			"category3",
+			user.Id,
 			seedAccountWithTransactionParams{openingBalance: 20000, income: 10000, expense: 5000},
 		)
 		seeded4 := seedAccountWithTransaction(
 			t,
 			db,
+			"category4",
+			user.Id,
 			seedAccountWithTransactionParams{openingBalance: 0, income: 5000, expense: 2500},
 		)
 		seededAccounts := []struct {
@@ -572,7 +552,9 @@ func TestGetAccountBalances(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		category, account := seedCommonCategoryAndAccount(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		category := seedCategory(t, db, "salary", user.Id, "income")
+		account := seedAccount(t, db, "Wallet", 100000)
 		transaction := seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        "income",
 			Amount:      10000,
@@ -650,18 +632,9 @@ func TestGetAccountBalances(t *testing.T) {
 		})
 		require.NoError(t, err)
 		account2 := seedAccount(t, db, "Account2", 50000)
-		incomeCategory := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Salary",
-			Type:  "income",
-			Icon:  "dollar-sign",
-			Color: "green",
-		})
-		expenseCategory := seedCategory(t, db, storage.CreateCategoryParams{
-			Name:  "Shopping",
-			Type:  "expense",
-			Icon:  "cart",
-			Color: "red",
-		})
+		user := seedUser(t, db, "test@example.com")
+		incomeCategory := seedCategory(t, db, "salary", user.Id, "income")
+		expenseCategory := seedCategory(t, db, "rent", user.Id, "expense")
 		acc1transaction := seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        "expense",
 			Amount:      10000,

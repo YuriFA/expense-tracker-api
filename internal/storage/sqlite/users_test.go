@@ -10,27 +10,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateUser(t *testing.T) {
+func TestRegisterUser(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		_, err := db.CreateUser(storage.CreateUserParams{
+		user, err := db.RegisterUser(storage.RegisterUserParams{
 			Email:        "user1@example.com",
 			PasswordHash: "hashedpassword1",
 		})
 		require.NoError(t, err)
+		require.NotEmpty(t, user.Id)
+		require.Equal(t, "user1@example.com", user.Email)
 	})
+
+	// TODO: Categories for user
+	// t.Run("creates default categories", func(t *testing.T) {
+	// 	db := sqlite.NewTestDB(t)
+	// 	user := seedUser(t, db, "user1@example.com")
+	// 	categories, err := db.GetCategories()
+	// 	require.NoError(t, err)
+	// 	require.NotEmpty(t, categories)
+	// })
 
 	t.Run("non duplicate user ids", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		user1 := seedUser(t, db, "user1@example.com", "hashedpassword1")
-		user2 := seedUser(t, db, "user2@example.com", "hashedpassword2")
+		user1 := seedUser(t, db, "user1@example.com")
+		user2 := seedUser(t, db, "user2@example.com")
 		require.NotEqual(t, user1.Id, user2.Id)
 	})
 
 	t.Run("duplicate email", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		seedUser(t, db, "user1@example.com", "hashedpassword1")
-		_, err := db.CreateUser(storage.CreateUserParams{
+		seedUser(t, db, "user1@example.com")
+		_, err := db.RegisterUser(storage.RegisterUserParams{
 			Email:        "user1@example.com",
 			PasswordHash: "hashedpassword2",
 		})
@@ -41,7 +52,7 @@ func TestCreateUser(t *testing.T) {
 func TestGetUserByEmail(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		seedUser(t, db, "user1@example.com", "hashedpassword1")
+		seedUser(t, db, "user1@example.com")
 		user, err := db.GetUserByEmail("user1@example.com")
 		require.NoError(t, err)
 		require.Equal(t, "user1@example.com", user.Email)
@@ -57,7 +68,7 @@ func TestGetUserByEmail(t *testing.T) {
 func TestGetUserByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		seededUser := seedUser(t, db, "user1@example.com", "hashedpassword1")
+		seededUser := seedUser(t, db, "user1@example.com")
 		user, err := db.GetUserByID(seededUser.Id)
 		require.NoError(t, err)
 		require.Equal(t, seededUser.Id, user.Id)

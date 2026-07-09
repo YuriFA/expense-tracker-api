@@ -42,12 +42,11 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 	}
 
 	category, err := h.DB.CreateCategory(storage.CreateCategoryParams{
-		Name:  req.Name,
-		Type:  req.Type,
-		Icon:  req.Icon,
-		Color: req.Color,
-		// For categories created via API, we set IsDefault to false. Default categories should be seeded directly in the database.
-		IsDefault: false,
+		UserId: "",
+		Name:   req.Name,
+		Type:   req.Type,
+		Icon:   req.Icon,
+		Color:  req.Color,
 	})
 	if err != nil {
 		log.Error("failed to create category", logger.Error(err))
@@ -77,31 +76,7 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	category, err := h.DB.GetCategory(id)
-	if err != nil {
-		if errors.Is(err, storage.ErrCategoryNotFound) {
-			log.Info("category not found", slog.String("id", id))
-			writeError(c, http.StatusNotFound, ErrCodeCategoryNotFound, "category not found")
-			return
-		}
-
-		log.Error("failed to get category", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to get category")
-		return
-	}
-
-	if category.IsDefault {
-		log.Info("cannot update default category", slog.String("id", id))
-		writeError(
-			c,
-			http.StatusForbidden,
-			ErrCodeForbidden,
-			"cannot update default category",
-		)
-		return
-	}
-
-	category, err = h.DB.UpdateCategory(id, storage.UpdateCategoryParams{
+	category, err := h.DB.UpdateCategory(id, storage.UpdateCategoryParams{
 		Name:  req.Name,
 		Type:  req.Type,
 		Icon:  req.Icon,
@@ -130,31 +105,7 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 	)
 
 	id := c.Param("id")
-	category, err := h.DB.GetCategory(id)
-	if err != nil {
-		if errors.Is(err, storage.ErrCategoryNotFound) {
-			log.Info("category not found", slog.String("id", id))
-			writeError(c, http.StatusNotFound, ErrCodeCategoryNotFound, "category not found")
-			return
-		}
-
-		log.Error("failed to get category", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to get category")
-		return
-	}
-
-	if category.IsDefault {
-		log.Info("cannot delete default category", slog.String("id", id))
-		writeError(
-			c,
-			http.StatusForbidden,
-			ErrCodeForbidden,
-			"cannot delete default category",
-		)
-		return
-	}
-
-	err = h.DB.DeleteCategory(id)
+	err := h.DB.DeleteCategory(id)
 	if err != nil {
 		if errors.Is(err, storage.ErrCategoryNotFound) {
 			log.Info("category not found", slog.String("id", id))

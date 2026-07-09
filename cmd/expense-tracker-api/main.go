@@ -35,11 +35,7 @@ func main() {
 		os.Exit(1)
 	}
 	
-	if err := db.SeedCategories(); err != nil {
-		log.Error("failed to seed categories", logger.Error(err))
-		os.Exit(1)
-	}
-	log.Info("Storage initialized and categories seeded")
+	log.Info("Storage initialized")
 
 	handlers := handlers.NewHandler(log, db)
 	router := httpserver.NewRouter(log, handlers, cfg.HTTPServer)

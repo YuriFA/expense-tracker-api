@@ -14,7 +14,7 @@ func (s *Storage) CreateCategory(params storage.CreateCategoryParams) (*storage.
 	const op = "storage.sqlite.CreateCategory"
 
 	stmt, err := s.db.Prepare(
-		`INSERT INTO categories (id, name, type, icon, color, is_default) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, name, type, icon, color, is_default, created_at, updated_at`,
+		`INSERT INTO categories (id, name, type, icon, color, user_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, name, type, icon, color, created_at, updated_at`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -23,8 +23,8 @@ func (s *Storage) CreateCategory(params storage.CreateCategoryParams) (*storage.
 
 	id := uuid.NewString()
 	var category storage.Category
-	err = stmt.QueryRow(id, params.Name, params.Type, params.Icon, params.Color, params.IsDefault).
-		Scan(&category.Id, &category.Name, &category.Type, &category.Icon, &category.Color, &category.IsDefault, &category.CreatedAt, &category.UpdatedAt)
+	err = stmt.QueryRow(id, params.Name, params.Type, params.Icon, params.Color, params.UserId).
+		Scan(&category.Id, &category.Name, &category.Type, &category.Icon, &category.Color, &category.CreatedAt, &category.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -48,13 +48,13 @@ func (s *Storage) UpdateCategory(
 	args = append(args, id)
 
 	query := fmt.Sprintf(
-		`UPDATE categories SET %s WHERE id = ? RETURNING id, name, slug, type, icon, color, is_default, created_at, updated_at`,
+		`UPDATE categories SET %s WHERE id = ? RETURNING id, name, type, icon, color, created_at, updated_at`,
 		setParts,
 	)
 
 	var category storage.Category
 	err := s.db.QueryRow(query, args...).
-		Scan(&category.Id, &category.Name, &category.Slug, &category.Type, &category.Icon, &category.Color, &category.IsDefault, &category.CreatedAt, &category.UpdatedAt)
+		Scan(&category.Id, &category.Name, &category.Type, &category.Icon, &category.Color, &category.CreatedAt, &category.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrCategoryNotFound)
@@ -99,7 +99,7 @@ func (s *Storage) GetCategory(id string) (*storage.Category, error) {
 	const op = "storage.sqlite.GetCategory"
 
 	stmt, err := s.db.Prepare(
-		`SELECT id, name, slug, type, icon, color, is_default, created_at, updated_at FROM categories WHERE id = ?`,
+		`SELECT id, name, type, icon, color, created_at, updated_at FROM categories WHERE id = ?`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -108,7 +108,7 @@ func (s *Storage) GetCategory(id string) (*storage.Category, error) {
 
 	var category storage.Category
 	err = stmt.QueryRow(id).
-		Scan(&category.Id, &category.Name, &category.Slug, &category.Type, &category.Icon, &category.Color, &category.IsDefault, &category.CreatedAt, &category.UpdatedAt)
+		Scan(&category.Id, &category.Name, &category.Type, &category.Icon, &category.Color, &category.CreatedAt, &category.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrCategoryNotFound)
@@ -122,10 +122,7 @@ func (s *Storage) GetCategory(id string) (*storage.Category, error) {
 func (s *Storage) GetCategories(params storage.GetCategoriesParams) ([]storage.Category, error) {
 	const op = "storage.sqlite.GetCategories"
 
-	query := fmt.Sprintf(
-		`SELECT id, name, slug, type, icon, color, is_default, created_at, updated_at FROM categories`,
-	)
-
+	query := `SELECT id, name, type, icon, color, created_at, updated_at FROM categories`
 	whereParts, args := newWhereBuilder().
 		addString("type", params.Type).build(" AND ")
 
@@ -145,11 +142,9 @@ func (s *Storage) GetCategories(params storage.GetCategoriesParams) ([]storage.C
 		err := rows.Scan(
 			&category.Id,
 			&category.Name,
-			&category.Slug,
 			&category.Type,
 			&category.Icon,
 			&category.Color,
-			&category.IsDefault,
 			&category.CreatedAt,
 			&category.UpdatedAt,
 		)

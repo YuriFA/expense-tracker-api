@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -59,6 +60,16 @@ func parseBody[T any](t *testing.T, recorder *httptest.ResponseRecorder, target 
 	require.NoError(t, err)
 }
 
+func seedUser(t *testing.T, db *sqlite.Storage, email string) *storage.User {
+	t.Helper()
+	user, err := db.RegisterUser(storage.RegisterUserParams{
+		Email:        email,
+		PasswordHash: "strongpasswordhash",
+	})
+	require.NoError(t, err)
+	return user
+}
+
 func seedAccount(
 	t *testing.T,
 	db *sqlite.Storage,
@@ -77,29 +88,19 @@ func seedAccount(
 func seedCategory(
 	t *testing.T,
 	db *sqlite.Storage,
-	params storage.CreateCategoryParams,
+	name string,
+	userId string,
+	categoryType string,
 ) *storage.Category {
-	category, err := db.CreateCategory(params)
+	category, err := db.CreateCategory(storage.CreateCategoryParams{
+		UserId: userId,
+		Name:   name,
+		Type:   categoryType,
+		Icon:   "icon",
+		Color:  "color",
+	})
 	require.NoError(t, err)
 	return category
-}
-
-func seedCommonCategoryAndAccount(
-	t *testing.T,
-	db *sqlite.Storage,
-	categoryType string,
-) (*storage.Category, *storage.Account) {
-	t.Helper()
-
-	category := seedCategory(t, db, storage.CreateCategoryParams{
-		Name:  "Salary",
-		Type:  categoryType,
-		Icon:  "dollar-sign",
-		Color: "green",
-	})
-	account := seedAccount(t, db, "Cash", 100000)
-
-	return category, account
 }
 
 func seedTransaction(
@@ -125,8 +126,9 @@ func seedCommonTransaction(
 	var transaction *storage.Transaction
 	switch transactionType {
 	case "income", "expense":
-		category, account := seedCommonCategoryAndAccount(t, db, transactionType)
-
+		user := seedUser(t, db, "test@example.com")
+		category := seedCategory(t, db, fmt.Sprintf("category%s", transactionType), user.Id, transactionType)
+		account := seedAccount(t, db, "Cash", 100000)
 		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        transactionType,
 			Amount:      100000,
@@ -166,7 +168,15 @@ func seedTransactionAt(
 	var transaction *storage.Transaction
 	switch transactionType {
 	case "income", "expense":
-		category, account := seedCommonCategoryAndAccount(t, db, transactionType)
+		user := seedUser(t, db, "test@example.com")
+		category := seedCategory(
+			t,
+			db,
+			fmt.Sprintf("category%s", transactionType),
+			user.Id,
+			transactionType,
+		)
+		account := seedAccount(t, db, "Cash", 100000)
 		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
 			Type:        transactionType,
 			Amount:      amount,
