@@ -10,6 +10,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func seedUser(t *testing.T, db *sqlite.Storage, email, passwordHash string) *storage.User {
+	t.Helper()
+	user, err := db.CreateUser(storage.CreateUserParams{
+		Email:        email,
+		PasswordHash: passwordHash,
+	})
+	require.NoError(t, err)
+	return user
+}
+
 func seedCategory(t *testing.T, db *sqlite.Storage, categoryType string) *storage.Category {
 	t.Helper()
 	category, err := db.CreateCategory(storage.CreateCategoryParams{

@@ -5,6 +5,18 @@ import (
 	"time"
 )
 
+type User struct {
+	Id        string `json:"id"`
+	Email     string `json:"email"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+type CreateUserParams struct {
+	Email        string
+	PasswordHash string
+}
+
 type Account struct {
 	Id               string `json:"id"`
 	Name             string `json:"name"`
@@ -136,6 +148,8 @@ type GetTransactionsParams struct {
 }
 
 var (
+	ErrUserNotFound            = errors.New("user not found")
+	ErrUserAlreadyExists       = errors.New("user already exists")
 	ErrAccountNotFound         = errors.New("account not found")
 	ErrCategoryNotFound        = errors.New("category not found")
 	ErrCategoryTypeMismatch    = errors.New("category type mismatch")
