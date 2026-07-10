@@ -6,7 +6,7 @@ import (
 )
 
 type User struct {
-	Id           string `json:"id"`
+	ID           string `json:"id"`
 	Email        string `json:"email"`
 	CreatedAt    string `json:"createdAt"`
 	UpdatedAt    string `json:"updatedAt"`
@@ -33,7 +33,8 @@ type CreateSessionParams struct {
 }
 
 type Account struct {
-	Id               string `json:"id"`
+	ID               string `json:"id"`
+	UserID           string `json:"userId"`
 	Name             string `json:"name"`
 	Balance          int64  `json:"balance"`
 	Currency         string `json:"currency"`
@@ -44,13 +45,15 @@ type Account struct {
 }
 
 type AccountBalance struct {
-	Id       string `json:"id"`
+	ID       string `json:"id"`
+	UserID   string `json:"userId"`
 	Name     string `json:"name"`
 	Balance  int64  `json:"balance"`
 	Currency string `json:"currency"`
 }
 
 type CreateAccountParams struct {
+	UserID         string
 	Name           string
 	Currency       string
 	OpeningBalance int64
@@ -62,8 +65,8 @@ type UpdateAccountParams struct {
 }
 
 type Category struct {
-	Id        string `json:"id"`
-	UserId    string `json:"userId"`
+	ID        string `json:"id"`
+	UserID    string `json:"userId"`
 	Name      string `json:"name"`
 	Type      string `json:"type"`
 	Icon      string `json:"icon"`
@@ -73,7 +76,7 @@ type Category struct {
 }
 
 type CreateCategoryParams struct {
-	UserId string
+	UserID string
 	Name   string
 	Type   string
 	Icon   string
@@ -81,18 +84,19 @@ type CreateCategoryParams struct {
 }
 
 type UpdateCategoryParams struct {
-	Name  *string
-	Type  *string
-	Icon  *string
-	Color *string
+	Name   *string
+	Type   *string
+	Icon   *string
+	Color  *string
 }
 
 type GetCategoriesParams struct {
-	Type *string
+	Type   *string
 }
 
 type Transaction struct {
-	Id          string `json:"id"`
+	ID          string `json:"id"`
+	UserID      string `json:"userId"`
 	Type        string `json:"type"`
 	Amount      int64  `json:"amount"`
 	Description string `json:"description"`
@@ -100,24 +104,25 @@ type Transaction struct {
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`
 	// Cashflow fields
-	AccountId  *string `json:"accountId,omitempty"`
-	CategoryId *string `json:"categoryId,omitempty"`
+	AccountID  *string `json:"accountId,omitempty"`
+	CategoryID *string `json:"categoryId,omitempty"`
 	// Transfer fields
-	FromAccountId *string `json:"fromAccountId,omitempty"`
-	ToAccountId   *string `json:"toAccountId,omitempty"`
+	FromAccountID *string `json:"fromAccountId,omitempty"`
+	ToAccountID   *string `json:"toAccountId,omitempty"`
 }
 
 type CreateTransactionParams struct {
+	UserID      string
 	Type        string
 	Amount      int64
 	Description string
 	OccurredAt  time.Time
 	// Cashflow fields
-	AccountId  *string
-	CategoryId *string
+	AccountID  *string
+	CategoryID *string
 	// Transfer fields
-	FromAccountId *string
-	ToAccountId   *string
+	FromAccountID *string
+	ToAccountID   *string
 }
 
 type UpdateTransactionParams struct {
@@ -125,11 +130,11 @@ type UpdateTransactionParams struct {
 	Description *string
 	OccurredAt  *time.Time
 	// Cashflow fields
-	AccountId  *string
-	CategoryId *string
+	AccountID  *string
+	CategoryID *string
 	// Transfer fields
-	FromAccountId *string
-	ToAccountId   *string
+	FromAccountID *string
+	ToAccountID   *string
 }
 
 type SortParam string
@@ -143,8 +148,8 @@ const (
 
 type GetTransactionsParams struct {
 	Type       *string
-	AccountId  *string
-	CategoryId *string
+	AccountID  *string
+	CategoryID *string
 	FromDate   *time.Time
 	ToDate     *time.Time
 	Limit      *int
@@ -158,6 +163,7 @@ var (
 	ErrSessionExpired          = errors.New("session expired")
 	ErrAccountNotFound         = errors.New("account not found")
 	ErrCategoryNotFound        = errors.New("category not found")
+	ErrCategoryAlreadyExists   = errors.New("category already exists")
 	ErrCategoryTypeMismatch    = errors.New("category type mismatch")
 	ErrTransactionNotFound     = errors.New("transaction not found")
 	ErrUnknownSort             = errors.New("unknown sort")

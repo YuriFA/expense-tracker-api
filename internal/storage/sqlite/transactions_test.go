@@ -16,9 +16,10 @@ func TestCreateTransaction(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	user := seedUser(t, db, "test@example.com")
-	account := seedAccount(t, db, 100000)
-	category := seedCategory(t, db, "salary", user.Id, "income")
-	account2 := seedAccount(t, db, 100000)
+	user2 := seedUser(t, db, "test2@example.com")
+	account := seedAccount(t, db, user.ID, 100000)
+	category := seedCategory(t, db, "salary", user.ID, "income")
+	account2 := seedAccount(t, db, user.ID, 100000)
 
 	cases := map[string]struct {
 		params      storage.CreateTransactionParams
@@ -27,73 +28,92 @@ func TestCreateTransaction(t *testing.T) {
 	}{
 		"cashflow with existing category and account": {
 			params: storage.CreateTransactionParams{
+				UserID:      user.ID,
 				Type:        "income",
 				Amount:      1000,
 				Description: "Salary",
 				OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-				AccountId:   &account.Id,
-				CategoryId:  &category.Id,
+				AccountID:   &account.ID,
+				CategoryID:  &category.ID,
 			},
 			respError: false,
 		},
 		"cashflow with existing category and account but category type not same": {
 			params: storage.CreateTransactionParams{
+				UserID:      user.ID,
 				Type:        "expense",
 				Amount:      1000,
 				Description: "Salary",
 				OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-				AccountId:   &account.Id,
-				CategoryId:  &category.Id,
+				AccountID:   &account.ID,
+				CategoryID:  &category.ID,
 			},
 			respError:   true,
 			expectedErr: storage.ErrCategoryTypeMismatch,
 		},
 		"cashflow with non existing category and account": {
 			params: storage.CreateTransactionParams{
+				UserID:      user.ID,
 				Type:        "income",
 				Amount:      1000,
 				Description: "Salary",
 				OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-				AccountId:   new(uuid.NewString()),
-				CategoryId:  new(uuid.NewString()),
+				AccountID:   new(uuid.NewString()),
+				CategoryID:  new(uuid.NewString()),
 			},
 			respError:   true,
 			expectedErr: storage.ErrAccountNotFound,
 		},
 		"transfer with existing account": {
 			params: storage.CreateTransactionParams{
+				UserID:        user.ID,
 				Type:          "transfer",
 				Amount:        1000,
 				Description:   "Transfer",
 				OccurredAt:    *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-				FromAccountId: &account.Id,
-				ToAccountId:   &account2.Id,
+				FromAccountID: &account.ID,
+				ToAccountID:   &account2.ID,
 			},
 			respError: false,
 		},
 		"transfer with non existing account": {
 			params: storage.CreateTransactionParams{
+				UserID:        user.ID,
 				Type:          "transfer",
 				Amount:        1000,
 				Description:   "Transfer",
 				OccurredAt:    *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-				FromAccountId: &account.Id,
-				ToAccountId:   new(uuid.NewString()),
+				FromAccountID: &account.ID,
+				ToAccountID:   new(uuid.NewString()),
 			},
 			respError:   true,
 			expectedErr: storage.ErrAccountNotFound,
 		},
 		"transfer with same from and to account": {
 			params: storage.CreateTransactionParams{
+				UserID:        user.ID,
 				Type:          "transfer",
 				Amount:        1000,
 				Description:   "Transfer",
 				OccurredAt:    *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-				FromAccountId: &account.Id,
-				ToAccountId:   &account.Id,
+				FromAccountID: &account.ID,
+				ToAccountID:   &account.ID,
 			},
 			respError:   true,
 			expectedErr: storage.ErrSameAccountTransfer,
+		},
+		"transfer for another user not found": {
+			params: storage.CreateTransactionParams{
+				UserID:        user2.ID,
+				Type:          "transfer",
+				Amount:        1000,
+				Description:   "Transfer",
+				OccurredAt:    *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
+				FromAccountID: &account.ID,
+				ToAccountID:   &account2.ID,
+			},
+			respError:   true,
+			expectedErr: storage.ErrAccountNotFound,
 		},
 	}
 
@@ -115,10 +135,10 @@ func TestCreateTransaction(t *testing.T) {
 				tc.params.OccurredAt.Format(time.RFC3339),
 				transaction.OccurredAt,
 			)
-			require.Equal(t, tc.params.AccountId, transaction.AccountId)
-			require.Equal(t, tc.params.CategoryId, transaction.CategoryId)
+			require.Equal(t, tc.params.AccountID, transaction.AccountID)
+			require.Equal(t, tc.params.CategoryID, transaction.CategoryID)
 
-			testutil.AssertValidUUID(t, transaction.Id)
+			testutil.AssertValidUUID(t, transaction.ID)
 
 			createdAt := testutil.ParseDatetime(t, transaction.CreatedAt)
 			updatedAt := testutil.ParseDatetime(t, transaction.UpdatedAt)
@@ -130,16 +150,17 @@ func TestCreateTransaction(t *testing.T) {
 func TestUpdateTransaction(t *testing.T) {
 	t.Run("cashflow full params updates", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		account := seedAccount(t, db, 100000)
 		user := seedUser(t, db, "test@example.com")
-		category := seedCategory(t, db, "salary", user.Id, "income")
+		account := seedAccount(t, db, user.ID, 100000)
+		category := seedCategory(t, db, "salary", user.ID, "income")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
 			seedCashflowTransactionParams{
+				userID:          user.ID,
 				amount:          1000,
-				accountId:       account.Id,
-				categoryId:      category.Id,
+				accountID:       account.ID,
+				categoryID:      category.ID,
 				transactionType: "income",
 			},
 		)
@@ -147,11 +168,11 @@ func TestUpdateTransaction(t *testing.T) {
 			Amount:      new(int64(2000)),
 			Description: new("Updated Salary"),
 			OccurredAt:  testutil.GetTimeFromStr(t, "2024-06-02T00:00:00Z"),
-			AccountId:   new(account.Id),
-			CategoryId:  new(category.Id),
+			AccountID:   new(account.ID),
+			CategoryID:  new(category.ID),
 		}
 
-		updatedTransaction, err := db.UpdateTransaction(transaction.Id, params)
+		updatedTransaction, err := db.UpdateTransaction(user.ID, transaction.ID, params)
 		require.NoError(t, err)
 
 		require.Equal(t, *params.Amount, updatedTransaction.Amount)
@@ -161,32 +182,34 @@ func TestUpdateTransaction(t *testing.T) {
 			params.OccurredAt.Format(time.RFC3339),
 			updatedTransaction.OccurredAt,
 		)
-		require.Equal(t, *params.AccountId, *updatedTransaction.AccountId)
-		require.Equal(t, *params.CategoryId, *updatedTransaction.CategoryId)
+		require.Equal(t, *params.AccountID, *updatedTransaction.AccountID)
+		require.Equal(t, *params.CategoryID, *updatedTransaction.CategoryID)
 	})
 
 	t.Run("transfer full params updates", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		account1 := seedAccount(t, db, 20000)
-		account2 := seedAccount(t, db, 30000)
+		user := seedUser(t, db, "test@example.com")
+		account1 := seedAccount(t, db, user.ID, 20000)
+		account2 := seedAccount(t, db, user.ID, 30000)
 		transaction := seedTransferTransaction(
 			t,
 			db,
 			seedTransferTransactionParams{
+				userID:        user.ID,
 				amount:        100,
-				fromAccountId: account1.Id,
-				toAccountId:   account2.Id,
+				fromAccountID: account1.ID,
+				toAccountID:   account2.ID,
 			},
 		)
 		params := storage.UpdateTransactionParams{
 			Amount:        new(int64(20000)),
 			Description:   new("Updated Salary"),
 			OccurredAt:    testutil.GetTimeFromStr(t, "2024-06-02T00:00:00Z"),
-			FromAccountId: new(account1.Id),
-			ToAccountId:   new(account2.Id),
+			FromAccountID: new(account1.ID),
+			ToAccountID:   new(account2.ID),
 		}
 
-		updatedTransaction, err := db.UpdateTransaction(transaction.Id, params)
+		updatedTransaction, err := db.UpdateTransaction(user.ID, transaction.ID, params)
 		require.NoError(t, err)
 
 		require.Equal(t, *params.Amount, updatedTransaction.Amount)
@@ -196,133 +219,163 @@ func TestUpdateTransaction(t *testing.T) {
 			params.OccurredAt.Format(time.RFC3339),
 			updatedTransaction.OccurredAt,
 		)
-		require.Equal(t, *params.FromAccountId, *updatedTransaction.FromAccountId)
-		require.Equal(t, *params.ToAccountId, *updatedTransaction.ToAccountId)
+		require.Equal(t, *params.FromAccountID, *updatedTransaction.FromAccountID)
+		require.Equal(t, *params.ToAccountID, *updatedTransaction.ToAccountID)
 	})
 
 	t.Run("cashflow only category change", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		user := seedUser(t, db, "test@example.com")
-		account := seedAccount(t, db, 100000)
-		category := seedCategory(t, db, "salary", user.Id, "income")
-		expenseCategory := seedCategory(t, db, "rent", user.Id, "expense")
+		account := seedAccount(t, db, user.ID, 100000)
+		category := seedCategory(t, db, "salary", user.ID, "income")
+		expenseCategory := seedCategory(t, db, "rent", user.ID, "expense")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
 			seedCashflowTransactionParams{
+				userID:          user.ID,
 				amount:          1000,
-				accountId:       account.Id,
-				categoryId:      category.Id,
+				accountID:       account.ID,
+				categoryID:      category.ID,
 				transactionType: "income",
 			},
 		)
 		params := storage.UpdateTransactionParams{
-			CategoryId: new(expenseCategory.Id),
+			CategoryID: new(expenseCategory.ID),
 		}
 
-		_, err := db.UpdateTransaction(transaction.Id, params)
+		_, err := db.UpdateTransaction(user.ID, transaction.ID, params)
 		require.ErrorIs(t, err, storage.ErrCategoryTypeMismatch)
 	})
 
-	t.Run("transfer only fromAccountId change", func(t *testing.T) {
+	t.Run("transfer only fromAccountID change", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		account1 := seedAccount(t, db, 20000)
-		account2 := seedAccount(t, db, 30000)
-		account3 := seedAccount(t, db, 40000)
+		user := seedUser(t, db, "test@example.com")
+		account1 := seedAccount(t, db, user.ID, 20000)
+		account2 := seedAccount(t, db, user.ID, 30000)
+		account3 := seedAccount(t, db, user.ID, 40000)
 		transaction := seedTransferTransaction(
 			t,
 			db,
 			seedTransferTransactionParams{
+				userID:        user.ID,
 				amount:        1000,
-				fromAccountId: account1.Id,
-				toAccountId:   account2.Id,
+				fromAccountID: account1.ID,
+				toAccountID:   account2.ID,
 			},
 		)
 		params := storage.UpdateTransactionParams{
-			FromAccountId: new(account3.Id),
+			FromAccountID: new(account3.ID),
 		}
 
-		updatedTransaction, err := db.UpdateTransaction(transaction.Id, params)
+		updatedTransaction, err := db.UpdateTransaction(user.ID, transaction.ID, params)
 		require.NoError(t, err)
 
 		require.Equal(t, transaction.Amount, updatedTransaction.Amount)
 		require.Equal(t, transaction.Description, updatedTransaction.Description)
 		require.Equal(t, transaction.OccurredAt, updatedTransaction.OccurredAt)
-		require.Equal(t, *params.FromAccountId, *updatedTransaction.FromAccountId)
-		require.Equal(t, *transaction.ToAccountId, *updatedTransaction.ToAccountId)
+		require.Equal(t, *params.FromAccountID, *updatedTransaction.FromAccountID)
+		require.Equal(t, *transaction.ToAccountID, *updatedTransaction.ToAccountID)
 	})
 
-	t.Run("transfer same fromAccountId toAccountId change", func(t *testing.T) {
+	t.Run("transfer same fromAccountID toAccountID change", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		account1 := seedAccount(t, db, 20000)
-		account2 := seedAccount(t, db, 30000)
+		user := seedUser(t, db, "test@example.com")
+		account1 := seedAccount(t, db, user.ID, 20000)
+		account2 := seedAccount(t, db, user.ID, 30000)
 		transaction := seedTransferTransaction(
 			t,
 			db,
 			seedTransferTransactionParams{
+				userID:        user.ID,
 				amount:        1000,
-				fromAccountId: account1.Id,
-				toAccountId:   account2.Id,
+				fromAccountID: account1.ID,
+				toAccountID:   account2.ID,
 			},
 		)
 		params := storage.UpdateTransactionParams{
-			FromAccountId: new(account2.Id),
+			FromAccountID: new(account2.ID),
 		}
 
-		_, err := db.UpdateTransaction(transaction.Id, params)
+		_, err := db.UpdateTransaction(user.ID, transaction.ID, params)
 		require.ErrorIs(t, err, storage.ErrSameAccountTransfer)
 	})
 
 	t.Run("transfer with cashflow params", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		account1 := seedAccount(t, db, 20000)
-		account2 := seedAccount(t, db, 30000)
+		user := seedUser(t, db, "test@example.com")
+		account1 := seedAccount(t, db, user.ID, 20000)
+		account2 := seedAccount(t, db, user.ID, 30000)
 		transaction := seedTransferTransaction(
 			t,
 			db,
 			seedTransferTransactionParams{
+				userID:        user.ID,
 				amount:        1000,
-				fromAccountId: account1.Id,
-				toAccountId:   account2.Id,
+				fromAccountID: account1.ID,
+				toAccountID:   account2.ID,
 			},
 		)
 		params := storage.UpdateTransactionParams{
-			AccountId:     new(account1.Id),
-			FromAccountId: new(account2.Id),
+			AccountID:     new(account1.ID),
+			FromAccountID: new(account2.ID),
 		}
 
-		_, err := db.UpdateTransaction(transaction.Id, params)
+		_, err := db.UpdateTransaction(user.ID, transaction.ID, params)
 		require.ErrorIs(t, err, storage.ErrInvalidRefs)
 	})
 
 	t.Run("cashflow with transfer params", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		user := seedUser(t, db, "test@example.com")
-		account := seedAccount(t, db, 100000)
-		category := seedCategory(t, db, "salary", user.Id, "income")
-		expenseCategory := seedCategory(t, db, "rent", user.Id, "expense")
+		account := seedAccount(t, db, user.ID, 100000)
+		category := seedCategory(t, db, "salary", user.ID, "income")
+		expenseCategory := seedCategory(t, db, "rent", user.ID, "expense")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
 			seedCashflowTransactionParams{
+				userID:          user.ID,
 				amount:          1000,
-				accountId:       account.Id,
-				categoryId:      category.Id,
+				accountID:       account.ID,
+				categoryID:      category.ID,
 				transactionType: "income",
 			},
 		)
 		params := storage.UpdateTransactionParams{
-			CategoryId:    new(expenseCategory.Id),
-			FromAccountId: new(account.Id),
+			CategoryID:    new(expenseCategory.ID),
+			FromAccountID: new(account.ID),
 		}
 
-		_, err := db.UpdateTransaction(transaction.Id, params)
+		_, err := db.UpdateTransaction(user.ID, transaction.ID, params)
 		require.ErrorIs(t, err, storage.ErrInvalidRefs)
 	})
 
 	t.Run("wrong transaction id return not found", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		_, err := db.UpdateTransaction(uuid.NewString(), storage.UpdateTransactionParams{})
+		user := seedUser(t, db, "test@example.com")
+		_, err := db.UpdateTransaction(user.ID, uuid.NewString(), storage.UpdateTransactionParams{})
+		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
+	})
+
+	t.Run("transaction for another user return not found", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
+		user := seedUser(t, db, "test@example.com")
+		user2 := seedUser(t, db, "test2@example.com")
+		account := seedAccount(t, db, user.ID, 100000)
+		category := seedCategory(t, db, "salary", user.ID, "income")
+		transaction := seedCashflowTransaction(
+			t,
+			db,
+			seedCashflowTransactionParams{
+				userID:          user.ID,
+				amount:          1000,
+				accountID:       account.ID,
+				categoryID:      category.ID,
+				transactionType: "income",
+			},
+		)
+		_, err := db.GetTransaction(user2.ID, transaction.ID)
 		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 }
@@ -331,48 +384,72 @@ func TestDeleteTransaction(t *testing.T) {
 	t.Run("existing transaction", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		user := seedUser(t, db, "test@example.com")
-		account := seedAccount(t, db, 100000)
-		category := seedCategory(t, db, "salary", user.Id, "income")
+		account := seedAccount(t, db, user.ID, 100000)
+		category := seedCategory(t, db, "salary", user.ID, "income")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
 			seedCashflowTransactionParams{
+				userID:          user.ID,
 				amount:          1000,
-				accountId:       account.Id,
-				categoryId:      category.Id,
+				accountID:       account.ID,
+				categoryID:      category.ID,
 				transactionType: "income",
 			},
 		)
 
-		err := db.DeleteTransaction(transaction.Id)
+		err := db.DeleteTransaction(user.ID, transaction.ID)
 		require.NoError(t, err)
 	})
 
 	t.Run("non existing transaction", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		err := db.DeleteTransaction(uuid.NewString())
+		user := seedUser(t, db, "test@example.com")
+		err := db.DeleteTransaction(user.ID, uuid.NewString())
 		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 
 	t.Run("double delete transaction", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		user := seedUser(t, db, "test@example.com")
-		account := seedAccount(t, db, 100000)
-		category := seedCategory(t, db, "salary", user.Id, "income")
+		account := seedAccount(t, db, user.ID, 100000)
+		category := seedCategory(t, db, "salary", user.ID, "income")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
 			seedCashflowTransactionParams{
+				userID:          user.ID,
 				amount:          1000,
-				accountId:       account.Id,
-				categoryId:      category.Id,
+				accountID:       account.ID,
+				categoryID:      category.ID,
 				transactionType: "income",
 			},
 		)
 
-		err := db.DeleteTransaction(transaction.Id)
+		err := db.DeleteTransaction(user.ID, transaction.ID)
 		require.NoError(t, err)
-		err = db.DeleteTransaction(transaction.Id)
+		err = db.DeleteTransaction(user.ID, transaction.ID)
+		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
+	})
+
+	t.Run("transaction for another user return not found", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
+		user := seedUser(t, db, "test@example.com")
+		user2 := seedUser(t, db, "test2@example.com")
+		account := seedAccount(t, db, user.ID, 100000)
+		category := seedCategory(t, db, "salary", user.ID, "income")
+		transaction := seedCashflowTransaction(
+			t,
+			db,
+			seedCashflowTransactionParams{
+				userID:          user.ID,
+				amount:          1000,
+				accountID:       account.ID,
+				categoryID:      category.ID,
+				transactionType: "income",
+			},
+		)
+		_, err := db.GetTransaction(user2.ID, transaction.ID)
 		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 }
@@ -382,15 +459,30 @@ func TestGetTransaction(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		user := seedUser(t, db, "test@example.com")
-		account := seedAccount(t, db, 100000)
-		category := seedCategory(t, db, "salary", user.Id, "income")
+		account := seedAccount(t, db, user.ID, 100000)
+		category := seedCategory(t, db, "salary", user.ID, "income")
 		transaction := seedCashflowTransaction(
 			t,
 			db,
 			seedCashflowTransactionParams{
+				userID:          user.ID,
 				amount:          1000,
-				accountId:       account.Id,
-				categoryId:      category.Id,
+				accountID:       account.ID,
+				categoryID:      category.ID,
+				transactionType: "income",
+			},
+		)
+		user2 := seedUser(t, db, "test2@example.com")
+		account2 := seedAccount(t, db, user2.ID, 100000)
+		category2 := seedCategory(t, db, "salary", user2.ID, "income")
+		transaction2 := seedCashflowTransaction(
+			t,
+			db,
+			seedCashflowTransactionParams{
+				userID:          user2.ID,
+				amount:          1000,
+				accountID:       account2.ID,
+				categoryID:      category2.ID,
 				transactionType: "income",
 			},
 		)
@@ -411,14 +503,19 @@ func TestGetTransaction(t *testing.T) {
 				expectedErr: storage.ErrTransactionNotFound,
 			},
 			"existing transaction id": {
-				id:        transaction.Id,
+				id:        transaction.ID,
 				respError: false,
+			},
+			"not found for another user": {
+				id:          transaction2.ID,
+				respError:   true,
+				expectedErr: storage.ErrTransactionNotFound,
 			},
 		}
 
 		for name, tc := range cases {
 			t.Run(name, func(t *testing.T) {
-				fetched, err := db.GetTransaction(tc.id)
+				fetched, err := db.GetTransaction(user.ID, tc.id)
 
 				if tc.respError {
 					require.ErrorIs(t, err, tc.expectedErr)
@@ -426,7 +523,7 @@ func TestGetTransaction(t *testing.T) {
 				}
 
 				require.NoError(t, err)
-				require.Equal(t, tc.id, fetched.Id)
+				require.Equal(t, tc.id, fetched.ID)
 			})
 		}
 	})
@@ -434,15 +531,17 @@ func TestGetTransaction(t *testing.T) {
 	t.Run("transfer", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		account1 := seedAccount(t, db, 100000)
-		account2 := seedAccount(t, db, 100000)
+		user := seedUser(t, db, "test@example.com")
+		account1 := seedAccount(t, db, user.ID, 100000)
+		account2 := seedAccount(t, db, user.ID, 100000)
 		transaction := seedTransferTransaction(
 			t,
 			db,
 			seedTransferTransactionParams{
+				userID:        user.ID,
 				amount:        100,
-				fromAccountId: account1.Id,
-				toAccountId:   account2.Id,
+				fromAccountID: account1.ID,
+				toAccountID:   account2.ID,
 			},
 		)
 
@@ -462,14 +561,14 @@ func TestGetTransaction(t *testing.T) {
 				expectedErr: storage.ErrTransactionNotFound,
 			},
 			"existing transaction id": {
-				id:        transaction.Id,
+				id:        transaction.ID,
 				respError: false,
 			},
 		}
 
 		for name, tc := range cases {
 			t.Run(name, func(t *testing.T) {
-				fetched, err := db.GetTransaction(tc.id)
+				fetched, err := db.GetTransaction(user.ID, tc.id)
 
 				if tc.respError {
 					require.ErrorIs(t, err, tc.expectedErr)
@@ -477,91 +576,103 @@ func TestGetTransaction(t *testing.T) {
 				}
 
 				require.NoError(t, err)
-				require.Equal(t, tc.id, fetched.Id)
+				require.Equal(t, tc.id, fetched.ID)
 			})
 		}
 	})
 }
 
-func createTestTransactions(t *testing.T, db *sqlite.Storage) ([]storage.Transaction, error) {
+func createTestTransactions(
+	t *testing.T,
+	db *sqlite.Storage,
+	userID string,
+) ([]storage.Transaction, error) {
 	t.Helper()
-	user := seedUser(t, db, "test@example.com")
-	account := seedAccount(t, db, 100000)
-	incomeCategory := seedCategory(t, db, "salary", user.Id, "income")
-	account2 := seedAccount(t, db, 100000)
-	expenseCategory := seedCategory(t, db, "rent", user.Id, "expense")
+	account := seedAccount(t, db, userID, 100000)
+	incomeCategory := seedCategory(t, db, "salary", userID, "income")
+	account2 := seedAccount(t, db, userID, 100000)
+	expenseCategory := seedCategory(t, db, "rent", userID, "expense")
 	transactionCreationParams := []storage.CreateTransactionParams{
 		{
+			UserID:      userID,
 			Type:        "income",
 			Amount:      1000,
 			Description: "Salary1",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
-			AccountId:   &account.Id,
-			CategoryId:  &incomeCategory.Id,
+			AccountID:   &account.ID,
+			CategoryID:  &incomeCategory.ID,
 		},
 		{
+			UserID:      userID,
 			Type:        "expense",
 			Amount:      2000,
 			Description: "Shopping1",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-07-01T14:30:00Z"),
-			AccountId:   &account.Id,
-			CategoryId:  &expenseCategory.Id,
+			AccountID:   &account.ID,
+			CategoryID:  &expenseCategory.ID,
 		},
 		{
+			UserID:      userID,
 			Type:        "income",
 			Amount:      5000,
 			Description: "Salary2",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-05-01T23:59:00Z"),
-			AccountId:   &account.Id,
-			CategoryId:  &incomeCategory.Id,
+			AccountID:   &account.ID,
+			CategoryID:  &incomeCategory.ID,
 		},
 		{
+			UserID:      userID,
 			Type:        "expense",
 			Amount:      3000,
 			Description: "Shopping2",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-07-01T00:00:00Z"),
-			AccountId:   &account.Id,
-			CategoryId:  &expenseCategory.Id,
+			AccountID:   &account.ID,
+			CategoryID:  &expenseCategory.ID,
 		},
 		{
+			UserID:      userID,
 			Type:        "income",
 			Amount:      1000,
 			Description: "Salary3",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-05-01T00:00:00Z"),
-			AccountId:   &account.Id,
-			CategoryId:  &incomeCategory.Id,
+			AccountID:   &account.ID,
+			CategoryID:  &incomeCategory.ID,
 		},
 		{
+			UserID:      userID,
 			Type:        "expense",
 			Amount:      1000,
 			Description: "Game1",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-05-04T00:00:00Z"),
-			AccountId:   &account.Id,
-			CategoryId:  &expenseCategory.Id,
+			AccountID:   &account.ID,
+			CategoryID:  &expenseCategory.ID,
 		},
 		{
+			UserID:        userID,
 			Type:          "transfer",
 			Amount:        100,
 			Description:   "Transfer1",
 			OccurredAt:    *testutil.GetTimeFromStr(t, "2024-05-02T00:00:00Z"),
-			FromAccountId: &account.Id,
-			ToAccountId:   &account2.Id,
+			FromAccountID: &account.ID,
+			ToAccountID:   &account2.ID,
 		},
 		{
+			UserID:        userID,
 			Type:          "transfer",
 			Amount:        300,
 			Description:   "Transfer2",
 			OccurredAt:    *testutil.GetTimeFromStr(t, "2024-05-03T00:00:00Z"),
-			FromAccountId: &account.Id,
-			ToAccountId:   &account2.Id,
+			FromAccountID: &account.ID,
+			ToAccountID:   &account2.ID,
 		},
 		{
+			UserID:        userID,
 			Type:          "transfer",
 			Amount:        200,
 			Description:   "Transfer3",
 			OccurredAt:    *testutil.GetTimeFromStr(t, "2024-06-04T00:00:00Z"),
-			FromAccountId: &account.Id,
-			ToAccountId:   &account2.Id,
+			FromAccountID: &account.ID,
+			ToAccountID:   &account2.ID,
 		},
 	}
 
@@ -583,7 +694,8 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("empty transactions in database", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		transactions, err := db.GetTransactions(storage.GetTransactionsParams{})
+		user := seedUser(t, db, "test@example.com")
+		transactions, err := db.GetTransactions(user.ID, storage.GetTransactionsParams{})
 		require.NoError(t, err)
 		require.Empty(t, transactions)
 	})
@@ -591,10 +703,11 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("no params", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(t, db)
+		user := seedUser(t, db, "test@example.com")
+		createdTransactions, err := createTestTransactions(t, db, user.ID)
 		require.NoError(t, err)
 
-		transactions, err := db.GetTransactions(storage.GetTransactionsParams{})
+		transactions, err := db.GetTransactions(user.ID, storage.GetTransactionsParams{})
 		require.NoError(t, err)
 		require.Equal(t, len(createdTransactions), len(transactions))
 	})
@@ -602,13 +715,15 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("account id", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(t, db)
+		user := seedUser(t, db, "test@example.com")
+		createdTransactions, err := createTestTransactions(t, db, user.ID)
 		require.NoError(t, err)
 
-		accId := createdTransactions[0].AccountId
+		accID := createdTransactions[0].AccountID
 
 		transactions, err := db.GetTransactions(
-			storage.GetTransactionsParams{AccountId: accId},
+			user.ID,
+			storage.GetTransactionsParams{AccountID: accID},
 		)
 		require.NoError(t, err)
 
@@ -621,10 +736,10 @@ func TestGetTransactions(t *testing.T) {
 		expected = testutil.Filter(
 			expected,
 			func(c storage.Transaction) bool {
-				return c.AccountId != nil && *c.AccountId == *accId ||
-					c.FromAccountId != nil &&
-						*c.FromAccountId == *accId ||
-					c.ToAccountId != nil && *c.ToAccountId == *accId
+				return c.AccountID != nil && *c.AccountID == *accID ||
+					c.FromAccountID != nil &&
+						*c.FromAccountID == *accID ||
+					c.ToAccountID != nil && *c.ToAccountID == *accID
 			},
 		)
 		require.Equal(t, expected, transactions)
@@ -633,10 +748,12 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("type param = income", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(t, db)
+		user := seedUser(t, db, "test@example.com")
+		createdTransactions, err := createTestTransactions(t, db, user.ID)
 		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
+			user.ID,
 			storage.GetTransactionsParams{Type: new("income")},
 		)
 		require.NoError(t, err)
@@ -659,10 +776,12 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("sort param occurred_at DESC", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(t, db)
+		user := seedUser(t, db, "test@example.com")
+		createdTransactions, err := createTestTransactions(t, db, user.ID)
 		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
+			user.ID,
 			storage.GetTransactionsParams{Sort: new(storage.OccurredAtDesc)},
 		)
 		require.NoError(t, err)
@@ -679,10 +798,12 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("from date and to date", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(t, db)
+		user := seedUser(t, db, "test@example.com")
+		createdTransactions, err := createTestTransactions(t, db, user.ID)
 		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
+			user.ID,
 			storage.GetTransactionsParams{
 				FromDate: testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 				ToDate:   testutil.GetTimeFromStr(t, "2024-07-01T00:00:00Z"),
@@ -705,10 +826,12 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("from date only", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(t, db)
+		user := seedUser(t, db, "test@example.com")
+		createdTransactions, err := createTestTransactions(t, db, user.ID)
 		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
+			user.ID,
 			storage.GetTransactionsParams{
 				FromDate: testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
 			},
@@ -730,10 +853,12 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("to date only", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(t, db)
+		user := seedUser(t, db, "test@example.com")
+		createdTransactions, err := createTestTransactions(t, db, user.ID)
 		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
+			user.ID,
 			storage.GetTransactionsParams{
 				ToDate: testutil.GetTimeFromStr(t, "2024-07-01T00:00:00Z"),
 			},
@@ -755,10 +880,12 @@ func TestGetTransactions(t *testing.T) {
 	t.Run("limit = 2", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
-		createdTransactions, err := createTestTransactions(t, db)
+		user := seedUser(t, db, "test@example.com")
+		createdTransactions, err := createTestTransactions(t, db, user.ID)
 		require.NoError(t, err)
 
 		transactions, err := db.GetTransactions(
+			user.ID,
 			storage.GetTransactionsParams{Limit: new(2)},
 		)
 		require.NoError(t, err)
@@ -770,5 +897,32 @@ func TestGetTransactions(t *testing.T) {
 			},
 		)
 		require.Equal(t, expected[0:2], transactions)
+	})
+
+	t.Run("not found for another user", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
+
+		user := seedUser(t, db, "test@example.com")
+		user2 := seedUser(t, db, "test2@example.com")
+		account := seedAccount(t, db, user.ID, 100000)
+		category := seedCategory(t, db, "salary", user.ID, "income")
+		_ = seedCashflowTransaction(
+			t,
+			db,
+			seedCashflowTransactionParams{
+				userID:          user.ID,
+				amount:          1000,
+				accountID:       account.ID,
+				categoryID:      category.ID,
+				transactionType: "income",
+			},
+		)
+
+		transactions, err := db.GetTransactions(
+			user2.ID,
+			storage.GetTransactionsParams{},
+		)
+		require.NoError(t, err)
+		require.Empty(t, transactions)
 	})
 }

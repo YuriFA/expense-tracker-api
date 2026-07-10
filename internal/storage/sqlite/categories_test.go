@@ -13,12 +13,11 @@ import (
 )
 
 func TestCreateCategory(t *testing.T) {
-	db := sqlite.NewTestDB(t)
-
 	t.Run("success", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		user := seedUser(t, db, "test@example.com")
 		category, err := db.CreateCategory(storage.CreateCategoryParams{
-			UserId: user.Id,
+			UserID: user.ID,
 			Name:   "Category1",
 			Type:   "income",
 			Icon:   "icon1",
@@ -30,11 +29,40 @@ func TestCreateCategory(t *testing.T) {
 		assert.Equal(t, "Category1", category.Name)
 		assert.Equal(t, "icon1", category.Icon)
 		assert.Equal(t, "blue", category.Color)
-		testutil.AssertValidUUID(t, category.Id)
+		testutil.AssertValidUUID(t, category.ID)
 
 		createdAt := testutil.ParseDatetime(t, category.CreatedAt)
 		updatedAt := testutil.ParseDatetime(t, category.UpdatedAt)
 		assert.Equal(t, createdAt, updatedAt)
+	})
+
+	t.Run("duplicate name for same user returns error", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
+		user := seedUser(t, db, "test@example.com")
+		_ = seedCategory(t, db, "Category1", user.ID, "income")
+		_, err := db.CreateCategory(storage.CreateCategoryParams{
+			UserID: user.ID,
+			Name:   "Category1",
+			Type:   "income",
+			Icon:   "icon1",
+			Color:  "blue",
+		})
+		require.ErrorIs(t, err, storage.ErrCategoryAlreadyExists)
+	})
+
+	t.Run("same name for different users is allowed", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
+		user1 := seedUser(t, db, "test1@example.com")
+		user2 := seedUser(t, db, "test2@example.com")
+		_ = seedCategory(t, db, "Category1", user1.ID, "income")
+		_, err := db.CreateCategory(storage.CreateCategoryParams{
+			UserID: user2.ID,
+			Name:   "Category1",
+			Type:   "income",
+			Icon:   "icon1",
+			Color:  "blue",
+		})
+		require.NoError(t, err)
 	})
 }
 
@@ -42,7 +70,7 @@ func TestUpdateCategory(t *testing.T) {
 	t.Run("full params updates both params", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		user := seedUser(t, db, "test@example.com")
-		category := seedCategory(t, db, "salary", user.Id, "income")
+		category := seedCategory(t, db, "salary", user.ID, "income")
 		params := storage.UpdateCategoryParams{
 			Name:  new("UpdatedCategory"),
 			Type:  new("expense"),
@@ -50,7 +78,7 @@ func TestUpdateCategory(t *testing.T) {
 			Color: new("red"),
 		}
 
-		updatedCategory, err := db.UpdateCategory(category.Id, params)
+		updatedCategory, err := db.UpdateCategory(user.ID, category.ID, params)
 		require.NoError(t, err)
 
 		require.Equal(t, *params.Name, updatedCategory.Name)
@@ -61,12 +89,12 @@ func TestUpdateCategory(t *testing.T) {
 	t.Run("only name change", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		user := seedUser(t, db, "test@example.com")
-		category := seedCategory(t, db, "salary", user.Id, "income")
+		category := seedCategory(t, db, "salary", user.ID, "income")
 		params := storage.UpdateCategoryParams{
 			Name: new("UpdatedCategory"),
 		}
 
-		updatedCategory, err := db.UpdateCategory(category.Id, params)
+		updatedCategory, err := db.UpdateCategory(user.ID, category.ID, params)
 		require.NoError(t, err)
 		require.Equal(t, *params.Name, updatedCategory.Name)
 
@@ -77,7 +105,17 @@ func TestUpdateCategory(t *testing.T) {
 
 	t.Run("wrong category id return not found", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		_, err := db.UpdateCategory(uuid.NewString(), storage.UpdateCategoryParams{})
+		user := seedUser(t, db, "test@example.com")
+		_, err := db.UpdateCategory(user.ID, uuid.NewString(), storage.UpdateCategoryParams{})
+		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
+	})
+
+	t.Run("category for another user return not found", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
+		user := seedUser(t, db, "test@example.com")
+		user2 := seedUser(t, db, "test2@example.com")
+		category := seedCategory(t, db, "salary", user.ID, "income")
+		_, err := db.UpdateCategory(user2.ID, category.ID, storage.UpdateCategoryParams{})
 		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 }
@@ -86,43 +124,54 @@ func TestDeleteCategory(t *testing.T) {
 	t.Run("existing category", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		user := seedUser(t, db, "test@example.com")
-		category := seedCategory(t, db, "salary", user.Id, "income")
-		err := db.DeleteCategory(category.Id)
+		category := seedCategory(t, db, "salary", user.ID, "income")
+		err := db.DeleteCategory(user.ID, category.ID)
 		require.NoError(t, err)
 	})
 
 	t.Run("non existing category", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		err := db.DeleteCategory(uuid.NewString())
+		user := seedUser(t, db, "test@example.com")
+		err := db.DeleteCategory(user.ID, uuid.NewString())
+		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
+	})
+
+	t.Run("category for another user", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
+		user := seedUser(t, db, "test@example.com")
+		user2 := seedUser(t, db, "test2@example.com")
+		category := seedCategory(t, db, "salary", user.ID, "income")
+		err := db.DeleteCategory(user2.ID, category.ID)
 		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 
 	t.Run("category with transactions", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		account := seedAccount(t, db, 100000)
 		user := seedUser(t, db, "test@example.com")
-		category := seedCategory(t, db, "salary", user.Id, "income")
+		account := seedAccount(t, db, user.ID, 100000)
+		category := seedCategory(t, db, "salary", user.ID, "income")
 		_ = seedCashflowTransaction(
 			t,
 			db,
 			seedCashflowTransactionParams{
+				userID:          user.ID,
 				amount:          20000,
-				accountId:       account.Id,
-				categoryId:      category.Id,
+				accountID:       account.ID,
+				categoryID:      category.ID,
 				transactionType: "income",
 			},
 		)
-		err := db.DeleteCategory(category.Id)
+		err := db.DeleteCategory(user.ID, category.ID)
 		require.ErrorIs(t, err, storage.ErrCategoryHasTransactions)
 	})
 
 	t.Run("double delete category", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		user := seedUser(t, db, "test@example.com")
-		category := seedCategory(t, db, "salary", user.Id, "income")
-		err := db.DeleteCategory(category.Id)
+		category := seedCategory(t, db, "salary", user.ID, "income")
+		err := db.DeleteCategory(user.ID, category.ID)
 		require.NoError(t, err)
-		err = db.DeleteCategory(category.Id)
+		err = db.DeleteCategory(user.ID, category.ID)
 		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 }
@@ -131,7 +180,9 @@ func TestGetCategory(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 
 	user := seedUser(t, db, "test@example.com")
-	testCategory := seedCategory(t, db, "salary", user.Id, "income")
+	user2 := seedUser(t, db, "test2@example.com")
+	testCategory := seedCategory(t, db, "salary", user.ID, "income")
+	testCategory2 := seedCategory(t, db, "salary", user2.ID, "income")
 
 	cases := map[string]struct {
 		id          string
@@ -149,14 +200,19 @@ func TestGetCategory(t *testing.T) {
 			expectedErr: storage.ErrCategoryNotFound,
 		},
 		"existing category id": {
-			id:        testCategory.Id,
+			id:        testCategory.ID,
 			respError: false,
+		},
+		"non existing category id for another user": {
+			id:          testCategory2.ID,
+			respError:   true,
+			expectedErr: storage.ErrCategoryNotFound,
 		},
 	}
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			category, err := db.GetCategory(tc.id)
+			category, err := db.GetCategory(user.ID, tc.id)
 
 			if tc.respError {
 				require.ErrorIs(t, err, tc.expectedErr)
@@ -164,7 +220,7 @@ func TestGetCategory(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			require.Equal(t, tc.id, category.Id)
+			require.Equal(t, tc.id, category.ID)
 		})
 	}
 }
@@ -178,18 +234,30 @@ func categoryNames(categories []storage.Category) []string {
 }
 
 func TestGetCategories(t *testing.T) {
-	t.Run("empty categories in database", func(t *testing.T) {
+	t.Run("seeded categories in database", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
-		categories, err := db.GetCategories(storage.GetCategoriesParams{})
+		user := seedUser(t, db, "test@example.com")
+		categories, err := db.GetCategories(user.ID, storage.GetCategoriesParams{})
 		require.NoError(t, err)
-		assert.Empty(t, categories)
+		assert.NotEmpty(t, categories)
+	})
+
+	t.Run("no other user categories for another user", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
+		user := seedUser(t, db, "test@example.com")
+		user2 := seedUser(t, db, "test2@example.com")
+		userCategories, err := db.GetCategories(user.ID, storage.GetCategoriesParams{})
+		require.NoError(t, err)
+		user2Categories, err := db.GetCategories(user2.ID, storage.GetCategoriesParams{})
+		require.NoError(t, err)
+		assert.NotContains(t, categoryNames(userCategories), categoryNames(user2Categories))
 	})
 
 	t.Run("existing categories in database with no params", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		user := seedUser(t, db, "test@example.com")
-		createdCategories := seedCategories(t, db, user.Id, 4)
-		categories, err := db.GetCategories(storage.GetCategoriesParams{})
+		createdCategories := seedCategories(t, db, user.ID, 4)
+		categories, err := db.GetCategories(user.ID, storage.GetCategoriesParams{})
 		require.NoError(t, err)
 
 		for _, c := range createdCategories {
@@ -201,9 +269,10 @@ func TestGetCategories(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 
 		user := seedUser(t, db, "test@example.com")
-		createdCategories := seedCategories(t, db, user.Id, 4)
+		createdCategories := seedCategories(t, db, user.ID, 4)
 
 		categories, err := db.GetCategories(
+			user.ID,
 			storage.GetCategoriesParams{Type: new("income")},
 		)
 		require.NoError(t, err)

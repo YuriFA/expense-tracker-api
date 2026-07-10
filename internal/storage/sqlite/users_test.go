@@ -18,7 +18,7 @@ func TestRegisterUser(t *testing.T) {
 			PasswordHash: "hashedpassword1",
 		})
 		require.NoError(t, err)
-		require.NotEmpty(t, user.Id)
+		require.NotEmpty(t, user.ID)
 		require.Equal(t, "user1@example.com", user.Email)
 		require.Empty(t, user.PasswordHash)
 	})
@@ -36,7 +36,7 @@ func TestRegisterUser(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		user1 := seedUser(t, db, "user1@example.com")
 		user2 := seedUser(t, db, "user2@example.com")
-		require.NotEqual(t, user1.Id, user2.Id)
+		require.NotEqual(t, user1.ID, user2.ID)
 	})
 
 	t.Run("duplicate email", func(t *testing.T) {
@@ -71,9 +71,9 @@ func TestGetUserByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		db := sqlite.NewTestDB(t)
 		seededUser := seedUser(t, db, "user1@example.com")
-		user, err := db.GetUserByID(seededUser.Id)
+		user, err := db.GetUserByID(seededUser.ID)
 		require.NoError(t, err)
-		require.Equal(t, seededUser.Id, user.Id)
+		require.Equal(t, seededUser.ID, user.ID)
 		require.Empty(t, user.PasswordHash)
 	})
 

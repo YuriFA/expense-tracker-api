@@ -26,7 +26,7 @@ func (s *Storage) RegisterUser(params storage.RegisterUserParams) (*storage.User
 		VALUES (?, ?, ?)
 		RETURNING id, email, created_at, updated_at`,
 		uuid.NewString(), params.Email, params.PasswordHash,
-	).Scan(&user.Id, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
@@ -39,7 +39,7 @@ func (s *Storage) RegisterUser(params storage.RegisterUserParams) (*storage.User
 		_, err = tx.Exec(
 			`INSERT INTO categories (id, user_id, name, type, icon, color)
                VALUES (?, ?, ?, ?, ?, ?)`,
-			uuid.NewString(), user.Id, category.Name, category.Type, category.Icon, category.Color,
+			uuid.NewString(), user.ID, category.Name, category.Type, category.Icon, category.Color,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
@@ -66,7 +66,7 @@ func (s *Storage) GetUserByEmail(email string) (*storage.User, error) {
 
 	var user storage.User
 	err = stmt.QueryRow(email).
-		Scan(&user.Id, &user.Email, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt)
+		Scan(&user.ID, &user.Email, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)
@@ -89,7 +89,7 @@ func (s *Storage) GetUserByID(id string) (*storage.User, error) {
 	defer stmt.Close()
 
 	var user storage.User
-	err = stmt.QueryRow(id).Scan(&user.Id, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+	err = stmt.QueryRow(id).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)

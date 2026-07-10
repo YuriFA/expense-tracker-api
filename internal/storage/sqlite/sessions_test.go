@@ -17,13 +17,13 @@ func TestCreateSession(t *testing.T) {
 		user := seedUser(t, db, "test@example.com")
 		session, err := db.CreateSession(storage.CreateSessionParams{
 			SessionID: "session-id-123",
-			UserID:    user.Id,
+			UserID:    user.ID,
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		})
 
 		require.NoError(t, err)
 		assert.NotNil(t, session)
-		assert.Equal(t, user.Id, session.UserID)
+		assert.Equal(t, user.ID, session.UserID)
 		assert.Equal(t, "session-id-123", session.ID)
 	})
 
@@ -44,7 +44,7 @@ func TestGetSessionByID(t *testing.T) {
 		user := seedUser(t, db, "test@example.com")
 		session, err := db.CreateSession(storage.CreateSessionParams{
 			SessionID: "session-id-123",
-			UserID:    user.Id,
+			UserID:    user.ID,
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		})
 		require.NoError(t, err)
@@ -68,7 +68,7 @@ func TestDeleteSession(t *testing.T) {
 		user := seedUser(t, db, "test@example.com")
 		session, err := db.CreateSession(storage.CreateSessionParams{
 			SessionID: "session-id-123",
-			UserID:    user.Id,
+			UserID:    user.ID,
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		})
 		require.NoError(t, err)
