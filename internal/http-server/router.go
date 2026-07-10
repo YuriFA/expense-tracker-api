@@ -9,6 +9,7 @@ import (
 	"expense-tracker-api/internal/config"
 	"expense-tracker-api/internal/http-server/handlers"
 	"expense-tracker-api/internal/http-server/middleware"
+	"expense-tracker-api/internal/storage/sqlite"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -16,7 +17,12 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-func NewRouter(log *slog.Logger, handlers *handlers.Handler, config config.HTTPServer) *gin.Engine {
+func NewRouter(
+	log *slog.Logger,
+	db *sqlite.Storage,
+	handlers *handlers.Handler,
+	cfg *config.HTTPServer,
+) *gin.Engine {
 	// Format validation error messages to use JSON field names instead of struct field names
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterTagNameFunc(func(fld reflect.StructField) string {
@@ -30,9 +36,9 @@ func NewRouter(log *slog.Logger, handlers *handlers.Handler, config config.HTTPS
 
 	router := gin.New()
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     config.CorsConfig.AllowedOrigins,
-		AllowMethods:     config.CorsConfig.AllowedMethods,
-		AllowHeaders:     config.CorsConfig.AllowedHeaders,
+		AllowOrigins:     cfg.CorsConfig.AllowedOrigins,
+		AllowMethods:     cfg.CorsConfig.AllowedMethods,
+		AllowHeaders:     cfg.CorsConfig.AllowedHeaders,
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -41,27 +47,29 @@ func NewRouter(log *slog.Logger, handlers *handlers.Handler, config config.HTTPS
 	router.Use(middleware.SlogLogger(log))
 
 	api := router.Group("/api")
-	api.POST("/auth/register", handlers.Register)
-	api.POST("/auth/login", handlers.Login)
+	authApi := api.Group("/auth")
+	authApi.POST("/register", handlers.Register)
+	authApi.POST("/login", handlers.Login)
 
-	api.GET("/accounts", handlers.ListAccounts)
-	api.POST("/accounts", handlers.CreateAccount)
-	api.GET("/accounts/:id", handlers.GetAccount)
-	api.PATCH("/accounts/:id", handlers.UpdateAccount)
-	api.DELETE("/accounts/:id", handlers.DeleteAccount)
-	api.GET("/accounts/balances", handlers.GetAccountBalances)
+	privateApi := api.Group("/", middleware.AuthRequired(db, log, cfg))
+	privateApi.GET("/accounts", handlers.ListAccounts)
+	privateApi.POST("/accounts", handlers.CreateAccount)
+	privateApi.GET("/accounts/:id", handlers.GetAccount)
+	privateApi.PATCH("/accounts/:id", handlers.UpdateAccount)
+	privateApi.DELETE("/accounts/:id", handlers.DeleteAccount)
+	privateApi.GET("/accounts/balances", handlers.GetAccountBalances)
 
-	api.GET("/categories", handlers.ListCategories)
-	api.POST("/categories", handlers.CreateCategory)
-	api.GET("/categories/:id", handlers.GetCategory)
-	api.PATCH("/categories/:id", handlers.UpdateCategory)
-	api.DELETE("/categories/:id", handlers.DeleteCategory)
+	privateApi.GET("/categories", handlers.ListCategories)
+	privateApi.POST("/categories", handlers.CreateCategory)
+	privateApi.GET("/categories/:id", handlers.GetCategory)
+	privateApi.PATCH("/categories/:id", handlers.UpdateCategory)
+	privateApi.DELETE("/categories/:id", handlers.DeleteCategory)
 
-	api.GET("/transactions", handlers.ListTransactions)
-	api.POST("/transactions", handlers.CreateTransaction)
-	api.GET("/transactions/:id", handlers.GetTransaction)
-	api.PATCH("/transactions/:id", handlers.UpdateTransaction)
-	api.DELETE("/transactions/:id", handlers.DeleteTransaction)
+	privateApi.GET("/transactions", handlers.ListTransactions)
+	privateApi.POST("/transactions", handlers.CreateTransaction)
+	privateApi.GET("/transactions/:id", handlers.GetTransaction)
+	privateApi.PATCH("/transactions/:id", handlers.UpdateTransaction)
+	privateApi.DELETE("/transactions/:id", handlers.DeleteTransaction)
 
 	return router
 }

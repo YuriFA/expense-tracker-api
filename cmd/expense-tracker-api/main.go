@@ -37,8 +37,8 @@ func main() {
 
 	log.Info("Storage initialized")
 
-	handlers := handlers.NewHandler(log, db, cfg)
-	router := httpserver.NewRouter(log, handlers, cfg.HTTPServer)
+	handlers := handlers.NewHandler(log, db, &cfg.HTTPServer)
+	router := httpserver.NewRouter(log, db, handlers, &cfg.HTTPServer)
 
 	log.Info("Starting server", slog.String("address", cfg.Address))
 

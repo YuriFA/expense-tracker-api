@@ -10,10 +10,10 @@ import (
 type Handler struct {
 	Logger *slog.Logger
 	DB     *sqlite.Storage
-	Config *config.Config
+	Config *config.HTTPServer
 }
 
-func NewHandler(log *slog.Logger, db *sqlite.Storage, cfg *config.Config) *Handler {
+func NewHandler(log *slog.Logger, db *sqlite.Storage, cfg *config.HTTPServer) *Handler {
 	return &Handler{
 		Logger: log,
 		DB:     db,

@@ -25,30 +25,23 @@ func setupTestEnv(t *testing.T) (*gin.Engine, *sqlite.Storage) {
 	// NOTE: For debugging, you can use a real logger instead of the discard logger.
 	// log := logger.New(logger.Options{Environment: "dev"})
 	log := logger.NewDiscardLogger()
-	cfg := &config.Config{
-		Env:         "test",
-		StoragePath: "",
-		HTTPServer: config.HTTPServer{
-			Address:      ":8080",
-			ReadTimeout:  5 * time.Second,
-			WriteTimeout: 5 * time.Second,
-			IdleTimeout:  30 * time.Second,
-			CorsConfig: config.CORSConfig{
-				AllowedOrigins: []string{"*"},
-			},
-			SessionConfig: config.SessionConfig{
-				TTL:        24 * time.Hour,
-				CookieName: "session_id",
-				SameSite:   "lax",
-			},
-		},
-	}
-	h := handlers.NewHandler(log, db, cfg)
-	return httpserver.NewRouter(log, h, config.HTTPServer{
+	cfg := &config.HTTPServer{
+		Address:      ":8080",
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		IdleTimeout:  30 * time.Second,
 		CorsConfig: config.CORSConfig{
 			AllowedOrigins: []string{"*"},
 		},
-	}), db
+		SessionConfig: config.SessionConfig{
+			TTL:        24 * time.Hour,
+			CookieName: "session_id",
+			Secure:     false,
+			SameSite:   "lax",
+		},
+	}
+	h := handlers.NewHandler(log, db, cfg)
+	return httpserver.NewRouter(log, db, h, cfg), db
 }
 
 func newJSONRequest(t *testing.T, method, path string, body any) *http.Request {
