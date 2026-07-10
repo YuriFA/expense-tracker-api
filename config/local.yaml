@@ -9,3 +9,8 @@ http_server:
     allowed_origins:
       - "http://localhost:5173"
       - "http://localhost:5174"
+  session:
+    TTL: 24h
+    CookieName: "session_id"
+    Secure: false
+    SameSite: "lax"

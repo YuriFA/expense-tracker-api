@@ -22,8 +22,28 @@ import (
 func setupTestEnv(t *testing.T) (*gin.Engine, *sqlite.Storage) {
 	t.Helper()
 	db := sqlite.NewTestDB(t)
+	// NOTE: For debugging, you can use a real logger instead of the discard logger.
+	// log := logger.New(logger.Options{Environment: "dev"})
 	log := logger.NewDiscardLogger()
-	h := handlers.NewHandler(log, db)
+	cfg := &config.Config{
+		Env:         "test",
+		StoragePath: "",
+		HTTPServer: config.HTTPServer{
+			Address:      ":8080",
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 5 * time.Second,
+			IdleTimeout:  30 * time.Second,
+			CorsConfig: config.CORSConfig{
+				AllowedOrigins: []string{"*"},
+			},
+			SessionConfig: config.SessionConfig{
+				TTL:        24 * time.Hour,
+				CookieName: "session_id",
+				SameSite:   "lax",
+			},
+		},
+	}
+	h := handlers.NewHandler(log, db, cfg)
 	return httpserver.NewRouter(log, h, config.HTTPServer{
 		CorsConfig: config.CORSConfig{
 			AllowedOrigins: []string{"*"},

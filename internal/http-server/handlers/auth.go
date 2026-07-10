@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"expense-tracker-api/internal/auth"
 	"expense-tracker-api/internal/logger"
@@ -15,6 +16,11 @@ import (
 type RegisterUserParams struct {
 	Email    string `json:"email"    binding:"required,email"`
 	Password string `json:"password" binding:"required,min=8,max=72"`
+}
+
+type LoginUserParams struct {
+	Email    string `json:"email"    binding:"required,email"`
+	Password string `json:"password" binding:"required"`
 }
 
 func (h *Handler) Register(c *gin.Context) {
@@ -52,4 +58,73 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, user)
+}
+
+func (h *Handler) Login(c *gin.Context) {
+	op := "handlers.auth.Login"
+
+	log := h.Logger.With(
+		slog.String("op", op),
+	)
+
+	var req LoginUserParams
+	if !bindAndValidateJSON(c, log, &req) {
+		return
+	}
+
+	user, err := h.DB.GetUserByEmail(req.Email)
+	if err != nil {
+		log.Error("failed to get user by email", logger.Error(err))
+		writeError(
+			c,
+			http.StatusUnauthorized,
+			ErrCodeInvalidCredentials,
+			"invalid credentials",
+		)
+		return
+	}
+	err = auth.VerifyPassword(user.PasswordHash, req.Password)
+	if err != nil {
+		log.Info("invalid credentials", logger.Error(err))
+		writeError(c, http.StatusUnauthorized, ErrCodeInvalidCredentials, "invalid credentials")
+		return
+	}
+
+	sessionID, err := auth.GenerateSessionToken()
+	if err != nil {
+		log.Error("failed to generate session token", logger.Error(err))
+		writeError(
+			c,
+			http.StatusInternalServerError,
+			ErrCodeInternal,
+			"failed to generate session token",
+		)
+		return
+	}
+
+	session, err := h.DB.CreateSession(storage.CreateSessionParams{
+		SessionID: sessionID,
+		UserID:    user.Id,
+		ExpiresAt: time.Now().UTC().Add(h.Config.SessionConfig.TTL),
+	})
+	if err != nil {
+		log.Error("failed to login", logger.Error(err))
+		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to login")
+		return
+	}
+
+	c.SetCookieData(
+		&http.Cookie{
+			Name:     h.Config.SessionConfig.CookieName,
+			Value:    session.ID,
+			MaxAge:   int(h.Config.SessionConfig.TTL.Seconds()),
+			Path:     "/",
+			Domain:   "",
+			Secure:   h.Config.SessionConfig.Secure,
+			HttpOnly: true,
+			SameSite: parseSameSite(h.Config.SessionConfig.SameSite),
+		},
+	)
+
+	c.JSON(http.StatusOK, user)
 }

@@ -20,6 +20,7 @@ func TestRegisterUser(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, user.Id)
 		require.Equal(t, "user1@example.com", user.Email)
+		require.Empty(t, user.PasswordHash)
 	})
 
 	// TODO: Categories for user
@@ -56,6 +57,7 @@ func TestGetUserByEmail(t *testing.T) {
 		user, err := db.GetUserByEmail("user1@example.com")
 		require.NoError(t, err)
 		require.Equal(t, "user1@example.com", user.Email)
+		require.NotEmpty(t, user.PasswordHash)
 	})
 
 	t.Run("not found", func(t *testing.T) {
@@ -72,6 +74,7 @@ func TestGetUserByID(t *testing.T) {
 		user, err := db.GetUserByID(seededUser.Id)
 		require.NoError(t, err)
 		require.Equal(t, seededUser.Id, user.Id)
+		require.Empty(t, user.PasswordHash)
 	})
 
 	t.Run("not found", func(t *testing.T) {

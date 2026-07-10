@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"expense-tracker-api/internal/auth"
 	"expense-tracker-api/internal/http-server/handlers"
 	"expense-tracker-api/internal/storage"
 
@@ -99,5 +100,63 @@ func TestRegisterUser(t *testing.T) {
 				assert.Equal(t, tc.wantMessage, response.Errors[0].Message)
 			})
 		}
+	})
+}
+
+func TestLoginUser(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		router, db := setupTestEnv(t)
+		passwordHash, err := auth.HashPassword("password123")
+		require.NoError(t, err)
+		_, err = db.RegisterUser(storage.RegisterUserParams{
+			Email:        "test@example.com",
+			PasswordHash: passwordHash,
+		})
+		require.NoError(t, err)
+		w := performRequest(
+			t,
+			router,
+			newJSONRequest(t, http.MethodPost, "/api/auth/login", map[string]any{
+				"email":    "test@example.com",
+				"password": "password123",
+			}),
+		)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.NotEmpty(t, w.Result().Cookies())
+		assert.Equal(t, "session_id", w.Result().Cookies()[0].Name)
+		var response storage.User
+		parseBody(t, w, &response)
+		assert.NotEmpty(t, response.Id)
+		assert.Equal(t, "test@example.com", response.Email)
+		assert.Empty(t, response.PasswordHash)
+	})
+
+	t.Run("InvalidCredentials", func(t *testing.T) {
+		router, _ := setupTestEnv(t)
+
+		req := newJSONRequest(t, http.MethodPost, "/api/auth/login", map[string]any{
+			"email":    "test@example.com",
+			"password": "wrongpassword",
+		})
+		w := performRequest(t, router, req)
+
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+		var response handlers.ErrorResponse
+		parseBody(t, w, &response)
+		assert.Equal(t, handlers.ErrCodeInvalidCredentials, response.Code)
+	})
+
+	t.Run("ValidationFail", func(t *testing.T) {
+		router, _ := setupTestEnv(t)
+
+		req := newJSONRequest(t, http.MethodPost, "/api/auth/login", map[string]any{
+			"email": "nonemail",
+		})
+		w := performRequest(t, router, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		var response handlers.ValidationErrorResponse
+		parseBody(t, w, &response)
+		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
 	})
 }

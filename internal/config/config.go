@@ -15,11 +15,19 @@ type Config struct {
 }
 
 type HTTPServer struct {
-	Address      string        `yaml:"address"       env-default:"localhost:8080"`
-	ReadTimeout  time.Duration `yaml:"read_timeout"  env-default:"5s"`
-	WriteTimeout time.Duration `yaml:"write_timeout" env-default:"30s"`
-	IdleTimeout  time.Duration `yaml:"idle_timeout"  env-default:"60s"`
-	CorsConfig   CORSConfig    `yaml:"cors"`
+	Address       string        `yaml:"address"       env-default:"localhost:8080"`
+	ReadTimeout   time.Duration `yaml:"read_timeout"  env-default:"5s"`
+	WriteTimeout  time.Duration `yaml:"write_timeout" env-default:"30s"`
+	IdleTimeout   time.Duration `yaml:"idle_timeout"  env-default:"60s"`
+	CorsConfig    CORSConfig    `yaml:"cors"`
+	SessionConfig SessionConfig `yaml:"session"`
+}
+
+type SessionConfig struct {
+	TTL        time.Duration `yaml:"ttl"         env:"SESSION_TTL"         env-default:"24h"`
+	CookieName string        `yaml:"cookie_name" env:"SESSION_COOKIE_NAME" env-default:"session_id"`
+	Secure     bool          `yaml:"secure"      env:"SESSION_SECURE"      env-default:"true"`
+	SameSite   string        `yaml:"same_site"   env:"SESSION_SAME_SITE"   env-default:"Lax"`
 }
 
 type CORSConfig struct {

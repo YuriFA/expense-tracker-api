@@ -42,6 +42,7 @@ func NewRouter(log *slog.Logger, handlers *handlers.Handler, config config.HTTPS
 
 	api := router.Group("/api")
 	api.POST("/auth/register", handlers.Register)
+	api.POST("/auth/login", handlers.Login)
 
 	api.GET("/accounts", handlers.ListAccounts)
 	api.POST("/accounts", handlers.CreateAccount)

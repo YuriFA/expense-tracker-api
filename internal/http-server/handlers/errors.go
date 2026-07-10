@@ -10,6 +10,7 @@ import (
 
 const (
 	ErrCodeUserAlreadyExists    = "USER_ALREADY_EXISTS"
+	ErrCodeInvalidCredentials   = "INVALID_CREDENTIALS"
 	ErrCodeInvalidRequest       = "INVALID_REQUEST"
 	ErrCodeValidationFailed     = "VALIDATION_FAILED"
 	ErrCodeAccountNotFound      = "ACCOUNT_NOT_FOUND"

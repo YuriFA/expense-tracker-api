@@ -34,10 +34,10 @@ func main() {
 		log.Error("failed to run migrations", logger.Error(err))
 		os.Exit(1)
 	}
-	
+
 	log.Info("Storage initialized")
 
-	handlers := handlers.NewHandler(log, db)
+	handlers := handlers.NewHandler(log, db, cfg)
 	router := httpserver.NewRouter(log, handlers, cfg.HTTPServer)
 
 	log.Info("Starting server", slog.String("address", cfg.Address))

@@ -3,17 +3,20 @@ package handlers
 import (
 	"log/slog"
 
+	"expense-tracker-api/internal/config"
 	"expense-tracker-api/internal/storage/sqlite"
 )
 
 type Handler struct {
 	Logger *slog.Logger
 	DB     *sqlite.Storage
+	Config *config.Config
 }
 
-func NewHandler(log *slog.Logger, db *sqlite.Storage) *Handler {
+func NewHandler(log *slog.Logger, db *sqlite.Storage, cfg *config.Config) *Handler {
 	return &Handler{
 		Logger: log,
 		DB:     db,
+		Config: cfg,
 	}
 }

@@ -57,7 +57,7 @@ func (s *Storage) GetUserByEmail(email string) (*storage.User, error) {
 	const op = "storage.sqlite.GetUserByEmail"
 
 	stmt, err := s.db.Prepare(
-		`SELECT id, email, created_at, updated_at FROM users WHERE email = ?`,
+		`SELECT id, email, password_hash, created_at, updated_at FROM users WHERE email = ?`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -65,7 +65,8 @@ func (s *Storage) GetUserByEmail(email string) (*storage.User, error) {
 	defer stmt.Close()
 
 	var user storage.User
-	err = stmt.QueryRow(email).Scan(&user.Id, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+	err = stmt.QueryRow(email).
+		Scan(&user.Id, &user.Email, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)

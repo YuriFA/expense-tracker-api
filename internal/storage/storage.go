@@ -6,15 +6,30 @@ import (
 )
 
 type User struct {
-	Id        string `json:"id"`
-	Email     string `json:"email"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	Id           string `json:"id"`
+	Email        string `json:"email"`
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
+	PasswordHash string `json:"-"`
 }
 
 type RegisterUserParams struct {
 	Email        string
 	PasswordHash string
+}
+
+type Session struct {
+	ID        string `json:"id"`
+	UserID    string `json:"userId"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
+type CreateSessionParams struct {
+	SessionID string
+	UserID    string
+	ExpiresAt time.Time
 }
 
 type Account struct {
@@ -139,6 +154,8 @@ type GetTransactionsParams struct {
 var (
 	ErrUserNotFound            = errors.New("user not found")
 	ErrUserAlreadyExists       = errors.New("user already exists")
+	ErrSessionNotFound         = errors.New("session not found")
+	ErrSessionExpired          = errors.New("session expired")
 	ErrAccountNotFound         = errors.New("account not found")
 	ErrCategoryNotFound        = errors.New("category not found")
 	ErrCategoryTypeMismatch    = errors.New("category type mismatch")
