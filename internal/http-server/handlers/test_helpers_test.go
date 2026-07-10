@@ -3,7 +3,6 @@ package handlers_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -114,23 +113,34 @@ func seedTransaction(
 	return transaction
 }
 
+type seedCommonTransactionParams struct {
+	userID          string
+	categoryName    string
+	transactionType string
+}
+
 func seedCommonTransaction(
 	t *testing.T,
 	db *sqlite.Storage,
-	transactionType string,
+	params seedCommonTransactionParams,
 ) *storage.Transaction {
 	t.Helper()
 
 	occurredAt := time.Now()
 
 	var transaction *storage.Transaction
-	switch transactionType {
+	switch params.transactionType {
 	case "income", "expense":
-		user := seedUser(t, db, "test@example.com")
-		category := seedCategory(t, db, fmt.Sprintf("category%s", transactionType), user.Id, transactionType)
+		category := seedCategory(
+			t,
+			db,
+			params.categoryName,
+			params.userID,
+			params.transactionType,
+		)
 		account := seedAccount(t, db, "Cash", 100000)
 		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
-			Type:        transactionType,
+			Type:        params.transactionType,
 			Amount:      100000,
 			Description: "Common transaction",
 			OccurredAt:  occurredAt,
@@ -141,7 +151,7 @@ func seedCommonTransaction(
 		accountFrom := seedAccount(t, db, "Bank", 50000)
 		accountTo := seedAccount(t, db, "Cash", 20000)
 		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
-			Type:          transactionType,
+			Type:          params.transactionType,
 			Amount:        30000,
 			Description:   "Common transfer",
 			OccurredAt:    occurredAt,
@@ -149,39 +159,44 @@ func seedCommonTransaction(
 			ToAccountId:   &accountTo.Id,
 		})
 	default:
-		t.Fatalf("unsupported transaction type: %s", transactionType)
+		t.Fatalf("unsupported transaction type: %s", params.transactionType)
 		return nil
 	}
 
 	return transaction
 }
 
+type seedTransactionAtParams struct {
+	userID          string
+	transactionType string
+	categoryName    string
+	occurredAt      time.Time
+	amount          int64
+}
+
 func seedTransactionAt(
 	t *testing.T,
 	db *sqlite.Storage,
-	transactionType string,
-	occurredAt time.Time,
-	amount int64,
+	params seedTransactionAtParams,
 ) *storage.Transaction {
 	t.Helper()
 
 	var transaction *storage.Transaction
-	switch transactionType {
+	switch params.transactionType {
 	case "income", "expense":
-		user := seedUser(t, db, "test@example.com")
 		category := seedCategory(
 			t,
 			db,
-			fmt.Sprintf("category%s", transactionType),
-			user.Id,
-			transactionType,
+			params.categoryName,
+			params.userID,
+			params.transactionType,
 		)
 		account := seedAccount(t, db, "Cash", 100000)
 		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
-			Type:        transactionType,
-			Amount:      amount,
+			Type:        params.transactionType,
+			Amount:      params.amount,
 			Description: "Common transaction",
-			OccurredAt:  occurredAt,
+			OccurredAt:  params.occurredAt,
 			AccountId:   &account.Id,
 			CategoryId:  &category.Id,
 		})
@@ -189,15 +204,15 @@ func seedTransactionAt(
 		fromAccount := seedAccount(t, db, "Bank", 50000)
 		toaccount := seedAccount(t, db, "Cash", 20000)
 		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
-			Type:          transactionType,
-			Amount:        amount,
+			Type:          params.transactionType,
+			Amount:        params.amount,
 			Description:   "Common transfer",
-			OccurredAt:    occurredAt,
+			OccurredAt:    params.occurredAt,
 			FromAccountId: &fromAccount.Id,
 			ToAccountId:   &toaccount.Id,
 		})
 	default:
-		t.Fatalf("unsupported transaction type: %s", transactionType)
+		t.Fatalf("unsupported transaction type: %s", params.transactionType)
 		return nil
 	}
 

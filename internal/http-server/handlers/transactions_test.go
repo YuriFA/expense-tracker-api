@@ -402,9 +402,13 @@ func TestUpdateTransaction(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCommonTransaction(t, db, "income")
-		nextAccount := seedAccount(t, db, "Bank", 200000)
 		user := seedUser(t, db, "test@example.com")
+		existing := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "transport",
+			transactionType: "expense",
+		})
+		nextAccount := seedAccount(t, db, "Bank", 200000)
 		nextCategory := seedCategory(t, db, "rent", user.Id, "expense")
 
 		params := map[string]any{
@@ -439,7 +443,12 @@ func TestUpdateTransaction(t *testing.T) {
 	t.Run("PartialUpdate", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCommonTransaction(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "salary",
+			transactionType: "income",
+		})
 
 		req := newJSONRequest(
 			t,
@@ -465,7 +474,12 @@ func TestUpdateTransaction(t *testing.T) {
 	t.Run("NoFields", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCommonTransaction(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "salary",
+			transactionType: "income",
+		})
 
 		req := newJSONRequest(
 			t,
@@ -485,7 +499,12 @@ func TestUpdateTransaction(t *testing.T) {
 	t.Run("NonExistAccount", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCommonTransaction(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "salary",
+			transactionType: "income",
+		})
 
 		req := newJSONRequest(
 			t,
@@ -508,7 +527,12 @@ func TestUpdateTransaction(t *testing.T) {
 	t.Run("TypeParamIgnored", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCommonTransaction(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "salary",
+			transactionType: "income",
+		})
 
 		req := newJSONRequest(
 			t,
@@ -531,7 +555,12 @@ func TestUpdateTransaction(t *testing.T) {
 	t.Run("NonExistCategory", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCommonTransaction(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "salary",
+			transactionType: "income",
+		})
 
 		req := newJSONRequest(
 			t,
@@ -554,9 +583,13 @@ func TestUpdateTransaction(t *testing.T) {
 	t.Run("CategoryTypeMismatch", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCommonTransaction(t, db, "income")
-
 		user := seedUser(t, db, "test@example.com")
+		existing := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "salary",
+			transactionType: "income",
+		})
+
 		nextCategory := seedCategory(t, db, "rent", user.Id, "expense")
 
 		req := newJSONRequest(
@@ -600,8 +633,17 @@ func TestUpdateTransaction(t *testing.T) {
 	t.Run("ShapeViolation", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		cashflowTransaction := seedCommonTransaction(t, db, "income")
-		transferTransaction := seedCommonTransaction(t, db, "transfer")
+		user := seedUser(t, db, "test@example.com")
+		cashflowTransaction := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "salary",
+			transactionType: "income",
+		})
+		transferTransaction := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "transfer",
+			transactionType: "transfer",
+		})
 
 		cases := map[string]struct {
 			id          string
@@ -670,7 +712,11 @@ func TestDeleteTransaction(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCommonTransaction(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			transactionType: "income",
+		})
 
 		req := httptest.NewRequest(http.MethodDelete, "/api/transactions/"+existing.Id, nil)
 		w := performRequest(t, router, req)
@@ -697,7 +743,11 @@ func TestGetTransaction(t *testing.T) {
 	t.Run("Success for cashflow", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCommonTransaction(t, db, "income")
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			transactionType: "income",
+		})
 
 		req := httptest.NewRequest(http.MethodGet, "/api/transactions/"+existing.Id, nil)
 		w := performRequest(t, router, req)
@@ -719,7 +769,11 @@ func TestGetTransaction(t *testing.T) {
 	t.Run("Success for transfer", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		existing := seedCommonTransaction(t, db, "transfer")
+		user := seedUser(t, db, "test@example.com")
+		existing := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			transactionType: "transfer",
+		})
 
 		req := httptest.NewRequest(http.MethodGet, "/api/transactions/"+existing.Id, nil)
 		w := performRequest(t, router, req)
@@ -756,12 +810,37 @@ func TestListTransactions(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		seeded1 := seedCommonTransaction(t, db, "income")
-		seeded2 := seedCommonTransaction(t, db, "expense")
-		seeded3 := seedCommonTransaction(t, db, "income")
-		seeded4 := seedCommonTransaction(t, db, "transfer")
-		seeded5 := seedCommonTransaction(t, db, "expense")
-		seeded6 := seedCommonTransaction(t, db, "transfer")
+		user := seedUser(t, db, "test@example.com")
+		seeded1 := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "salary",
+			transactionType: "income",
+		})
+		seeded2 := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "groceries",
+			transactionType: "expense",
+		})
+		seeded3 := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "freelance",
+			transactionType: "income",
+		})
+		seeded4 := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "transfer",
+			transactionType: "transfer",
+		})
+		seeded5 := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "expense",
+			transactionType: "expense",
+		})
+		seeded6 := seedCommonTransaction(t, db, seedCommonTransactionParams{
+			userID:          user.Id,
+			categoryName:    "transfer",
+			transactionType: "transfer",
+		})
 		seededTransactions := []*storage.Transaction{
 			seeded1,
 			seeded2,
@@ -793,40 +872,61 @@ func TestListTransactions(t *testing.T) {
 	t.Run("SpecificParamsWithoutDateRange", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
+		user := seedUser(t, db, "test@example.com")
 		seeded1 := seedTransactionAt(
 			t,
 			db,
-			"income",
-			time.Date(2024, 5, 10, 12, 0, 0, 0, time.UTC),
-			80000,
+			seedTransactionAtParams{
+				userID:          user.Id,
+				categoryName:    "salary",
+				transactionType: "income",
+				occurredAt:      time.Date(2024, 5, 10, 12, 0, 0, 0, time.UTC),
+				amount:          80000,
+			},
 		)
 		seeded2 := seedTransactionAt(
 			t,
 			db,
-			"expense",
-			time.Date(2024, 5, 15, 12, 14, 30, 0, time.UTC),
-			20000,
+			seedTransactionAtParams{
+				userID:          user.Id,
+				categoryName:    "groceries",
+				transactionType: "expense",
+				occurredAt:      time.Date(2024, 5, 15, 12, 14, 30, 0, time.UTC),
+				amount:          20000,
+			},
 		)
 		seeded3 := seedTransactionAt(
 			t,
 			db,
-			"income",
-			time.Date(2024, 4, 1, 12, 0, 0, 0, time.UTC),
-			1000000,
+			seedTransactionAtParams{
+				userID:          user.Id,
+				transactionType: "income",
+				categoryName:    "freelance",
+				occurredAt:      time.Date(2024, 4, 1, 12, 0, 0, 0, time.UTC),
+				amount:          1000000,
+			},
 		)
 		seeded4 := seedTransactionAt(
 			t,
 			db,
-			"expense",
-			time.Date(2024, 5, 15, 12, 12, 30, 0, time.UTC),
-			300000,
+			seedTransactionAtParams{
+				userID:          user.Id,
+				transactionType: "expense",
+				categoryName:    "groceries2",
+				occurredAt:      time.Date(2024, 5, 15, 12, 12, 30, 0, time.UTC),
+				amount:          300000,
+			},
 		)
 		seeded5 := seedTransactionAt(
 			t,
 			db,
-			"transfer",
-			time.Date(2024, 2, 10, 12, 15, 30, 0, time.UTC),
-			300000,
+			seedTransactionAtParams{
+				userID:          user.Id,
+				categoryName:    "transfer2",
+				transactionType: "transfer",
+				occurredAt:      time.Date(2024, 2, 10, 12, 15, 30, 0, time.UTC),
+				amount:          300000,
+			},
 		)
 
 		cases := []struct {
@@ -952,28 +1052,58 @@ func TestListTransactions(t *testing.T) {
 	t.Run("DateRange", func(t *testing.T) {
 		router, db := setupTestEnv(t)
 
-		beforeRange := seedTransactionAt(t, db, "income",
-			time.Date(2024, 5, 15, 12, 0, 0, 0, time.UTC), 10000)
+		user := seedUser(t, db, "test@example.com")
+
+		beforeRange := seedTransactionAt(t, db, seedTransactionAtParams{
+			userID:          user.Id,
+			categoryName:    "salary",
+			transactionType: "income",
+			occurredAt:      time.Date(2024, 5, 15, 12, 0, 0, 0, time.UTC),
+			amount:          10000,
+		})
 		onUpperBoundary := seedTransactionAt(
 			t,
 			db,
-			"expense",
-			time.Date(2024, 6, 30, 23, 59, 0, 0, time.UTC),
-			10000,
+			seedTransactionAtParams{
+				userID:          user.Id,
+				categoryName:    "groceries",
+				transactionType: "expense",
+				occurredAt:      time.Date(2024, 6, 30, 23, 59, 0, 0, time.UTC),
+				amount:          10000,
+			},
 		)
 		justAfterUpper := seedTransactionAt(
 			t,
 			db,
-			"income",
-			time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
-			10000,
+			seedTransactionAtParams{
+				userID:          user.Id,
+				categoryName:    "salary2",
+				transactionType: "income",
+				occurredAt:      time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
+				amount:          10000,
+			},
 		)
-		onLowerBoundary := seedTransactionAt(t, db, "income",
-			time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC), 10000)
-		inMiddle := seedTransactionAt(t, db, "expense",
-			time.Date(2024, 6, 15, 14, 30, 0, 0, time.UTC), 10000)
-		afterRange := seedTransactionAt(t, db, "income",
-			time.Date(2024, 7, 15, 12, 0, 0, 0, time.UTC), 10000)
+		onLowerBoundary := seedTransactionAt(t, db, seedTransactionAtParams{
+			userID:          user.Id,
+			categoryName:    "salary3",
+			transactionType: "income",
+			occurredAt:      time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
+			amount:          10000,
+		})
+		inMiddle := seedTransactionAt(t, db, seedTransactionAtParams{
+			userID:          user.Id,
+			categoryName:    "groceries2",
+			transactionType: "expense",
+			occurredAt:      time.Date(2024, 6, 15, 14, 30, 0, 0, time.UTC),
+			amount:          10000,
+		})
+		afterRange := seedTransactionAt(t, db, seedTransactionAtParams{
+			userID:          user.Id,
+			categoryName:    "salary4",
+			transactionType: "income",
+			occurredAt:      time.Date(2024, 7, 15, 12, 0, 0, 0, time.UTC),
+			amount:          10000,
+		})
 
 		req := httptest.NewRequest(http.MethodGet,
 			"/api/transactions?fromDate=2024-06-01&toDate=2024-06-30", nil)

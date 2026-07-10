@@ -70,9 +70,8 @@ func TestCreateAccount(t *testing.T) {
 }
 
 func TestUpdateAccount(t *testing.T) {
-	db := sqlite.NewTestDB(t)
-
 	t.Run("full params updates both params", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		account := seedAccount(t, db, 10000)
 		params := storage.UpdateAccountParams{
 			Name:             new("UpdatedAccount"),
@@ -87,6 +86,7 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("only name change", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		account := seedAccount(t, db, 10000)
 		params := storage.UpdateAccountParams{
 			Name: new("UpdatedAccount"),
@@ -104,26 +104,28 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("wrong account id return not found", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		_, err := db.UpdateAccount(uuid.NewString(), storage.UpdateAccountParams{})
 		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 }
 
 func TestDeleteAccount(t *testing.T) {
-	db := sqlite.NewTestDB(t)
-
 	t.Run("existing account", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		account := seedAccount(t, db, 10000)
 		err := db.DeleteAccount(account.Id)
 		require.NoError(t, err)
 	})
 
 	t.Run("non existing account", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		err := db.DeleteAccount(uuid.NewString())
 		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 
 	t.Run("account with cashflow transaction", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		user := seedUser(t, db, "test@example.com")
 		account := seedAccount(t, db, 100000)
 		category := seedCategory(t, db, "salary", user.Id, "income")
@@ -142,6 +144,7 @@ func TestDeleteAccount(t *testing.T) {
 	})
 
 	t.Run("account with transfer transaction", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		account1 := seedAccount(t, db, 100000)
 		account2 := seedAccount(t, db, 100000)
 		_ = seedTransferTransaction(
@@ -158,6 +161,7 @@ func TestDeleteAccount(t *testing.T) {
 	})
 
 	t.Run("double delete account", func(t *testing.T) {
+		db := sqlite.NewTestDB(t)
 		account := seedAccount(t, db, 10000)
 		err := db.DeleteAccount(account.Id)
 		require.NoError(t, err)

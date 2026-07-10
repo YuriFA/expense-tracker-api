@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -154,6 +155,7 @@ func writeTransactionError(
 	err error,
 	req commonTransactionParamsReq,
 ) {
+	fmt.Println("writeTransactionError called with error:", err) // Debugging line
 	switch {
 	case errors.Is(err, storage.ErrTransactionNotFound):
 		log.Info("transaction not found")
