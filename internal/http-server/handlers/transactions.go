@@ -258,6 +258,8 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	var req TransactionRequest
 	if !bindAndValidateJSON(c, log, &req) {
 		return
@@ -269,14 +271,15 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 	}
 
 	transaction, err := h.DB.CreateTransaction(storage.CreateTransactionParams{
+		UserID:        user.ID,
 		Type:          req.Type,
 		Amount:        req.Amount,
 		Description:   req.Description,
 		OccurredAt:    req.OccurredAt,
-		AccountId:     req.AccountId,
-		CategoryId:    req.CategoryId,
-		FromAccountId: req.FromAccountId,
-		ToAccountId:   req.ToAccountId,
+		AccountID:     req.AccountId,
+		CategoryID:    req.CategoryId,
+		FromAccountID: req.FromAccountId,
+		ToAccountID:   req.ToAccountId,
 	})
 	if err != nil {
 		writeTransactionError(c, log, err, commonTransactionParamsReq{
@@ -298,6 +301,8 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	var req UpdateTransactionRequest
 	if !bindAndValidateJSON(c, log, &req) {
 		return
@@ -311,7 +316,7 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 
 	id := c.Param("id")
 
-	current, err := h.DB.GetTransaction(id)
+	current, err := h.DB.GetTransaction(user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrTransactionNotFound) {
 			log.Info("transaction not found", slog.String("id", id))
@@ -328,14 +333,14 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		return
 	}
 
-	transaction, err := h.DB.UpdateTransaction(id, storage.UpdateTransactionParams{
+	transaction, err := h.DB.UpdateTransaction(user.ID, id, storage.UpdateTransactionParams{
 		Amount:        req.Amount,
 		Description:   req.Description,
 		OccurredAt:    req.OccurredAt,
-		AccountId:     req.AccountId,
-		CategoryId:    req.CategoryId,
-		FromAccountId: req.FromAccountId,
-		ToAccountId:   req.ToAccountId,
+		AccountID:     req.AccountId,
+		CategoryID:    req.CategoryId,
+		FromAccountID: req.FromAccountId,
+		ToAccountID:   req.ToAccountId,
 	})
 	if err != nil {
 		writeTransactionError(c, log, err, commonTransactionParamsReq{
@@ -357,9 +362,11 @@ func (h *Handler) DeleteTransaction(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	id := c.Param("id")
 
-	err := h.DB.DeleteTransaction(id)
+	err := h.DB.DeleteTransaction(user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrTransactionNotFound) {
 			log.Info("transaction not found", slog.String("id", id))
@@ -387,8 +394,10 @@ func (h *Handler) GetTransaction(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	id := c.Param("id")
-	transaction, err := h.DB.GetTransaction(id)
+	transaction, err := h.DB.GetTransaction(user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrTransactionNotFound) {
 			log.Info("transaction not found", slog.String("id", id))
@@ -411,6 +420,8 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	var params GetTransactionsQuery
 	if !bindAndValidateQuery(c, log, &params) {
 		return
@@ -424,10 +435,10 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		"query parameters after parse",
 		slog.Any("params", params),
 	)
-	transactions, err := h.DB.GetTransactions(storage.GetTransactionsParams{
+	transactions, err := h.DB.GetTransactions(user.ID, storage.GetTransactionsParams{
 		Type:       params.Type,
-		AccountId:  params.AccountId,
-		CategoryId: params.CategoryId,
+		AccountID:  params.AccountId,
+		CategoryID: params.CategoryId,
 		FromDate:   params.FromDate,
 		ToDate:     params.ToDate,
 		Limit:      params.Limit,

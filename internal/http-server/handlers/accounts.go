@@ -29,12 +29,15 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	var req CreateAccountRequest
 	if !bindAndValidateJSON(c, log, &req) {
 		return
 	}
 
 	account, err := h.DB.CreateAccount(storage.CreateAccountParams{
+		UserID:         user.ID,
 		Name:           req.Name,
 		Currency:       req.Currency,
 		OpeningBalance: *req.OpeningBalance,
@@ -55,6 +58,8 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	var req UpdateAccountRequest
 	if !bindAndValidateJSON(c, log, &req) {
 		return
@@ -66,7 +71,7 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	account, err := h.DB.UpdateAccount(id, storage.UpdateAccountParams{
+	account, err := h.DB.UpdateAccount(user.ID, id, storage.UpdateAccountParams{
 		Name:             req.Name,
 		ManualAdjustment: req.ManualAdjustment,
 	})
@@ -92,8 +97,10 @@ func (h *Handler) DeleteAccount(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	id := c.Param("id")
-	err := h.DB.DeleteAccount(id)
+	err := h.DB.DeleteAccount(user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrAccountNotFound) {
 			log.Info("account not found", slog.String("id", id))
@@ -122,8 +129,10 @@ func (h *Handler) GetAccount(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	id := c.Param("id")
-	account, err := h.DB.GetAccount(id)
+	account, err := h.DB.GetAccount(user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrAccountNotFound) {
 			log.Info("account not found", slog.String("id", id))
@@ -146,7 +155,9 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	accounts, err := h.DB.GetAccounts()
+	user := currentUser(c)
+
+	accounts, err := h.DB.GetAccounts(user.ID)
 	if err != nil {
 		log.Error("failed to get accounts", logger.Error(err))
 		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to get accounts")
@@ -169,8 +180,9 @@ func (h *Handler) GetAccountBalances(c *gin.Context) {
 	log := h.Logger.With(
 		slog.String("op", op),
 	)
+	user := currentUser(c)
 
-	balances, err := h.DB.GetAccountBalances()
+	balances, err := h.DB.GetAccountBalances(user.ID)
 	if err != nil {
 		log.Error("failed to get account balances", logger.Error(err))
 		writeError(

@@ -104,7 +104,7 @@ func (h *Handler) Login(c *gin.Context) {
 
 	session, err := h.DB.CreateSession(storage.CreateSessionParams{
 		SessionID: sessionID,
-		UserID:    user.Id,
+		UserID:    user.ID,
 		ExpiresAt: time.Now().UTC().Add(h.Config.SessionConfig.TTL),
 	})
 	if err != nil {

@@ -36,13 +36,15 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	var req CategoryRequest
 	if !bindAndValidateJSON(c, log, &req) {
 		return
 	}
 
 	category, err := h.DB.CreateCategory(storage.CreateCategoryParams{
-		UserId: "",
+		UserID: user.ID,
 		Name:   req.Name,
 		Type:   req.Type,
 		Icon:   req.Icon,
@@ -64,6 +66,8 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	var req UpdateCategoryRequest
 	if !bindAndValidateJSON(c, log, &req) {
 		return
@@ -76,7 +80,7 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	category, err := h.DB.UpdateCategory(id, storage.UpdateCategoryParams{
+	category, err := h.DB.UpdateCategory(user.ID, id, storage.UpdateCategoryParams{
 		Name:  req.Name,
 		Type:  req.Type,
 		Icon:  req.Icon,
@@ -104,8 +108,10 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	id := c.Param("id")
-	err := h.DB.DeleteCategory(id)
+	err := h.DB.DeleteCategory(user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrCategoryNotFound) {
 			log.Info("category not found", slog.String("id", id))
@@ -134,8 +140,10 @@ func (h *Handler) GetCategory(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	id := c.Param("id")
-	category, err := h.DB.GetCategory(id)
+	category, err := h.DB.GetCategory(user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrCategoryNotFound) {
 			log.Info("category not found", slog.String("id", id))
@@ -158,12 +166,14 @@ func (h *Handler) ListCategories(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	user := currentUser(c)
+
 	var params GetCategoriesQuery
 	if !bindAndValidateQuery(c, log, &params) {
 		return
 	}
 
-	categories, err := h.DB.GetCategories(storage.GetCategoriesParams{
+	categories, err := h.DB.GetCategories(user.ID, storage.GetCategoriesParams{
 		Type: params.Type,
 	})
 	if err != nil {
