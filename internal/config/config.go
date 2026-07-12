@@ -24,10 +24,11 @@ type HTTPServer struct {
 }
 
 type SessionConfig struct {
-	TTL        time.Duration `yaml:"ttl"         env:"SESSION_TTL"         env-default:"24h"`
-	CookieName string        `yaml:"cookie_name" env:"SESSION_COOKIE_NAME" env-default:"session_id"`
-	Secure     bool          `yaml:"secure"      env:"SESSION_SECURE"      env-default:"true"`
-	SameSite   string        `yaml:"same_site"   env:"SESSION_SAME_SITE"   env-default:"Lax"`
+	TTL               time.Duration `yaml:"ttl"                env:"SESSION_TTL"                env-default:"24h"`
+	CookieName        string        `yaml:"cookie_name"        env:"SESSION_COOKIE_NAME"        env-default:"session_id"`
+	Secure            bool          `yaml:"secure"             env:"SESSION_SECURE"             env-default:"true"`
+	SameSite          string        `yaml:"same_site"          env:"SESSION_SAME_SITE"          env-default:"Lax"`
+	SlidingExpiration bool          `yaml:"sliding_expiration" env:"SESSION_SLIDING_EXPIRATION" env-default:"true"`
 }
 
 type CORSConfig struct {

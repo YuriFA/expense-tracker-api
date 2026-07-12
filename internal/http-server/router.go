@@ -50,8 +50,10 @@ func NewRouter(
 	authApi := api.Group("/auth")
 	authApi.POST("/register", handlers.Register)
 	authApi.POST("/login", handlers.Login)
+	authApi.POST("/logout", handlers.Logout)
 
 	privateApi := api.Group("/", middleware.AuthRequired(db, log, cfg))
+	privateApi.GET("/auth/me", handlers.Me)
 	privateApi.GET("/accounts", handlers.ListAccounts)
 	privateApi.POST("/accounts", handlers.CreateAccount)
 	privateApi.GET("/accounts/:id", handlers.GetAccount)

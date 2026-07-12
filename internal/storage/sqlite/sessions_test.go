@@ -6,6 +6,7 @@ import (
 
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/storage/sqlite"
+	"expense-tracker-api/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,6 +81,36 @@ func TestDeleteSession(t *testing.T) {
 	t.Run("Non existing session", func(t *testing.T) {
 		f := newFixture(t)
 		err := f.DB.DeleteSession("non-existing-session-id")
+		require.Error(t, err)
+	})
+}
+
+func TestExtendSession(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		f := newFixture(t)
+		session, err := f.DB.CreateSession(storage.CreateSessionParams{
+			SessionID: "session-id-123",
+			UserID:    f.User.ID,
+			ExpiresAt: time.Now().Add(24 * time.Hour),
+		})
+		require.NoError(t, err)
+
+		newExpiry := time.Now().Add(48 * time.Hour)
+		err = f.DB.ExtendSession(session.ID, newExpiry)
+		require.NoError(t, err)
+
+		updated, err := f.DB.GetSessionByID(session.ID)
+		require.NoError(t, err)
+		assert.Equal(
+			t,
+			newExpiry.UnixMilli(),
+			testutil.ParseDatetime(t, updated.ExpiresAt).UnixMilli(),
+		)
+	})
+
+	t.Run("Non existing session", func(t *testing.T) {
+		f := newFixture(t)
+		err := f.DB.ExtendSession("non-existing-session-id", time.Now().Add(48*time.Hour))
 		require.Error(t, err)
 	})
 }

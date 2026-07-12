@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"expense-tracker-api/internal/storage"
 )
@@ -65,6 +66,33 @@ func (s *Storage) DeleteSession(id string) error {
 	defer stmt.Close()
 
 	res, err := stmt.Exec(id)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("%s: %w", op, storage.ErrSessionNotFound)
+	}
+
+	return nil
+}
+
+func (s *Storage) ExtendSession(id string, newExpiresAt time.Time) error {
+	const op = "storage.sqlite.ExtendSession"
+
+	stmt, err := s.db.Prepare(
+		`UPDATE sessions SET expires_at = ? WHERE id = ? AND expires_at > CURRENT_TIMESTAMP`,
+	)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(newExpiresAt, id)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}

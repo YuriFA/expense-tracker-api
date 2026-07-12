@@ -23,6 +23,8 @@ func TestRegisterUser(t *testing.T) {
 		w := performRequest(t, router, req)
 
 		assert.Equal(t, http.StatusCreated, w.Code)
+		assert.NotEmpty(t, w.Result().Cookies())
+		assert.Equal(t, "session_id", w.Result().Cookies()[0].Name)
 		var response storage.User
 		parseBody(t, w, &response)
 		assert.Equal(t, "test@example.com", response.Email)
@@ -158,5 +160,68 @@ func TestLoginUser(t *testing.T) {
 		var response handlers.ValidationErrorResponse
 		parseBody(t, w, &response)
 		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+	})
+}
+
+func TestLogoutUser(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		f := newAuthFixture(t)
+
+		w := f.do(t, http.MethodPost, "/api/auth/logout", nil)
+		assert.Equal(t, http.StatusNoContent, w.Code)
+		assert.NotEmpty(t, w.Result().Cookies())
+	})
+
+	t.Run("NoSession", func(t *testing.T) {
+		router, _ := setupTestEnv(t)
+
+		req := newJSONRequest(t, http.MethodPost, "/api/auth/logout", map[string]any{
+			"email": "nonemail",
+		})
+		w := performRequest(t, router, req)
+		assert.Equal(t, http.StatusNoContent, w.Code)
+	})
+
+	t.Run("InvalidSession", func(t *testing.T) {
+		router, _ := setupTestEnv(t)
+
+		req := newJSONRequest(t, http.MethodPost, "/api/auth/logout", map[string]any{
+			"email": "nonemail",
+		})
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: "invalid-session-id"})
+		w := performRequest(t, router, req)
+		assert.Equal(t, http.StatusNoContent, w.Code)
+		assert.NotEmpty(t, w.Result().Cookies())
+	})
+
+	t.Run("DoubleLogout", func(t *testing.T) {
+		f := newAuthFixture(t)
+
+		_ = f.do(t, http.MethodPost, "/api/auth/logout", nil)
+		w := f.do(t, http.MethodPost, "/api/auth/logout", nil)
+		assert.Equal(t, http.StatusNoContent, w.Code)
+	})
+}
+
+func TestMe(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		f := newAuthFixture(t)
+
+		w := f.do(t, http.MethodGet, "/api/auth/me", nil)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response storage.User
+		parseBody(t, w, &response)
+		assert.NotEmpty(t, response.ID)
+		assert.Equal(t, "test@example.com", response.Email)
+		assert.Empty(t, response.PasswordHash)
+	})
+
+	t.Run("NoSession", func(t *testing.T) {
+		router, _ := setupTestEnv(t)
+
+		req := newJSONRequest(t, http.MethodGet, "/api/auth/me", nil)
+		w := performRequest(t, router, req)
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
 	})
 }

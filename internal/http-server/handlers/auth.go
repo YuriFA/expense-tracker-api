@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"expense-tracker-api/internal/auth"
+	"expense-tracker-api/internal/http-server/cookie"
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
 
@@ -21,6 +22,31 @@ type RegisterUserParams struct {
 type LoginUserParams struct {
 	Email    string `json:"email"    binding:"required,email"`
 	Password string `json:"password" binding:"required"`
+}
+
+func (h *Handler) startUserSession(c *gin.Context, userID string) error {
+	sessionID, err := auth.GenerateSessionToken()
+	if err != nil {
+		return err
+	}
+
+	session, err := h.DB.CreateSession(storage.CreateSessionParams{
+		SessionID: sessionID,
+		UserID:    userID,
+		ExpiresAt: time.Now().UTC().Add(h.Config.SessionConfig.TTL),
+	})
+	if err != nil {
+		return err
+	}
+
+	c.SetCookieData(
+		cookie.BuildSession(
+			h.Config.SessionConfig,
+			session.ID,
+			int(h.Config.SessionConfig.TTL.Seconds()),
+		),
+	)
+	return nil
 }
 
 func (h *Handler) Register(c *gin.Context) {
@@ -57,6 +83,12 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
+	if err := h.startUserSession(c, user.ID); err != nil {
+		log.Error("failed to create session", logger.Error(err))
+		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to create session")
+		return
+	}
+
 	c.JSON(http.StatusCreated, user)
 }
 
@@ -90,41 +122,59 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	sessionID, err := auth.GenerateSessionToken()
-	if err != nil {
-		log.Error("failed to generate session token", logger.Error(err))
-		writeError(
-			c,
-			http.StatusInternalServerError,
-			ErrCodeInternal,
-			"failed to generate session token",
-		)
+	if err := h.startUserSession(c, user.ID); err != nil {
+		log.Error("failed to create session", logger.Error(err))
+		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to create session")
 		return
 	}
 
-	session, err := h.DB.CreateSession(storage.CreateSessionParams{
-		SessionID: sessionID,
-		UserID:    user.ID,
-		ExpiresAt: time.Now().UTC().Add(h.Config.SessionConfig.TTL),
-	})
+	c.JSON(http.StatusOK, user)
+}
+
+func (h *Handler) Logout(c *gin.Context) {
+	op := "handlers.auth.Logout"
+
+	log := h.Logger.With(
+		slog.String("op", op),
+	)
+
+	sessionCookie, err := c.Request.Cookie(h.Config.SessionConfig.CookieName)
 	if err != nil {
-		log.Error("failed to login", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to login")
+		c.Status(http.StatusNoContent)
+		return
+	}
+
+	err = h.DB.DeleteSession(sessionCookie.Value)
+	if err != nil && !errors.Is(err, storage.ErrSessionNotFound) {
+		log.Error("failed to delete session", logger.Error(err))
+		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to logout")
 		return
 	}
 
 	c.SetCookieData(
-		&http.Cookie{
-			Name:     h.Config.SessionConfig.CookieName,
-			Value:    session.ID,
-			MaxAge:   int(h.Config.SessionConfig.TTL.Seconds()),
-			Path:     "/",
-			Domain:   "",
-			Secure:   h.Config.SessionConfig.Secure,
-			HttpOnly: true,
-			SameSite: parseSameSite(h.Config.SessionConfig.SameSite),
-		},
+		cookie.BuildSession(
+			h.Config.SessionConfig,
+			"",
+			-1,
+		),
 	)
+
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) Me(c *gin.Context) {
+	op := "handlers.auth.Me"
+
+	log := h.Logger.With(
+		slog.String("op", op),
+	)
+
+	user := currentUser(c)
+	if user == nil {
+		log.Info("no current user found")
+		writeError(c, http.StatusUnauthorized, ErrCodeUnauthorized, "unauthorized")
+		return
+	}
 
 	c.JSON(http.StatusOK, user)
 }

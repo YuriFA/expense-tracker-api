@@ -23,6 +23,7 @@ const (
 	ErrCodeCategoryInUse        = "CATEGORY_IN_USE"
 	ErrCodeInvalidRefs          = "INVALID_REFS"
 	ErrCodeSameAccountTransfer  = "SAME_ACCOUNT_TRANSFER"
+	ErrCodeUnauthorized         = "UNAUTHORIZED"
 )
 
 type FieldError struct {

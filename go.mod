@@ -12,6 +12,7 @@ require (
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/mattn/go-sqlite3 v1.14.45
 	github.com/stretchr/testify v1.11.1
+	golang.org/x/crypto v0.53.0
 )
 
 require (
@@ -43,7 +44,6 @@ require (
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.6.0 // indirect
 	golang.org/x/arch v0.28.0 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
