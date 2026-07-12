@@ -99,6 +99,17 @@ func (h *Handler) Login(c *gin.Context) {
 		slog.String("op", op),
 	)
 
+	key := c.ClientIP()
+	if h.RateLimiter.IsLocked(key) {
+		writeError(
+			c,
+			http.StatusTooManyRequests,
+			ErrCodeTooManyRequests,
+			"too many login attempts, please try again later",
+		)
+		return
+	}
+
 	var req LoginUserParams
 	if !bindAndValidateJSON(c, log, &req) {
 		return
@@ -106,6 +117,7 @@ func (h *Handler) Login(c *gin.Context) {
 
 	user, err := h.DB.GetUserByEmail(req.Email)
 	if err != nil {
+		h.RateLimiter.RecordFailure(key)
 		log.Error("failed to get user by email", logger.Error(err))
 		writeError(
 			c,
@@ -117,6 +129,7 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 	err = auth.VerifyPassword(user.PasswordHash, req.Password)
 	if err != nil {
+		h.RateLimiter.RecordFailure(key)
 		log.Info("invalid credentials", logger.Error(err))
 		writeError(c, http.StatusUnauthorized, ErrCodeInvalidCredentials, "invalid credentials")
 		return
@@ -128,6 +141,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
+	h.RateLimiter.RecordSuccess(key)
 	c.JSON(http.StatusOK, user)
 }
 

@@ -15,12 +15,18 @@ type Config struct {
 }
 
 type HTTPServer struct {
-	Address       string        `yaml:"address"       env-default:"localhost:8080"`
-	ReadTimeout   time.Duration `yaml:"read_timeout"  env-default:"5s"`
-	WriteTimeout  time.Duration `yaml:"write_timeout" env-default:"30s"`
-	IdleTimeout   time.Duration `yaml:"idle_timeout"  env-default:"60s"`
-	CorsConfig    CORSConfig    `yaml:"cors"`
-	SessionConfig SessionConfig `yaml:"session"`
+	Address        string         `yaml:"address"          env-default:"localhost:8080"`
+	ReadTimeout    time.Duration  `yaml:"read_timeout"     env-default:"5s"`
+	WriteTimeout   time.Duration  `yaml:"write_timeout"    env-default:"30s"`
+	IdleTimeout    time.Duration  `yaml:"idle_timeout"     env-default:"60s"`
+	CorsConfig     CORSConfig     `yaml:"cors"`
+	SessionConfig  SessionConfig  `yaml:"session"`
+	LoginRateLimit LoginRateLimit `yaml:"login_rate_limit"`
+}
+
+type LoginRateLimit struct {
+	MaxAttempts     int           `yaml:"max_attempts"     env:"LOGIN_RATE_LIMIT_MAX_ATTEMPTS"     env-default:"5"`
+	LockoutDuration time.Duration `yaml:"lockout_duration" env:"LOGIN_RATE_LIMIT_LOCKOUT_DURATION" env-default:"15m"`
 }
 
 type SessionConfig struct {

@@ -24,6 +24,7 @@ const (
 	ErrCodeInvalidRefs          = "INVALID_REFS"
 	ErrCodeSameAccountTransfer  = "SAME_ACCOUNT_TRANSFER"
 	ErrCodeUnauthorized         = "UNAUTHORIZED"
+	ErrCodeTooManyRequests      = "TOO_MANY_REQUESTS"
 )
 
 type FieldError struct {

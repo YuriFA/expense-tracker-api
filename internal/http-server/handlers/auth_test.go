@@ -161,6 +161,41 @@ func TestLoginUser(t *testing.T) {
 		parseBody(t, w, &response)
 		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
 	})
+
+	t.Run("RateLimitExceeded", func(t *testing.T) {
+		router, db := setupTestEnv(t)
+
+		passwordHash, err := auth.HashPassword("password123")
+		require.NoError(t, err)
+		_, err = db.RegisterUser(storage.RegisterUserParams{
+			Email:        "test@example.com",
+			PasswordHash: passwordHash,
+		})
+		require.NoError(t, err)
+
+		for range 5 {
+			req := newJSONRequest(t, http.MethodPost, "/api/auth/login", map[string]any{
+				"email":    "test@example.com",
+				"password": "wrongpassword",
+			})
+			w := performRequest(t, router, req)
+			require.Equal(t, http.StatusUnauthorized, w.Code)
+		}
+
+		req := newJSONRequest(t, http.MethodPost, "/api/auth/login", map[string]any{
+			"email":    "test@example.com",
+			"password": "wrongpassword",
+		})
+		w := performRequest(t, router, req)
+		require.Equal(t, http.StatusTooManyRequests, w.Code)
+
+		req = newJSONRequest(t, http.MethodPost, "/api/auth/login", map[string]any{
+			"email":    "test@example.com",
+			"password": "password123",
+		})
+		w = performRequest(t, router, req)
+		require.Equal(t, http.StatusTooManyRequests, w.Code)
+	})
 }
 
 func TestLogoutUser(t *testing.T) {

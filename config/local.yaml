@@ -16,3 +16,6 @@ http_server:
     same_site: "lax"
     sliding_expiration: true
     cleanup_intercal: 6h
+  login_rate_limit:
+    max_attempts: 5
+    lockout_duration: 15m

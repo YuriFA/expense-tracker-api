@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"expense-tracker-api/internal/auth"
 	"expense-tracker-api/internal/config"
 	httpserver "expense-tracker-api/internal/http-server"
 	"expense-tracker-api/internal/http-server/handlers"
@@ -44,7 +45,11 @@ func main() {
 
 	log.Info("Storage initialized")
 
-	handlers := handlers.NewHandler(log, db, &cfg.HTTPServer)
+	rl := auth.NewLoginRateLimiter(
+		cfg.LoginRateLimit.MaxAttempts,
+		cfg.LoginRateLimit.LockoutDuration,
+	)
+	handlers := handlers.NewHandler(log, db, &cfg.HTTPServer, rl)
 	router := httpserver.NewRouter(log, db, handlers, &cfg.HTTPServer)
 
 	log.Info("Starting server", slog.String("address", cfg.Address))

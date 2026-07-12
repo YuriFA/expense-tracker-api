@@ -42,7 +42,7 @@ func setupTestEnv(t *testing.T) (*gin.Engine, *sqlite.Storage) {
 			SameSite:   "lax",
 		},
 	}
-	h := handlers.NewHandler(log, db, cfg)
+	h := handlers.NewHandler(log, db, cfg, auth.NewLoginRateLimiter(5, time.Minute))
 	return httpserver.NewRouter(log, db, h, cfg), db
 }
 
