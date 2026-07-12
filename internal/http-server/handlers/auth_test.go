@@ -26,7 +26,7 @@ func TestRegisterUser(t *testing.T) {
 		var response storage.User
 		parseBody(t, w, &response)
 		assert.Equal(t, "test@example.com", response.Email)
-		assert.NotEmpty(t, response.Id)
+		assert.NotEmpty(t, response.ID)
 		assert.NotEmpty(t, response.CreatedAt)
 		assert.NotEmpty(t, response.UpdatedAt)
 	})
@@ -126,7 +126,7 @@ func TestLoginUser(t *testing.T) {
 		assert.Equal(t, "session_id", w.Result().Cookies()[0].Name)
 		var response storage.User
 		parseBody(t, w, &response)
-		assert.NotEmpty(t, response.Id)
+		assert.NotEmpty(t, response.ID)
 		assert.Equal(t, "test@example.com", response.Email)
 		assert.Empty(t, response.PasswordHash)
 	})

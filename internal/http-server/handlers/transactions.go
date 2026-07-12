@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -19,10 +18,10 @@ type TransactionRequest struct {
 	Amount        int64     `json:"amount"        binding:"required,gt=0"`
 	Description   string    `json:"description"   binding:"omitempty"`
 	OccurredAt    time.Time `json:"occurredAt"    binding:"required"                               time_format:"2006-01-02T15:04:05Z07:00"`
-	AccountId     *string   `json:"accountId"     binding:"omitempty,uuid"`
-	CategoryId    *string   `json:"categoryId"    binding:"omitempty,uuid"`
-	FromAccountId *string   `json:"fromAccountId" binding:"omitempty,uuid"`
-	ToAccountId   *string   `json:"toAccountId"   binding:"omitempty,uuid"`
+	AccountID     *string   `json:"accountId"     binding:"omitempty,uuid"`
+	CategoryID    *string   `json:"categoryId"    binding:"omitempty,uuid"`
+	FromAccountID *string   `json:"fromAccountId" binding:"omitempty,uuid"`
+	ToAccountID   *string   `json:"toAccountId"   binding:"omitempty,uuid"`
 }
 
 type UpdateTransactionRequest struct {
@@ -30,15 +29,15 @@ type UpdateTransactionRequest struct {
 	Description   *string    `json:"description"   binding:"omitempty"`
 	OccurredAt    *time.Time `json:"occurredAt"    binding:"omitempty"      time_format:"2006-01-02T15:04:05Z07:00"`
 	AccountId     *string    `json:"accountId"     binding:"omitempty,uuid"`
-	CategoryId    *string    `json:"categoryId"    binding:"omitempty,uuid"`
-	FromAccountId *string    `json:"fromAccountId" binding:"omitempty,uuid"`
-	ToAccountId   *string    `json:"toAccountId"   binding:"omitempty,uuid"`
+	CategoryID    *string    `json:"categoryId"    binding:"omitempty,uuid"`
+	FromAccountID *string    `json:"fromAccountId" binding:"omitempty,uuid"`
+	ToAccountID   *string    `json:"toAccountId"   binding:"omitempty,uuid"`
 }
 
 type GetTransactionsQuery struct {
 	Type       *string            `form:"type"       binding:"omitempty,oneof=income expense transfer"`
-	AccountId  *string            `form:"accountId"  binding:"omitempty,uuid"`
-	CategoryId *string            `form:"categoryId" binding:"omitempty,uuid"`
+	AccountID  *string            `form:"accountId"  binding:"omitempty,uuid"`
+	CategoryID *string            `form:"categoryId" binding:"omitempty,uuid"`
 	FromDate   *time.Time         `form:"fromDate"   binding:"omitempty"                                             time_format:"2006-01-02"`
 	ToDate     *time.Time         `form:"toDate"     binding:"omitempty,gtefield=FromDate"                           time_format:"2006-01-02"`
 	Limit      *int               `form:"limit"      binding:"omitempty,gt=0"`
@@ -49,28 +48,28 @@ func validateTransactionRequest(req TransactionRequest) []FieldError {
 	var errs []FieldError
 	switch req.Type {
 	case "income", "expense":
-		if req.AccountId == nil {
+		if req.AccountID == nil {
 			errs = append(errs, FieldError{
 				Field:   "accountId",
 				Message: "accountId is required",
 			})
 		}
 
-		if req.CategoryId == nil {
+		if req.CategoryID == nil {
 			errs = append(errs, FieldError{
 				Field:   "categoryId",
 				Message: "categoryId is required",
 			})
 		}
 
-		if req.FromAccountId != nil {
+		if req.FromAccountID != nil {
 			errs = append(errs, FieldError{
 				Field:   "fromAccountId",
 				Message: "not allowed for income or expense transactions",
 			})
 		}
 
-		if req.ToAccountId != nil {
+		if req.ToAccountID != nil {
 			errs = append(errs, FieldError{
 				Field:   "toAccountId",
 				Message: "not allowed for income or expense transactions",
@@ -78,25 +77,25 @@ func validateTransactionRequest(req TransactionRequest) []FieldError {
 		}
 
 	case "transfer":
-		if req.FromAccountId == nil {
+		if req.FromAccountID == nil {
 			errs = append(errs, FieldError{
 				Field:   "fromAccountId",
 				Message: "fromAccountId is required",
 			})
 		}
-		if req.ToAccountId == nil {
+		if req.ToAccountID == nil {
 			errs = append(errs, FieldError{
 				Field:   "toAccountId",
 				Message: "toAccountId is required",
 			})
 		}
-		if req.AccountId != nil {
+		if req.AccountID != nil {
 			errs = append(errs, FieldError{
 				Field:   "accountId",
 				Message: "not allowed for transfer transactions",
 			})
 		}
-		if req.CategoryId != nil {
+		if req.CategoryID != nil {
 			errs = append(errs, FieldError{
 				Field:   "categoryId",
 				Message: "not allowed for transfer transactions",
@@ -113,13 +112,13 @@ func validateUpdateTransactionRequest(
 	var errs []FieldError
 	switch currentType {
 	case "income", "expense":
-		if req.FromAccountId != nil {
+		if req.FromAccountID != nil {
 			errs = append(errs, FieldError{
 				Field:   "fromAccountId",
 				Message: "not allowed for income or expense transactions",
 			})
 		}
-		if req.ToAccountId != nil {
+		if req.ToAccountID != nil {
 			errs = append(errs, FieldError{
 				Field:   "toAccountId",
 				Message: "not allowed for income or expense transactions",
@@ -132,7 +131,7 @@ func validateUpdateTransactionRequest(
 				Message: "not allowed for transfer transactions",
 			})
 		}
-		if req.CategoryId != nil {
+		if req.CategoryID != nil {
 			errs = append(errs, FieldError{
 				Field:   "categoryId",
 				Message: "not allowed for transfer transactions",
@@ -155,7 +154,6 @@ func writeTransactionError(
 	err error,
 	req commonTransactionParamsReq,
 ) {
-	fmt.Println("writeTransactionError called with error:", err) // Debugging line
 	switch {
 	case errors.Is(err, storage.ErrTransactionNotFound):
 		log.Info("transaction not found")
@@ -276,17 +274,17 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		Amount:        req.Amount,
 		Description:   req.Description,
 		OccurredAt:    req.OccurredAt,
-		AccountID:     req.AccountId,
-		CategoryID:    req.CategoryId,
-		FromAccountID: req.FromAccountId,
-		ToAccountID:   req.ToAccountId,
+		AccountID:     req.AccountID,
+		CategoryID:    req.CategoryID,
+		FromAccountID: req.FromAccountID,
+		ToAccountID:   req.ToAccountID,
 	})
 	if err != nil {
 		writeTransactionError(c, log, err, commonTransactionParamsReq{
-			AccountId:     req.AccountId,
-			CategoryId:    req.CategoryId,
-			FromAccountId: req.FromAccountId,
-			ToAccountId:   req.ToAccountId,
+			AccountId:     req.AccountID,
+			CategoryId:    req.CategoryID,
+			FromAccountId: req.FromAccountID,
+			ToAccountId:   req.ToAccountID,
 		})
 		return
 	}
@@ -309,7 +307,7 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 	}
 
 	if req.AccountId == nil && req.Description == nil &&
-		req.OccurredAt == nil && req.CategoryId == nil && req.Amount == nil && req.FromAccountId == nil && req.ToAccountId == nil {
+		req.OccurredAt == nil && req.CategoryID == nil && req.Amount == nil && req.FromAccountID == nil && req.ToAccountID == nil {
 		writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "no fields to update")
 		return
 	}
@@ -338,16 +336,16 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		Description:   req.Description,
 		OccurredAt:    req.OccurredAt,
 		AccountID:     req.AccountId,
-		CategoryID:    req.CategoryId,
-		FromAccountID: req.FromAccountId,
-		ToAccountID:   req.ToAccountId,
+		CategoryID:    req.CategoryID,
+		FromAccountID: req.FromAccountID,
+		ToAccountID:   req.ToAccountID,
 	})
 	if err != nil {
 		writeTransactionError(c, log, err, commonTransactionParamsReq{
 			AccountId:     req.AccountId,
-			CategoryId:    req.CategoryId,
-			FromAccountId: req.FromAccountId,
-			ToAccountId:   req.ToAccountId,
+			CategoryId:    req.CategoryID,
+			FromAccountId: req.FromAccountID,
+			ToAccountId:   req.ToAccountID,
 		})
 		return
 	}
@@ -437,8 +435,8 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 	)
 	transactions, err := h.DB.GetTransactions(user.ID, storage.GetTransactionsParams{
 		Type:       params.Type,
-		AccountID:  params.AccountId,
-		CategoryID: params.CategoryId,
+		AccountID:  params.AccountID,
+		CategoryID: params.CategoryID,
 		FromDate:   params.FromDate,
 		ToDate:     params.ToDate,
 		Limit:      params.Limit,

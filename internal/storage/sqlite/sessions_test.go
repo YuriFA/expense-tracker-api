@@ -13,23 +13,22 @@ import (
 
 func TestCreateSession(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		db := sqlite.NewTestDB(t)
-		user := seedUser(t, db, "test@example.com")
-		session, err := db.CreateSession(storage.CreateSessionParams{
+		f := newFixture(t)
+		session, err := f.DB.CreateSession(storage.CreateSessionParams{
 			SessionID: "session-id-123",
-			UserID:    user.ID,
+			UserID:    f.User.ID,
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		})
 
 		require.NoError(t, err)
 		assert.NotNil(t, session)
-		assert.Equal(t, user.ID, session.UserID)
+		assert.Equal(t, f.User.ID, session.UserID)
 		assert.Equal(t, "session-id-123", session.ID)
 	})
 
 	t.Run("Non existing user", func(t *testing.T) {
-		db := sqlite.NewTestDB(t)
-		_, err := db.CreateSession(storage.CreateSessionParams{
+		f := newFixture(t)
+		_, err := f.DB.CreateSession(storage.CreateSessionParams{
 			SessionID: "session-id-123",
 			UserID:    "",
 			ExpiresAt: time.Now().Add(24 * time.Hour),
@@ -40,16 +39,15 @@ func TestCreateSession(t *testing.T) {
 
 func TestGetSessionByID(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		db := sqlite.NewTestDB(t)
-		user := seedUser(t, db, "test@example.com")
-		session, err := db.CreateSession(storage.CreateSessionParams{
+		f := newFixture(t)
+		session, err := f.DB.CreateSession(storage.CreateSessionParams{
 			SessionID: "session-id-123",
-			UserID:    user.ID,
+			UserID:    f.User.ID,
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		})
 		require.NoError(t, err)
 
-		retrieved, err := db.GetSessionByID(session.ID)
+		retrieved, err := f.DB.GetSessionByID(session.ID)
 		require.NoError(t, err)
 		assert.Equal(t, session.ID, retrieved.ID)
 		assert.Equal(t, session.UserID, retrieved.UserID)
@@ -64,25 +62,24 @@ func TestGetSessionByID(t *testing.T) {
 
 func TestDeleteSession(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		db := sqlite.NewTestDB(t)
-		user := seedUser(t, db, "test@example.com")
-		session, err := db.CreateSession(storage.CreateSessionParams{
+		f := newFixture(t)
+		session, err := f.DB.CreateSession(storage.CreateSessionParams{
 			SessionID: "session-id-123",
-			UserID:    user.ID,
+			UserID:    f.User.ID,
 			ExpiresAt: time.Now().Add(24 * time.Hour),
 		})
 		require.NoError(t, err)
 
-		err = db.DeleteSession(session.ID)
+		err = f.DB.DeleteSession(session.ID)
 		require.NoError(t, err)
 
-		_, err = db.GetSessionByID(session.ID)
+		_, err = f.DB.GetSessionByID(session.ID)
 		require.ErrorIs(t, err, storage.ErrSessionNotFound)
 	})
 
 	t.Run("Non existing session", func(t *testing.T) {
-		db := sqlite.NewTestDB(t)
-		err := db.DeleteSession("non-existing-session-id")
+		f := newFixture(t)
+		err := f.DB.DeleteSession("non-existing-session-id")
 		require.Error(t, err)
 	})
 }

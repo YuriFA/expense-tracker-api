@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"expense-tracker-api/internal/auth"
 	"expense-tracker-api/internal/config"
 	httpserver "expense-tracker-api/internal/http-server"
 	"expense-tracker-api/internal/http-server/handlers"
@@ -16,6 +17,7 @@ import (
 	"expense-tracker-api/internal/storage/sqlite"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -72,6 +74,47 @@ func parseBody[T any](t *testing.T, recorder *httptest.ResponseRecorder, target 
 	require.NoError(t, err)
 }
 
+type authFixture struct {
+	Router *gin.Engine
+	DB     *sqlite.Storage
+	User   *storage.User
+	Cookie *http.Cookie
+}
+
+func newAuthFixture(t *testing.T) *authFixture {
+	t.Helper()
+	router, db := setupTestEnv(t)
+	user := seedUser(t, db, "test@example.com")
+	cookie := createSessionCookie(t, db, user.ID)
+	return &authFixture{Router: router, DB: db, User: user, Cookie: cookie}
+}
+
+func createSessionCookie(t *testing.T, db *sqlite.Storage, userID string) *http.Cookie {
+	t.Helper()
+	sessionID, err := auth.GenerateSessionToken()
+	require.NoError(t, err)
+	_, err = db.CreateSession(storage.CreateSessionParams{
+		SessionID: sessionID,
+		UserID:    userID,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+	})
+	require.NoError(t, err)
+	return &http.Cookie{Name: "session_id", Value: sessionID}
+}
+
+// do — выполняет HTTP запрос с auth cookie
+func (f *authFixture) do(t *testing.T, method, path string, body any) *httptest.ResponseRecorder {
+	t.Helper()
+	var req *http.Request
+	if body != nil {
+		req = newJSONRequest(t, method, path, body)
+	} else {
+		req = httptest.NewRequest(method, path, nil)
+	}
+	req.AddCookie(f.Cookie)
+	return performRequest(t, f.Router, req)
+}
+
 func seedUser(t *testing.T, db *sqlite.Storage, email string) *storage.User {
 	t.Helper()
 	user, err := db.RegisterUser(storage.RegisterUserParams{
@@ -82,37 +125,96 @@ func seedUser(t *testing.T, db *sqlite.Storage, email string) *storage.User {
 	return user
 }
 
+func defaultAccountParams(userID string) storage.CreateAccountParams {
+	return storage.CreateAccountParams{
+		UserID:         userID,
+		Name:           "Bank",
+		Currency:       "USD",
+		OpeningBalance: 10000,
+	}
+}
+
 func seedAccount(
 	t *testing.T,
 	db *sqlite.Storage,
-	name string,
-	openingBalance int64,
+	params storage.CreateAccountParams,
 ) *storage.Account {
-	account, err := db.CreateAccount(storage.CreateAccountParams{
-		Name:           name,
-		Currency:       "USD",
-		OpeningBalance: openingBalance,
-	})
+	t.Helper()
+	account, err := db.CreateAccount(params)
 	require.NoError(t, err)
 	return account
+}
+
+func defaultCategoryParams(userID string) storage.CreateCategoryParams {
+	return storage.CreateCategoryParams{
+		UserID: userID,
+		Name:   "DefaultIncomeCategory",
+		Type:   "income",
+		Icon:   "🍔",
+		Color:  "#FF0000",
+	}
 }
 
 func seedCategory(
 	t *testing.T,
 	db *sqlite.Storage,
-	name string,
-	userId string,
-	categoryType string,
+	params storage.CreateCategoryParams,
 ) *storage.Category {
-	category, err := db.CreateCategory(storage.CreateCategoryParams{
-		UserId: userId,
-		Name:   name,
-		Type:   categoryType,
-		Icon:   "icon",
-		Color:  "color",
-	})
+	category, err := db.CreateCategory(params)
 	require.NoError(t, err)
 	return category
+}
+
+func seedDefaultIncomeCategory(
+	t *testing.T,
+	db *sqlite.Storage,
+	userID string,
+) *storage.Category {
+	params := defaultCategoryParams(userID)
+	params.Type = "income"
+	params.Name = uuid.NewString()[:8] + "DefaultIncomeCategory"
+	category, err := db.CreateCategory(params)
+	require.NoError(t, err)
+	return category
+}
+
+func seedDefaultExpenseCategory(
+	t *testing.T,
+	db *sqlite.Storage,
+	userID string,
+) *storage.Category {
+	params := defaultCategoryParams(userID)
+	params.Type = "expense"
+	params.Name = uuid.NewString()[:8] + "DefaultExpenseCategory"
+	category, err := db.CreateCategory(params)
+	require.NoError(t, err)
+	return category
+}
+
+func defaultCashflowTransactionParams(
+	userID, accountID, categoryID string,
+) storage.CreateTransactionParams {
+	return storage.CreateTransactionParams{
+		UserID:     userID,
+		Type:       "expense",
+		Amount:     1000,
+		AccountID:  &accountID,
+		CategoryID: &categoryID,
+		OccurredAt: time.Now(),
+	}
+}
+
+func defaultTransferTransactionParams(
+	userID, fromAccountID, toAccountID string,
+) storage.CreateTransactionParams {
+	return storage.CreateTransactionParams{
+		UserID:        userID,
+		Type:          "transfer",
+		Amount:        1000,
+		FromAccountID: &fromAccountID,
+		ToAccountID:   &toAccountID,
+		OccurredAt:    time.Now(),
+	}
 }
 
 func seedTransaction(
@@ -139,38 +241,41 @@ func seedCommonTransaction(
 ) *storage.Transaction {
 	t.Helper()
 
-	occurredAt := time.Now()
-
 	var transaction *storage.Transaction
 	switch params.transactionType {
 	case "income", "expense":
-		category := seedCategory(
-			t,
-			db,
-			params.categoryName,
+		categoryParams := defaultCategoryParams(params.userID)
+		categoryParams.Name = params.categoryName
+		categoryParams.Type = params.transactionType
+		category := seedCategory(t, db, categoryParams)
+		accountParams := defaultAccountParams(params.userID)
+		accountParams.Name = "Cash"
+		account := seedAccount(t, db, accountParams)
+		transactionParams := defaultCashflowTransactionParams(
 			params.userID,
-			params.transactionType,
+			account.ID,
+			category.ID,
 		)
-		account := seedAccount(t, db, "Cash", 100000)
-		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
-			Type:        params.transactionType,
-			Amount:      100000,
-			Description: "Common transaction",
-			OccurredAt:  occurredAt,
-			AccountId:   &account.Id,
-			CategoryId:  &category.Id,
-		})
+		transactionParams.Type = params.transactionType
+		transactionParams.Amount = 100000
+		transaction = seedTransaction(t, db, transactionParams)
 	case "transfer":
-		accountFrom := seedAccount(t, db, "Bank", 50000)
-		accountTo := seedAccount(t, db, "Cash", 20000)
-		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
-			Type:          params.transactionType,
-			Amount:        30000,
-			Description:   "Common transfer",
-			OccurredAt:    occurredAt,
-			FromAccountId: &accountFrom.Id,
-			ToAccountId:   &accountTo.Id,
-		})
+		accountFromParams := defaultAccountParams(params.userID)
+		accountFromParams.Name = "Bank"
+		accountFromParams.OpeningBalance = 50000
+		accountFrom := seedAccount(t, db, accountFromParams)
+		accountToParams := defaultAccountParams(params.userID)
+		accountToParams.Name = "Cash"
+		accountToParams.OpeningBalance = 20000
+		accountTo := seedAccount(t, db, accountToParams)
+		transactionParams := defaultTransferTransactionParams(
+			params.userID,
+			accountFrom.ID,
+			accountTo.ID,
+		)
+		transactionParams.Type = params.transactionType
+		transactionParams.Amount = 30000
+		transaction = seedTransaction(t, db, transactionParams)
 	default:
 		t.Fatalf("unsupported transaction type: %s", params.transactionType)
 		return nil
@@ -197,32 +302,39 @@ func seedTransactionAt(
 	var transaction *storage.Transaction
 	switch params.transactionType {
 	case "income", "expense":
-		category := seedCategory(
-			t,
-			db,
-			params.categoryName,
-			params.userID,
-			params.transactionType,
-		)
-		account := seedAccount(t, db, "Cash", 100000)
+		categoryParams := defaultCategoryParams(params.userID)
+		categoryParams.Name = params.categoryName
+		categoryParams.Type = params.transactionType
+		category := seedCategory(t, db, categoryParams)
+		accountParams := defaultAccountParams(params.userID)
+		accountParams.Name = "Cash"
+		account := seedAccount(t, db, accountParams)
 		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
+			UserID:      params.userID,
 			Type:        params.transactionType,
 			Amount:      params.amount,
 			Description: "Common transaction",
 			OccurredAt:  params.occurredAt,
-			AccountId:   &account.Id,
-			CategoryId:  &category.Id,
+			AccountID:   &account.ID,
+			CategoryID:  &category.ID,
 		})
 	case "transfer":
-		fromAccount := seedAccount(t, db, "Bank", 50000)
-		toaccount := seedAccount(t, db, "Cash", 20000)
+		fromAccountParams := defaultAccountParams(params.userID)
+		fromAccountParams.Name = "Bank"
+		fromAccountParams.OpeningBalance = 50000
+		fromAccount := seedAccount(t, db, fromAccountParams)
+		toAccountParams := defaultAccountParams(params.userID)
+		toAccountParams.Name = "Cash"
+		toAccountParams.OpeningBalance = 20000
+		toAccount := seedAccount(t, db, toAccountParams)
 		transaction = seedTransaction(t, db, storage.CreateTransactionParams{
+			UserID:        params.userID,
 			Type:          params.transactionType,
 			Amount:        params.amount,
 			Description:   "Common transfer",
 			OccurredAt:    params.occurredAt,
-			FromAccountId: &fromAccount.Id,
-			ToAccountId:   &toaccount.Id,
+			FromAccountID: &fromAccount.ID,
+			ToAccountID:   &toAccount.ID,
 		})
 	default:
 		t.Fatalf("unsupported transaction type: %s", params.transactionType)
