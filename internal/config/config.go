@@ -29,6 +29,7 @@ type SessionConfig struct {
 	Secure            bool          `yaml:"secure"             env:"SESSION_SECURE"             env-default:"true"`
 	SameSite          string        `yaml:"same_site"          env:"SESSION_SAME_SITE"          env-default:"Lax"`
 	SlidingExpiration bool          `yaml:"sliding_expiration" env:"SESSION_SLIDING_EXPIRATION" env-default:"true"`
+	CleanupInterval   time.Duration `yaml:"cleanup_interval"   env:"SESSION_CLEANUP_INTERVAL"   env-default:"6h"`
 }
 
 type CORSConfig struct {

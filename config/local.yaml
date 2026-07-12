@@ -15,3 +15,4 @@ http_server:
     secure: false
     same_site: "lax"
     sliding_expiration: true
+    cleanup_intercal: 6h

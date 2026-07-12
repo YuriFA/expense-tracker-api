@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"expense-tracker-api/internal/config"
 	httpserver "expense-tracker-api/internal/http-server"
@@ -35,6 +36,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	if n, err := db.DeleteExpiredSessions(); err != nil {
+		log.Warn("failed to delete expired sessions", logger.Error(err))
+	} else if n > 0 {
+		log.Info("Expired sessions deleted", slog.Int64("count", n))
+	}
+
 	log.Info("Storage initialized")
 
 	handlers := handlers.NewHandler(log, db, &cfg.HTTPServer)
@@ -57,12 +64,31 @@ func main() {
 		}
 	}()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		ticker := time.NewTicker(cfg.SessionConfig.CleanupInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if n, err := db.DeleteExpiredSessions(); err != nil {
+					log.Warn("failed to delete expired sessions", logger.Error(err))
+				} else if n > 0 {
+					log.Info("Expired sessions deleted", slog.Int64("count", n))
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
+	cancel()
 	log.Info("shutting down server", slog.String("signal", sig.String()))
 
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.WriteTimeout)
+	ctx, cancel = context.WithTimeout(context.Background(), cfg.WriteTimeout)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Error("Server forced to shutdown", logger.Error(err))

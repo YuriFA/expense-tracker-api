@@ -107,3 +107,19 @@ func (s *Storage) ExtendSession(id string, newExpiresAt time.Time) error {
 
 	return nil
 }
+
+func (s *Storage) DeleteExpiredSessions() (int64, error) {
+	const op = "storage.sqlite.DeleteExpiredSessions"
+
+	res, err := s.db.Exec(`DELETE FROM sessions WHERE expires_at <= CURRENT_TIMESTAMP`)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return rowsAffected, nil
+}

@@ -114,3 +114,33 @@ func TestExtendSession(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestDeleteExpiredSessions(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		f := newFixture(t)
+
+		_, err := f.DB.CreateSession(storage.CreateSessionParams{
+			SessionID: "session-id-123",
+			UserID:    f.User.ID,
+			ExpiresAt: time.Now().UTC().Add(-24 * time.Hour),
+		})
+		require.NoError(t, err)
+
+		_, err = f.DB.CreateSession(storage.CreateSessionParams{
+			SessionID: "session-id-124",
+			UserID:    f.User.ID,
+			ExpiresAt: time.Now().UTC().Add(24 * time.Hour),
+		})
+		require.NoError(t, err)
+
+		count, err := f.DB.DeleteExpiredSessions()
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), count)
+
+		_, err = f.DB.GetSessionByID("session-id-123")
+		require.ErrorIs(t, err, storage.ErrSessionNotFound)
+
+		_, err = f.DB.GetSessionByID("session-id-124")
+		require.NoError(t, err)
+	})
+}
