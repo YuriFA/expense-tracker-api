@@ -47,31 +47,37 @@ func NewRouter(
 	router.Use(middleware.SlogLogger(log))
 
 	api := router.Group("/api")
-	authApi := api.Group("/auth")
-	authApi.POST("/register", handlers.Register)
-	authApi.POST("/login", handlers.Login)
-	authApi.POST("/logout", handlers.Logout)
+	{
+		auth := api.Group("/auth")
+		{
+			auth.POST("/register", handlers.Register)
+			auth.POST("/login", handlers.Login)
+			auth.POST("/logout", handlers.Logout)
+		}
 
-	privateApi := api.Group("/", middleware.AuthRequired(db, log, cfg))
-	privateApi.GET("/auth/me", handlers.Me)
-	privateApi.GET("/accounts", handlers.ListAccounts)
-	privateApi.POST("/accounts", handlers.CreateAccount)
-	privateApi.GET("/accounts/:id", handlers.GetAccount)
-	privateApi.PATCH("/accounts/:id", handlers.UpdateAccount)
-	privateApi.DELETE("/accounts/:id", handlers.DeleteAccount)
-	privateApi.GET("/accounts/balances", handlers.GetAccountBalances)
+		private := api.Group("/", middleware.AuthRequired(db, log, cfg))
+		{
+			private.GET("/auth/me", handlers.Me)
+			private.GET("/accounts", handlers.ListAccounts)
+			private.POST("/accounts", handlers.CreateAccount)
+			private.GET("/accounts/:id", handlers.GetAccount)
+			private.PATCH("/accounts/:id", handlers.UpdateAccount)
+			private.DELETE("/accounts/:id", handlers.DeleteAccount)
+			private.GET("/accounts/balances", handlers.GetAccountBalances)
 
-	privateApi.GET("/categories", handlers.ListCategories)
-	privateApi.POST("/categories", handlers.CreateCategory)
-	privateApi.GET("/categories/:id", handlers.GetCategory)
-	privateApi.PATCH("/categories/:id", handlers.UpdateCategory)
-	privateApi.DELETE("/categories/:id", handlers.DeleteCategory)
+			private.GET("/categories", handlers.ListCategories)
+			private.POST("/categories", handlers.CreateCategory)
+			private.GET("/categories/:id", handlers.GetCategory)
+			private.PATCH("/categories/:id", handlers.UpdateCategory)
+			private.DELETE("/categories/:id", handlers.DeleteCategory)
 
-	privateApi.GET("/transactions", handlers.ListTransactions)
-	privateApi.POST("/transactions", handlers.CreateTransaction)
-	privateApi.GET("/transactions/:id", handlers.GetTransaction)
-	privateApi.PATCH("/transactions/:id", handlers.UpdateTransaction)
-	privateApi.DELETE("/transactions/:id", handlers.DeleteTransaction)
+			private.GET("/transactions", handlers.ListTransactions)
+			private.POST("/transactions", handlers.CreateTransaction)
+			private.GET("/transactions/:id", handlers.GetTransaction)
+			private.PATCH("/transactions/:id", handlers.UpdateTransaction)
+			private.DELETE("/transactions/:id", handlers.DeleteTransaction)
+		}
+	}
 
 	return router
 }
