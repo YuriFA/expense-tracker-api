@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Expense Tracker API",
-    "description": "REST API collection for the Expense Tracker backend (Gin + SQLite).\n\nBase path: `/api`. All dates are ISO 8601 in UTC. Server-generated fields:\n`id`, `createdAt`, `updatedAt`.\n\n**Money:** all monetary fields (`amount`, `openingBalance`, `manualAdjustment`,\n`balance`, `netWorth`) are `integer` (int64) in **minor units** (cents for\nUSD/EUR/RUB). $12.50 → `1250`. No fractional part on the wire.\n\nRun `Create Account`, `Create Category`, `Create Income Transaction` first —\ntheir `Tests` scripts capture the generated IDs into the active environment\n(`accountId`, `categoryId`, `transactionId`), so subsequent GET/PATCH/DELETE\nrequests just work.",
+    "description": "REST API collection for the Expense Tracker backend (Gin + SQLite).\n\nBase path: `/api`. All dates are ISO 8601 in UTC. Server-generated fields:\n`id`, `createdAt`, `updatedAt`. All resource bodies also include `userId`\n(the owner).\n\n**Auth:** stateful sessions. Server stores sessions in the `sessions` table;\nthe client receives a `session_id` cookie (`HttpOnly`, `Secure` (config),\n`SameSite=Lax`) with a 24h TTL (sliding). Postman stores the cookie in its\ncookie jar automatically — no Authorization header is needed. Run `Register`\nor `Login` first; subsequent requests reuse the cookie.\n\n**Money:** all monetary fields (`amount`, `openingBalance`, `manualAdjustment`,\n`balance`, `netWorth`) are `integer` (int64) in **minor units** (cents for\nUSD/EUR/RUB). $12.50 → `1250`. No fractional part on the wire.\n\n**Rate limits:** `Login` — 5 failed attempts / 5 min per IP → 429.\n`Register` — 10 / hour per IP → 429. Other endpoints — no limit yet.\n\nRun `Create Account`, `Create Category`, `Create Income Transaction` first —\ntheir `Tests` scripts capture the generated IDs into the active environment\n(`accountId`, `categoryId`, `transactionId`), so subsequent GET/PATCH/DELETE\nrequests just work.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -9,8 +9,289 @@
   ],
   "item": [
     {
+      "name": "Auth",
+      "description": "Stateful session auth. `Register` and `Login` create a session and set the\n`session_id` cookie. `Logout` deletes the session and clears the cookie\n(idempotent). `Me` returns the current user.\n\nRate-limited: 10 register/hour/IP, 5 failed login/5 min/IP.",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.environment.set('userId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "response": [
+            {
+              "name": "201 Created — user + session cookie + 24 seed categories",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"secret123\"\n}"
+                },
+                "url": "{{baseUrl}}/api/auth/register"
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\",\n  \"email\": \"user@example.com\",\n  \"createdAt\": \"2026-07-13T08:30:00Z\",\n  \"updatedAt\": \"2026-07-13T08:30:00Z\"\n}"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — invalid email / short password",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"email\": \"not-an-email\", \"password\": \"123\" }"
+                },
+                "url": "{{baseUrl}}/api/auth/register"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"email\", \"message\": \"email must be a valid email address\" },\n    { \"field\": \"password\", \"message\": \"password must be at least 8 characters\" }\n  ]\n}"
+            },
+            {
+              "name": "409 USER_ALREADY_EXISTS",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"email\": \"user@example.com\", \"password\": \"secret123\" }"
+                },
+                "url": "{{baseUrl}}/api/auth/register"
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"USER_ALREADY_EXISTS\",\n  \"message\": \"user already exists\"\n}"
+            },
+            {
+              "name": "429 TOO_MANY_REQUESTS — >10 registrations/hour from same IP",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"email\": \"user@example.com\", \"password\": \"secret123\" }"
+                },
+                "url": "{{baseUrl}}/api/auth/register"
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"TOO_MANY_REQUESTS\",\n  \"message\": \"too many requests\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "var body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.environment.set('userId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — user + session cookie",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"secret123\"\n}"
+                },
+                "url": "{{baseUrl}}/api/auth/login"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\",\n  \"email\": \"user@example.com\",\n  \"createdAt\": \"2026-07-13T08:30:00Z\",\n  \"updatedAt\": \"2026-07-13T08:30:00Z\"\n}"
+            },
+            {
+              "name": "401 INVALID_CREDENTIALS — wrong email or password (unified)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"email\": \"user@example.com\", \"password\": \"wrong\" }"
+                },
+                "url": "{{baseUrl}}/api/auth/login"
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"INVALID_CREDENTIALS\",\n  \"message\": \"invalid credentials\"\n}"
+            },
+            {
+              "name": "400 VALIDATION_FAILED — missing fields",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{}" },
+                "url": "{{baseUrl}}/api/auth/login"
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"email\", \"message\": \"email is required\" },\n    { \"field\": \"password\", \"message\": \"password is required\" }\n  ]\n}"
+            },
+            {
+              "name": "429 TOO_MANY_REQUESTS — 5 failed attempts in 5 min",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"email\": \"user@example.com\", \"password\": \"wrong\" }"
+                },
+                "url": "{{baseUrl}}/api/auth/login"
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"TOO_MANY_REQUESTS\",\n  \"message\": \"too many login attempts, please try again later\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          },
+          "response": [
+            {
+              "name": "204 No Content — session deleted, cookie cleared",
+              "originalRequest": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/auth/logout"
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            },
+            {
+              "name": "204 No Content — no cookie (idempotent)",
+              "originalRequest": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/auth/logout"
+              },
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me"]
+            }
+          },
+          "response": [
+            {
+              "name": "200 OK — current user (no passwordHash)",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/me"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\",\n  \"email\": \"user@example.com\",\n  \"createdAt\": \"2026-07-13T08:30:00Z\",\n  \"updatedAt\": \"2026-07-13T08:30:00Z\"\n}"
+            },
+            {
+              "name": "401 UNAUTHORIZED — no/invalid cookie or expired session",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/me"
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"UNAUTHORIZED\",\n  \"message\": \"unauthorized\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Accounts",
-      "description": "CRUD for accounts + balance summary.",
+      "description": "CRUD for accounts + balance summary. All endpoints require auth; a user\nsees only their own accounts.",
       "item": [
         {
           "name": "List Accounts",
@@ -33,7 +314,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "[\n  {\n    \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"name\": \"Debit card\",\n    \"currency\": \"USD\",\n    \"balance\": 85000,\n    \"openingBalance\": 100000,\n    \"manualAdjustment\": 0,\n    \"createdAt\": \"2026-06-01T10:00:00Z\",\n    \"updatedAt\": \"2026-06-14T08:30:00Z\"\n  },\n  {\n    \"id\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\",\n    \"name\": \"Savings\",\n    \"currency\": \"USD\",\n    \"balance\": 515000,\n    \"openingBalance\": 500000,\n    \"manualAdjustment\": 0,\n    \"createdAt\": \"2026-06-01T10:05:00Z\",\n    \"updatedAt\": \"2026-06-14T10:00:00Z\"\n  }\n]"
+              "body": "[\n  {\n    \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"userId\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\",\n    \"name\": \"Debit card\",\n    \"currency\": \"USD\",\n    \"balance\": 85000,\n    \"openingBalance\": 100000,\n    \"manualAdjustment\": 0,\n    \"createdAt\": \"2026-07-01T10:00:00Z\",\n    \"updatedAt\": \"2026-07-13T08:30:00Z\"\n  },\n  {\n    \"id\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\",\n    \"userId\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\",\n    \"name\": \"Savings\",\n    \"currency\": \"USD\",\n    \"balance\": 515000,\n    \"openingBalance\": 500000,\n    \"manualAdjustment\": 0,\n    \"createdAt\": \"2026-07-01T10:05:00Z\",\n    \"updatedAt\": \"2026-07-13T10:00:00Z\"\n  }\n]"
             }
           ]
         },
@@ -50,7 +331,11 @@
                   "});",
                   "var body = pm.response.json();",
                   "if (body && body.id) {",
-                  "  pm.environment.set('accountId', body.id);",
+                  "  if (!pm.environment.get('accountId')) {",
+                  "    pm.environment.set('accountId', body.id);",
+                  "  } else {",
+                  "    pm.environment.set('secondAccountId', body.id);",
+                  "  }",
                   "}"
                 ]
               }
@@ -88,7 +373,7 @@
               "status": "Created",
               "code": 201,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card\",\n  \"currency\": \"USD\",\n  \"balance\": 100000,\n  \"openingBalance\": 100000,\n  \"manualAdjustment\": 0,\n  \"createdAt\": \"2026-06-14T08:30:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
+              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"userId\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\",\n  \"name\": \"Debit card\",\n  \"currency\": \"USD\",\n  \"balance\": 100000,\n  \"openingBalance\": 100000,\n  \"manualAdjustment\": 0,\n  \"createdAt\": \"2026-07-13T08:30:00Z\",\n  \"updatedAt\": \"2026-07-13T08:30:00Z\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — missing required fields",
@@ -129,7 +414,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card\",\n  \"currency\": \"USD\",\n  \"balance\": 85000,\n  \"openingBalance\": 100000,\n  \"manualAdjustment\": 0,\n  \"createdAt\": \"2026-06-01T10:00:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
+              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"userId\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\",\n  \"name\": \"Debit card\",\n  \"currency\": \"USD\",\n  \"balance\": 85000,\n  \"openingBalance\": 100000,\n  \"manualAdjustment\": 0,\n  \"createdAt\": \"2026-07-01T10:00:00Z\",\n  \"updatedAt\": \"2026-07-13T08:30:00Z\"\n}"
             },
             {
               "name": "404 ACCOUNT_NOT_FOUND",
@@ -141,6 +426,17 @@
               "code": 404,
               "_postman_previewlanguage": "json",
               "body": "{\n  \"code\": \"ACCOUNT_NOT_FOUND\",\n  \"message\": \"account not found\"\n}"
+            },
+            {
+              "name": "401 UNAUTHORIZED — no session cookie",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/accounts/{{accountId}}"
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"code\": \"UNAUTHORIZED\",\n  \"message\": \"unauthorized\"\n}"
             }
           ]
         },
@@ -178,7 +474,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"name\": \"Debit card (renamed)\",\n  \"currency\": \"USD\",\n  \"balance\": 95000,\n  \"openingBalance\": 100000,\n  \"manualAdjustment\": -5000,\n  \"createdAt\": \"2026-06-01T10:00:00Z\",\n  \"updatedAt\": \"2026-06-14T09:00:00Z\"\n}"
+              "body": "{\n  \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"userId\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\",\n  \"name\": \"Debit card (renamed)\",\n  \"currency\": \"USD\",\n  \"balance\": 95000,\n  \"openingBalance\": 100000,\n  \"manualAdjustment\": -5000,\n  \"createdAt\": \"2026-07-01T10:00:00Z\",\n  \"updatedAt\": \"2026-07-13T09:00:00Z\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — no fields to update",
@@ -289,7 +585,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"balances\": [\n    { \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\", \"name\": \"Debit card\", \"currency\": \"USD\", \"balance\": 85000 },\n    { \"id\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\", \"name\": \"Savings\", \"currency\": \"USD\", \"balance\": 515000 }\n  ],\n  \"netWorth\": 600000\n}"
+              "body": "{\n  \"balances\": [\n    { \"id\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\", \"userId\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\", \"name\": \"Debit card\", \"currency\": \"USD\", \"balance\": 85000 },\n    { \"id\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\", \"userId\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\", \"name\": \"Savings\", \"currency\": \"USD\", \"balance\": 515000 }\n  ],\n  \"netWorth\": 600000\n}"
             }
           ]
         }
@@ -297,7 +593,7 @@
     },
     {
       "name": "Categories",
-      "description": "CRUD for categories. Default categories (seeded) are read-only: PATCH/DELETE return 403.",
+      "description": "CRUD for categories. Categories are per-user: on `Register`, 24 default\ncategories are copied into the new user's account. After that the user owns\nthem and can edit or delete any of them, and add new ones.\n\n`name` is unique per `(userId, name)`.",
       "item": [
         {
           "name": "List Categories",
@@ -315,7 +611,7 @@
           },
           "response": [
             {
-              "name": "200 OK — expense categories (mix of default + custom)",
+              "name": "200 OK — expense categories (mix of seeded + custom)",
               "originalRequest": {
                 "method": "GET",
                 "url": "{{baseUrl}}/api/categories?type=expense"
@@ -323,7 +619,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "[\n  {\n    \"id\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\",\n    \"name\": \"Groceries\",\n    \"slug\": \"groceries\",\n    \"type\": \"expense\",\n    \"icon\": \"🛒\",\n    \"color\": \"#4CAF50\",\n    \"isDefault\": true,\n    \"createdAt\": \"2026-06-01T10:00:00Z\",\n    \"updatedAt\": \"2026-06-01T10:00:00Z\"\n  },\n  {\n    \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n    \"name\": \"Pet supplies\",\n    \"slug\": null,\n    \"type\": \"expense\",\n    \"icon\": \"🐾\",\n    \"color\": \"#FFA500\",\n    \"isDefault\": false,\n    \"createdAt\": \"2026-06-14T08:30:00Z\",\n    \"updatedAt\": \"2026-06-14T08:30:00Z\"\n  }\n]"
+              "body": "[\n  {\n    \"id\": \"3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c\",\n    \"userId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n    \"name\": \"Groceries\",\n    \"type\": \"expense\",\n    \"icon\": \"🛒\",\n    \"color\": \"#4CAF50\",\n    \"createdAt\": \"2026-07-13T08:30:00Z\",\n    \"updatedAt\": \"2026-07-13T08:30:00Z\"\n  },\n  {\n    \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n    \"userId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n    \"name\": \"Pet supplies\",\n    \"type\": \"expense\",\n    \"icon\": \"🐾\",\n    \"color\": \"#FFA500\",\n    \"createdAt\": \"2026-07-13T08:30:00Z\",\n    \"updatedAt\": \"2026-07-13T08:30:00Z\"\n  }\n]"
             },
             {
               "name": "400 VALIDATION_FAILED — invalid type value",
@@ -376,7 +672,7 @@
           },
           "response": [
             {
-              "name": "201 Created — isDefault is always false via API",
+              "name": "201 Created",
               "originalRequest": {
                 "method": "POST",
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -389,7 +685,7 @@
               "status": "Created",
               "code": 201,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n  \"name\": \"Pet supplies\",\n  \"slug\": null,\n  \"type\": \"expense\",\n  \"icon\": \"🐾\",\n  \"color\": \"#FFA500\",\n  \"isDefault\": false,\n  \"createdAt\": \"2026-06-14T08:30:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
+              "body": "{\n  \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n  \"userId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n  \"name\": \"Pet supplies\",\n  \"type\": \"expense\",\n  \"icon\": \"🐾\",\n  \"color\": \"#FFA500\",\n  \"createdAt\": \"2026-07-13T08:30:00Z\",\n  \"updatedAt\": \"2026-07-13T08:30:00Z\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — type not in enum",
@@ -430,7 +726,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n  \"name\": \"Pet supplies\",\n  \"slug\": null,\n  \"type\": \"expense\",\n  \"icon\": \"🐾\",\n  \"color\": \"#FFA500\",\n  \"isDefault\": false,\n  \"createdAt\": \"2026-06-14T08:30:00Z\",\n  \"updatedAt\": \"2026-06-14T08:30:00Z\"\n}"
+              "body": "{\n  \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n  \"userId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n  \"name\": \"Pet supplies\",\n  \"type\": \"expense\",\n  \"icon\": \"🐾\",\n  \"color\": \"#FFA500\",\n  \"createdAt\": \"2026-07-13T08:30:00Z\",\n  \"updatedAt\": \"2026-07-13T08:30:00Z\"\n}"
             },
             {
               "name": "404 CATEGORY_NOT_FOUND",
@@ -466,7 +762,7 @@
           },
           "response": [
             {
-              "name": "200 OK — partial update",
+              "name": "200 OK — partial update (any owned field)",
               "originalRequest": {
                 "method": "PATCH",
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -479,7 +775,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n  \"name\": \"Pet food & supplies\",\n  \"slug\": null,\n  \"type\": \"expense\",\n  \"icon\": \"🐾\",\n  \"color\": \"#FF8C00\",\n  \"isDefault\": false,\n  \"createdAt\": \"2026-06-14T08:30:00Z\",\n  \"updatedAt\": \"2026-06-14T09:00:00Z\"\n}"
+              "body": "{\n  \"id\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n  \"userId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n  \"name\": \"Pet food & supplies\",\n  \"type\": \"expense\",\n  \"icon\": \"🐾\",\n  \"color\": \"#FF8C00\",\n  \"createdAt\": \"2026-07-13T08:30:00Z\",\n  \"updatedAt\": \"2026-07-13T09:00:00Z\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — no fields to update",
@@ -493,19 +789,6 @@
               "code": 400,
               "_postman_previewlanguage": "json",
               "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"no fields to update\"\n}"
-            },
-            {
-              "name": "403 FORBIDDEN — cannot modify default category",
-              "originalRequest": {
-                "method": "PATCH",
-                "header": [{ "key": "Content-Type", "value": "application/json" }],
-                "body": { "mode": "raw", "raw": "{ \"name\": \"x\" }" },
-                "url": "{{baseUrl}}/api/categories/3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c"
-              },
-              "status": "Forbidden",
-              "code": 403,
-              "_postman_previewlanguage": "json",
-              "body": "{\n  \"code\": \"FORBIDDEN\",\n  \"message\": \"cannot update default category\"\n}"
             },
             {
               "name": "404 CATEGORY_NOT_FOUND",
@@ -546,17 +829,6 @@
               "body": ""
             },
             {
-              "name": "403 FORBIDDEN — cannot delete default category",
-              "originalRequest": {
-                "method": "DELETE",
-                "url": "{{baseUrl}}/api/categories/3f0a8b1c-2d3e-4f5a-9b6c-7d8e9f0a1b2c"
-              },
-              "status": "Forbidden",
-              "code": 403,
-              "_postman_previewlanguage": "json",
-              "body": "{\n  \"code\": \"FORBIDDEN\",\n  \"message\": \"cannot delete default category\"\n}"
-            },
-            {
               "name": "404 CATEGORY_NOT_FOUND",
               "originalRequest": {
                 "method": "DELETE",
@@ -592,15 +864,15 @@
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
             "url": {
-              "raw": "{{baseUrl}}/api/transactions?type=expense&accountId={{accountId}}&fromDate=2026-06-01&toDate=2026-06-30&limit=50&sort=-occurredAt",
+              "raw": "{{baseUrl}}/api/transactions?type=expense&accountId={{accountId}}&fromDate=2026-07-01&toDate=2026-07-31&limit=50&sort=-occurredAt",
               "host": ["{{baseUrl}}"],
               "path": ["api", "transactions"],
               "query": [
                 { "key": "type", "value": "expense", "description": "Optional. 'income' | 'expense' | 'transfer'." },
                 { "key": "accountId", "value": "{{accountId}}", "description": "Optional. For transfer, matches both fromAccountId and toAccountId." },
                 { "key": "categoryId", "value": "", "disabled": true, "description": "Optional. Cashflow only." },
-                { "key": "fromDate", "value": "2026-06-01", "description": "Optional. ISO date, inclusive." },
-                { "key": "toDate", "value": "2026-06-30", "description": "Optional. ISO date, inclusive. Must be >= fromDate." },
+                { "key": "fromDate", "value": "2026-07-01", "description": "Optional. ISO date, inclusive." },
+                { "key": "toDate", "value": "2026-07-31", "description": "Optional. ISO date, inclusive. Must be >= fromDate." },
                 { "key": "limit", "value": "50", "description": "Optional. Positive integer." },
                 { "key": "sort", "value": "-occurredAt", "description": "Optional. occurredAt | -occurredAt | amount | -amount." }
               ]
@@ -616,18 +888,18 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "[\n  {\n    \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n    \"type\": \"expense\",\n    \"amount\": 1250,\n    \"description\": \"Coffee\",\n    \"occurredAt\": \"2026-06-14T08:30:00Z\",\n    \"createdAt\": \"2026-06-14T08:31:00Z\",\n    \"updatedAt\": \"2026-06-14T08:31:00Z\",\n    \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n  },\n  {\n    \"id\": \"a2b3c4d5-e6f7-8901-2345-67890abcdef1\",\n    \"type\": \"transfer\",\n    \"amount\": 50000,\n    \"description\": \"Move to savings\",\n    \"occurredAt\": \"2026-06-14T10:00:00Z\",\n    \"createdAt\": \"2026-06-14T10:01:00Z\",\n    \"updatedAt\": \"2026-06-14T10:01:00Z\",\n    \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n  }\n]"
+              "body": "[\n  {\n    \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n    \"userId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n    \"type\": \"expense\",\n    \"amount\": 1250,\n    \"description\": \"Coffee\",\n    \"occurredAt\": \"2026-07-13T08:30:00Z\",\n    \"createdAt\": \"2026-07-13T08:31:00Z\",\n    \"updatedAt\": \"2026-07-13T08:31:00Z\",\n    \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n  },\n  {\n    \"id\": \"a2b3c4d5-e6f7-8901-2345-67890abcdef1\",\n    \"userId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n    \"type\": \"transfer\",\n    \"amount\": 50000,\n    \"description\": \"Move to savings\",\n    \"occurredAt\": \"2026-07-13T10:00:00Z\",\n    \"createdAt\": \"2026-07-13T10:01:00Z\",\n    \"updatedAt\": \"2026-07-13T10:01:00Z\",\n    \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n    \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n  }\n]"
             },
             {
               "name": "400 VALIDATION_FAILED — toDate before fromDate",
               "originalRequest": {
                 "method": "GET",
-                "url": "{{baseUrl}}/api/transactions?fromDate=2026-06-30&toDate=2026-06-01"
+                "url": "{{baseUrl}}/api/transactions?fromDate=2026-07-31&toDate=2026-07-01"
               },
               "status": "Bad Request",
               "code": 400,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"toDate\", \"message\": \"toDate must be greater than or equal to FromDate\" }\n  ]\n}"
+              "body": "{\n  \"code\": \"VALIDATION_FAILED\",\n  \"message\": \"validation failed\",\n  \"errors\": [\n    { \"field\": \"toDate\", \"message\": \"toDate must be greater than or equal to fromDate\" }\n  ]\n}"
             }
           ]
         },
@@ -658,7 +930,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00.000Z\",\n  \"accountId\": \"{{accountId}}\",\n  \"categoryId\": \"{{categoryId}}\"\n}",
+              "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-07-13T08:30:00.000Z\",\n  \"accountId\": \"{{accountId}}\",\n  \"categoryId\": \"{{categoryId}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -675,14 +947,14 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00.000Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+                  "raw": "{\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-07-13T08:30:00.000Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
               "status": "Created",
               "code": 201,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T08:31:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"userId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-07-13T08:30:00Z\",\n  \"createdAt\": \"2026-07-13T08:31:00Z\",\n  \"updatedAt\": \"2026-07-13T08:31:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — cashflow shape rule broken (missing accountId/categoryId)",
@@ -691,7 +963,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{ \"type\": \"expense\", \"amount\": 10000, \"occurredAt\": \"2026-06-14T08:30:00.000Z\" }"
+                  "raw": "{ \"type\": \"expense\", \"amount\": 10000, \"occurredAt\": \"2026-07-13T08:30:00.000Z\" }"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
@@ -707,7 +979,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{ \"type\": \"expense\", \"amount\": 1000, \"occurredAt\": \"2026-06-14T08:30:00.000Z\", \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\", \"categoryId\": \"<income-category-id>\" }"
+                  "raw": "{ \"type\": \"expense\", \"amount\": 1000, \"occurredAt\": \"2026-07-13T08:30:00.000Z\", \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\", \"categoryId\": \"<income-category-id>\" }"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
@@ -723,7 +995,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{ \"type\": \"expense\", \"amount\": 1000, \"occurredAt\": \"2026-06-14T08:30:00.000Z\", \"accountId\": \"00000000-0000-0000-0000-000000000000\", \"categoryId\": \"{{categoryId}}\" }"
+                  "raw": "{ \"type\": \"expense\", \"amount\": 1000, \"occurredAt\": \"2026-07-13T08:30:00.000Z\", \"accountId\": \"00000000-0000-0000-0000-000000000000\", \"categoryId\": \"{{categoryId}}\" }"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
@@ -761,7 +1033,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 50000,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00.000Z\",\n  \"fromAccountId\": \"{{accountId}}\",\n  \"toAccountId\": \"{{secondAccountId}}\"\n}",
+              "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 50000,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-07-13T10:00:00.000Z\",\n  \"fromAccountId\": \"{{accountId}}\",\n  \"toAccountId\": \"{{secondAccountId}}\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -778,14 +1050,14 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 50000,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00.000Z\",\n  \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n}"
+                  "raw": "{\n  \"type\": \"transfer\",\n  \"amount\": 50000,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-07-13T10:00:00.000Z\",\n  \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n}"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
               "status": "Created",
               "code": 201,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"a2b3c4d5-e6f7-8901-2345-67890abcdef1\",\n  \"type\": \"transfer\",\n  \"amount\": 50000,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-06-14T10:00:00Z\",\n  \"createdAt\": \"2026-06-14T10:01:00Z\",\n  \"updatedAt\": \"2026-06-14T10:01:00Z\",\n  \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n}"
+              "body": "{\n  \"id\": \"a2b3c4d5-e6f7-8901-2345-67890abcdef1\",\n  \"userId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n  \"type\": \"transfer\",\n  \"amount\": 50000,\n  \"description\": \"Move to savings\",\n  \"occurredAt\": \"2026-07-13T10:00:00Z\",\n  \"createdAt\": \"2026-07-13T10:01:00Z\",\n  \"updatedAt\": \"2026-07-13T10:01:00Z\",\n  \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"toAccountId\": \"b2d8e1f4-5a6b-7c8d-9e0f-1a2b3c4d5e7a\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — transfer shape rule broken (missing toAccountId)",
@@ -794,7 +1066,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{ \"type\": \"transfer\", \"amount\": 10000, \"occurredAt\": \"2026-06-14T10:00:00.000Z\", \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\" }"
+                  "raw": "{ \"type\": \"transfer\", \"amount\": 10000, \"occurredAt\": \"2026-07-13T10:00:00.000Z\", \"fromAccountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\" }"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
@@ -810,7 +1082,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{ \"type\": \"transfer\", \"amount\": 10000, \"occurredAt\": \"2026-06-14T10:00:00.000Z\", \"fromAccountId\": \"{{accountId}}\", \"toAccountId\": \"{{accountId}}\" }"
+                  "raw": "{ \"type\": \"transfer\", \"amount\": 10000, \"occurredAt\": \"2026-07-13T10:00:00.000Z\", \"fromAccountId\": \"{{accountId}}\", \"toAccountId\": \"{{accountId}}\" }"
                 },
                 "url": "{{baseUrl}}/api/transactions"
               },
@@ -842,7 +1114,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T08:31:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"userId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n  \"type\": \"expense\",\n  \"amount\": 1250,\n  \"description\": \"Coffee\",\n  \"occurredAt\": \"2026-07-13T08:30:00Z\",\n  \"createdAt\": \"2026-07-13T08:31:00Z\",\n  \"updatedAt\": \"2026-07-13T08:31:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
             },
             {
               "name": "404 TRANSACTION_NOT_FOUND",
@@ -891,7 +1163,7 @@
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
-              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"type\": \"expense\",\n  \"amount\": 1500,\n  \"description\": \"Coffee + pastry\",\n  \"occurredAt\": \"2026-06-14T08:30:00Z\",\n  \"createdAt\": \"2026-06-14T08:31:00Z\",\n  \"updatedAt\": \"2026-06-14T09:00:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
+              "body": "{\n  \"id\": \"f1d2c3b4-a5e6-7890-1234-567890abcdef\",\n  \"userId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n  \"type\": \"expense\",\n  \"amount\": 1500,\n  \"description\": \"Coffee + pastry\",\n  \"occurredAt\": \"2026-07-13T08:30:00Z\",\n  \"createdAt\": \"2026-07-13T08:31:00Z\",\n  \"updatedAt\": \"2026-07-13T09:00:00Z\",\n  \"accountId\": \"7c1f6a2e-3b4d-4f5a-9c8e-1a2b3c4d5e6f\",\n  \"categoryId\": \"9a8b7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\"\n}"
             },
             {
               "name": "400 VALIDATION_FAILED — no fields to update",
