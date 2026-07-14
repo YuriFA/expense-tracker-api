@@ -106,6 +106,29 @@ func TestCreateCategory(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("Duplicate category by name", func(t *testing.T) {
+		f := newAuthFixture(t)
+
+		seedCategory(t, f.DB, storage.CreateCategoryParams{
+			UserID: f.User.ID,
+			Name:   "CustomSalary",
+			Type:   "income",
+			Icon:   "dollar-sign",
+			Color:  "green",
+		})
+		w := f.do(t, http.MethodPost, "/api/categories", map[string]any{
+			"name":  "CustomSalary",
+			"type":  "income",
+			"icon":  "dollar-sign",
+			"color": "green",
+		})
+
+		assert.Equal(t, http.StatusConflict, w.Code)
+		var response handlers.ErrorResponse
+		parseBody(t, w, &response)
+		require.Equal(t, handlers.ErrCodeCategoryAlreadyExists, response.Code)
+	})
 }
 
 func TestUpdateCategory(t *testing.T) {
@@ -158,6 +181,27 @@ func TestUpdateCategory(t *testing.T) {
 		parseBody(t, w, &response)
 		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
 		assert.Equal(t, "no fields to update", response.Message)
+	})
+
+	t.Run("New name is already existing", func(t *testing.T) {
+		f := newAuthFixture(t)
+		category := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
+		category2 := seedCategory(t, f.DB, storage.CreateCategoryParams{
+			UserID: f.User.ID,
+			Name:   "CustomSalary",
+			Type:   "income",
+			Icon:   "dollar-sign",
+			Color:  "green",
+		})
+
+		w := f.do(t, http.MethodPatch, "/api/categories/"+category.ID, map[string]any{
+			"name": category2.Name,
+		})
+
+		assert.Equal(t, http.StatusConflict, w.Code)
+		var response handlers.ErrorResponse
+		parseBody(t, w, &response)
+		assert.Equal(t, handlers.ErrCodeCategoryAlreadyExists, response.Code)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {

@@ -63,6 +63,10 @@ func (s *Storage) UpdateCategory(
 	err := s.db.QueryRow(query, args...).
 		Scan(&category.ID, &category.UserID, &category.Name, &category.Type, &category.Icon, &category.Color, &category.CreatedAt, &category.UpdatedAt)
 	if err != nil {
+		var sqliteErr sqlite3.Error
+		if errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique {
+			return nil, fmt.Errorf("%s: %w", op, storage.ErrCategoryAlreadyExists)
+		}
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", op, storage.ErrCategoryNotFound)
 		}

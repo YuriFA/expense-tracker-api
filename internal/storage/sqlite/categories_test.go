@@ -80,6 +80,22 @@ func TestUpdateCategory(t *testing.T) {
 		require.Equal(t, category.Color, updatedCategory.Color)
 	})
 
+	t.Run("name which already exising", func(t *testing.T) {
+		f := newFixture(t)
+		params := defaultCategoryParams(f.User.ID)
+		params.Name = "customSalary"
+		category := seedCategory(t, f.DB, params)
+		params = defaultCategoryParams(f.User.ID)
+		params.Name = "customShopping"
+		category2 := seedCategory(t, f.DB, params)
+
+		_, err := f.DB.UpdateCategory(f.User.ID, category.ID, storage.UpdateCategoryParams{
+			Name: &category2.Name,
+		})
+
+		require.ErrorIs(t, err, storage.ErrCategoryAlreadyExists)
+	})
+
 	t.Run("wrong category id return not found", func(t *testing.T) {
 		f := newFixture(t)
 		_, err := f.DB.UpdateCategory(f.User.ID, uuid.NewString(), storage.UpdateCategoryParams{})

@@ -7,6 +7,7 @@ import (
 
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
+	"expense-tracker-api/internal/util"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,6 +52,17 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 		Color:  req.Color,
 	})
 	if err != nil {
+		if errors.Is(err, storage.ErrCategoryAlreadyExists) {
+			log.Info("category duplicate", slog.String("name", req.Name))
+			writeError(
+				c,
+				http.StatusConflict,
+				ErrCodeCategoryAlreadyExists,
+				"category already exists",
+			)
+			return
+		}
+
 		log.Error("failed to create category", logger.Error(err))
 		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to create category")
 		return
@@ -87,6 +99,17 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 		Color: req.Color,
 	})
 	if err != nil {
+		if errors.Is(err, storage.ErrCategoryAlreadyExists) {
+			log.Info("category not found", slog.String("Name", util.FromPtrOr(req.Name, "NoName")))
+			writeError(
+				c,
+				http.StatusConflict,
+				ErrCodeCategoryAlreadyExists,
+				"category already exists",
+			)
+			return
+		}
+
 		if errors.Is(err, storage.ErrCategoryNotFound) {
 			log.Info("category not found", slog.String("id", id))
 			writeError(c, http.StatusNotFound, ErrCodeCategoryNotFound, "category not found")
