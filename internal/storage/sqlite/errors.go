@@ -13,3 +13,11 @@ func isFKViolationError(err error) bool {
 
 	return false
 }
+
+func isUniqueConstraintViolation(err error) bool {
+	if sqliteErr, ok := errors.AsType[sqlite3.Error](err); ok {
+		return sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique
+	}
+
+	return false
+}

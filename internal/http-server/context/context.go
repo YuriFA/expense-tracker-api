@@ -1,4 +1,4 @@
-package handlers
+package context
 
 import (
 	"expense-tracker-api/internal/http-server/keys"
@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func currentUser(c *gin.Context) *storage.User {
+func CurrentUser(c *gin.Context) *storage.User {
 	val, exists := c.Get(keys.CurrentUserKey)
 	if !exists {
 		return nil

@@ -84,14 +84,14 @@ type CreateCategoryParams struct {
 }
 
 type UpdateCategoryParams struct {
-	Name   *string
-	Type   *string
-	Icon   *string
-	Color  *string
+	Name  *string
+	Type  *string
+	Icon  *string
+	Color *string
 }
 
 type GetCategoriesParams struct {
-	Type   *string
+	Type *string
 }
 
 type Transaction struct {
@@ -156,6 +156,34 @@ type GetTransactionsParams struct {
 	Sort       *SortParam
 }
 
+type IdempotencyKey struct {
+	ID              string  `json:"id"`
+	IdempotencyKey  string  `json:"idempotencyKey"`
+	UserID          string  `json:"userId"`
+	RequestHash     string  `json:"requestHash"`
+	Status          string  `json:"status"`
+	ResponseStatus  *int    `json:"responseStatus"`
+	ResponseHeaders *string `json:"responseHeaders"`
+	ResponseBody    []byte  `json:"responseBody"`
+	CreatedAt       string  `json:"createdAt"`
+	UpdatedAt       string  `json:"updatedAt"`
+	ExpiresAt       string  `json:"expiresAt"`
+}
+
+type CreateIdempotencyKeyParams struct {
+	IdempotencyKey string
+	UserID         string
+	RequestHash    string
+	ExpiresAt      time.Time
+}
+
+type UpdateIdempotencyKeyParams struct {
+	Status          *string
+	ResponseStatus  *int
+	ResponseHeaders *[]byte
+	ResponseBody    *[]byte
+}
+
 var (
 	ErrUserNotFound            = errors.New("user not found")
 	ErrUserAlreadyExists       = errors.New("user already exists")
@@ -171,4 +199,6 @@ var (
 	ErrCategoryHasTransactions = errors.New("category has transactions and cannot be deleted")
 	ErrInvalidRefs             = errors.New("invalid references in transaction")
 	ErrSameAccountTransfer     = errors.New("transfer cannot be made to the same account")
+	ErrIdempotencyKeyNotFound = errors.New("idempotency key not found")
+	ErrIdempotencyKeyInUse    = errors.New("idempotency key is already in use")
 )

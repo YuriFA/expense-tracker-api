@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"expense-tracker-api/internal/http-server/context"
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/util"
@@ -256,7 +257,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	var req TransactionRequest
 	if !bindAndValidateJSON(c, log, &req) {
@@ -299,7 +300,7 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	var req UpdateTransactionRequest
 	if !bindAndValidateJSON(c, log, &req) {
@@ -360,7 +361,7 @@ func (h *Handler) DeleteTransaction(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	id := c.Param("id")
 
@@ -392,7 +393,7 @@ func (h *Handler) GetTransaction(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	id := c.Param("id")
 	transaction, err := h.DB.GetTransaction(user.ID, id)
@@ -418,7 +419,7 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	var params GetTransactionsQuery
 	if !bindAndValidateQuery(c, log, &params) {

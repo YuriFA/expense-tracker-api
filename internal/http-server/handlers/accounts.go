@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"expense-tracker-api/internal/http-server/context"
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
 
@@ -29,7 +30,7 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	var req CreateAccountRequest
 	if !bindAndValidateJSON(c, log, &req) {
@@ -58,7 +59,7 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	var req UpdateAccountRequest
 	if !bindAndValidateJSON(c, log, &req) {
@@ -97,7 +98,7 @@ func (h *Handler) DeleteAccount(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	id := c.Param("id")
 	err := h.DB.DeleteAccount(user.ID, id)
@@ -129,7 +130,7 @@ func (h *Handler) GetAccount(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	id := c.Param("id")
 	account, err := h.DB.GetAccount(user.ID, id)
@@ -155,7 +156,7 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	accounts, err := h.DB.GetAccounts(user.ID)
 	if err != nil {
@@ -180,7 +181,7 @@ func (h *Handler) GetAccountBalances(c *gin.Context) {
 	log := h.Logger.With(
 		slog.String("op", op),
 	)
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	balances, err := h.DB.GetAccountBalances(user.ID)
 	if err != nil {

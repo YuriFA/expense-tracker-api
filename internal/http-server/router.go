@@ -72,7 +72,7 @@ func NewRouter(
 			private.DELETE("/categories/:id", handlers.DeleteCategory)
 
 			private.GET("/transactions", handlers.ListTransactions)
-			private.POST("/transactions", handlers.CreateTransaction)
+			private.POST("/transactions", middleware.Idempotency(db, log), handlers.CreateTransaction)
 			private.GET("/transactions/:id", handlers.GetTransaction)
 			private.PATCH("/transactions/:id", handlers.UpdateTransaction)
 			private.DELETE("/transactions/:id", handlers.DeleteTransaction)

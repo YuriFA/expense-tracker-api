@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"expense-tracker-api/internal/http-server/context"
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/util"
@@ -37,7 +38,7 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	var req CategoryRequest
 	if !bindAndValidateJSON(c, log, &req) {
@@ -78,7 +79,7 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	var req UpdateCategoryRequest
 	if !bindAndValidateJSON(c, log, &req) {
@@ -131,7 +132,7 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	id := c.Param("id")
 	err := h.DB.DeleteCategory(user.ID, id)
@@ -163,7 +164,7 @@ func (h *Handler) GetCategory(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	id := c.Param("id")
 	category, err := h.DB.GetCategory(user.ID, id)
@@ -189,7 +190,7 @@ func (h *Handler) ListCategories(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := currentUser(c)
+	user := context.CurrentUser(c)
 
 	var params GetCategoriesQuery
 	if !bindAndValidateQuery(c, log, &params) {

@@ -43,6 +43,12 @@ func main() {
 		log.Info("Expired sessions deleted", slog.Int64("count", n))
 	}
 
+	if n, err := db.DeleteExpiredIdempotencyKeys(); err != nil {
+		log.Warn("failed to delete expired idempotency keys", logger.Error(err))
+	} else if n > 0 {
+		log.Info("Expired idempotency keys deleted", slog.Int64("count", n))
+	}
+
 	log.Info("Storage initialized")
 
 	rl := auth.NewLoginRateLimiter(
@@ -80,6 +86,12 @@ func main() {
 					log.Warn("failed to delete expired sessions", logger.Error(err))
 				} else if n > 0 {
 					log.Info("Expired sessions deleted", slog.Int64("count", n))
+				}
+
+				if n, err := db.DeleteExpiredIdempotencyKeys(); err != nil {
+					log.Warn("failed to delete expired idempotency keys", logger.Error(err))
+				} else if n > 0 {
+					log.Info("Expired idempotency keys deleted", slog.Int64("count", n))
 				}
 			case <-ctx.Done():
 				return

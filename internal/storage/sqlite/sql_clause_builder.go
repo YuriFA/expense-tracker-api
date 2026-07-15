@@ -50,6 +50,28 @@ func (b *sqlClauseBuilder) addStringsForOr(
 	return b
 }
 
+func (b *sqlClauseBuilder) addBytes(
+	col string,
+	arg *[]byte,
+) *sqlClauseBuilder {
+	if arg != nil {
+		b.clauses = append(b.clauses, col+" = ?")
+		b.args = append(b.args, *arg)
+	}
+	return b
+}
+
+func (b *sqlClauseBuilder) addInt(
+	col string,
+	arg *int,
+) *sqlClauseBuilder {
+	if arg != nil {
+		b.clauses = append(b.clauses, col+" = ?")
+		b.args = append(b.args, *arg)
+	}
+	return b
+}
+
 func (b *sqlClauseBuilder) addTimeSet(
 	col string,
 	arg *time.Time,

@@ -102,7 +102,9 @@ func createSessionCookie(t *testing.T, db *sqlite.Storage, userID string) *http.
 	return &http.Cookie{Name: "session_id", Value: sessionID}
 }
 
-// do — выполняет HTTP запрос с auth cookie
+// do — выполняет HTTP запрос с auth cookie.
+// Для POST /transactions автоматически ставится уникальный Idempotency-Key,
+// чтобы проходить через middleware без явного указания в каждом тесте.
 func (f *authFixture) do(t *testing.T, method, path string, body any) *httptest.ResponseRecorder {
 	t.Helper()
 	var req *http.Request
@@ -112,6 +114,9 @@ func (f *authFixture) do(t *testing.T, method, path string, body any) *httptest.
 		req = httptest.NewRequest(method, path, nil)
 	}
 	req.AddCookie(f.Cookie)
+	if method == http.MethodPost && path == "/api/transactions" {
+		req.Header.Set("Idempotency-Key", uuid.NewString())
+	}
 	return performRequest(t, f.Router, req)
 }
 
