@@ -1,74 +1,27 @@
 package handlers
 
 import (
-	"net/http"
 	"strings"
+
+	"expense-tracker-api/internal/http-server/httperr"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
 
-const (
-	ErrCodeUserAlreadyExists     = "USER_ALREADY_EXISTS"
-	ErrCodeInvalidCredentials    = "INVALID_CREDENTIALS"
-	ErrCodeInvalidRequest        = "INVALID_REQUEST"
-	ErrCodeValidationFailed      = "VALIDATION_FAILED"
-	ErrCodeAccountNotFound       = "ACCOUNT_NOT_FOUND"
-	ErrCodeCategoryNotFound      = "CATEGORY_NOT_FOUND"
-	ErrCodeCategoryAlreadyExists = "CATEGORY_ALREADY_EXISTS"
-	ErrCodeCategoryTypeMismatch  = "CATEGORY_TYPE_MISMATCH"
-	ErrCodeTransactionNotFound   = "TRANSACTION_NOT_FOUND"
-	ErrCodeInternal              = "INTERNAL_ERROR"
-	ErrCodeForbidden             = "FORBIDDEN"
-	ErrCodeAccountInUse          = "ACCOUNT_IN_USE"
-	ErrCodeCategoryInUse         = "CATEGORY_IN_USE"
-	ErrCodeInvalidRefs           = "INVALID_REFS"
-	ErrCodeSameAccountTransfer   = "SAME_ACCOUNT_TRANSFER"
-	ErrCodeUnauthorized          = "UNAUTHORIZED"
-	ErrCodeTooManyRequests       = "TOO_MANY_REQUESTS"
-)
-
-type FieldError struct {
-	Field   string `json:"field"`
-	Message string `json:"message"`
-}
-
-type ErrorResponse struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
-
-type ValidationErrorResponse struct {
-	ErrorResponse
-	Errors []FieldError `json:"errors"`
-}
-
-func writeError(c *gin.Context, status int, code, message string) {
-	c.JSON(status, ErrorResponse{
-		Code:    code,
-		Message: message,
-	})
-}
-
-func writeValidationFieldErrors(c *gin.Context, errors []FieldError) {
-	c.JSON(http.StatusBadRequest, ValidationErrorResponse{
-		ErrorResponse: ErrorResponse{
-			Code:    ErrCodeValidationFailed,
-			Message: "validation failed",
-		},
-		Errors: errors,
-	})
-}
-
+// writeValidationError converts validator.ValidationErrors into the standard
+// validation error response shape and writes it. Validator-specific glue lives
+// here; everything else (codes, types, plain error writes) goes through the
+// shared httperr package directly.
 func writeValidationError(c *gin.Context, verrs validator.ValidationErrors) {
-	fields := make([]FieldError, len(verrs))
+	fields := make([]httperr.FieldError, len(verrs))
 	for i, fe := range verrs {
-		fields[i] = FieldError{
+		fields[i] = httperr.FieldError{
 			Field:   fe.Field(),
 			Message: formatValidationMessage(fe),
 		}
 	}
-	writeValidationFieldErrors(c, fields)
+	httperr.WriteValidation(c, httperr.ErrCodeValidationFailed, "validation failed", fields)
 }
 
 func formatValidationMessage(fe validator.FieldError) string {

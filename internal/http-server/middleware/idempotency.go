@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"expense-tracker-api/internal/http-server/context"
+	"expense-tracker-api/internal/http-server/httperr"
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/storage/sqlite"
@@ -58,7 +59,8 @@ func Idempotency(db *sqlite.Storage, log *slog.Logger) gin.HandlerFunc {
 		key := c.GetHeader("Idempotency-Key")
 		if key == "" {
 			log.Info("missing idempotency key")
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing idempotency key"})
+			httperr.Write(c, http.StatusBadRequest,
+				httperr.ErrCodeIdempotencyKeyMissing, "missing idempotency key")
 			return
 		}
 
@@ -66,10 +68,8 @@ func Idempotency(db *sqlite.Storage, log *slog.Logger) gin.HandlerFunc {
 
 		bodyBytes, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			c.AbortWithStatusJSON(
-				http.StatusBadRequest,
-				gin.H{"code": "INVALID_REQUEST", "error": "failed to read request body"},
-			)
+			httperr.Write(c, http.StatusBadRequest,
+				httperr.ErrCodeInvalidRequest, "failed to read request body")
 			return
 		}
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
@@ -89,17 +89,13 @@ func Idempotency(db *sqlite.Storage, log *slog.Logger) gin.HandlerFunc {
 						return
 					}
 				}
-				c.AbortWithStatusJSON(
-					http.StatusConflict,
-					gin.H{"error": "idempotency key already used"},
-				)
+				httperr.Write(c, http.StatusConflict,
+					httperr.ErrCodeIdempotencyKeyInUse, "idempotency key already used")
 				return
 			}
 			log.Info("failed to create idempotency key", logger.Error(err))
-			c.AbortWithStatusJSON(
-				http.StatusInternalServerError,
-				gin.H{"error": "internal server error"},
-			)
+			httperr.Write(c, http.StatusInternalServerError,
+				httperr.ErrCodeInternal, "internal server error")
 			return
 		}
 
@@ -123,10 +119,8 @@ func dispatchExisting(
 	if err != nil {
 		l.Error("failed to parse idempotency key expiration date",
 			slog.String("error", err.Error()))
-		c.AbortWithStatusJSON(
-			http.StatusInternalServerError,
-			gin.H{"error": "internal server error"},
-		)
+		httperr.Write(c, http.StatusInternalServerError,
+			httperr.ErrCodeInternal, "internal server error")
 		return true
 	}
 
@@ -141,17 +135,14 @@ func dispatchExisting(
 			_ = db.DeleteIdempotencyKey(userID, ik.ID)
 			return false
 		}
-		c.AbortWithStatusJSON(
-			http.StatusConflict,
-			gin.H{"error": "idempotency key already used"},
-		)
+		httperr.Write(c, http.StatusConflict,
+			httperr.ErrCodeIdempotencyKeyInUse, "idempotency key already used")
 		return true
 	case "completed":
 		if hashStr != ik.RequestHash {
-			c.AbortWithStatusJSON(
-				http.StatusConflict,
-				gin.H{"error": "idempotency key request hash mismatch"},
-			)
+			httperr.Write(c, http.StatusConflict,
+				httperr.ErrCodeIdempotencyKeyMismatch,
+				"idempotency key request hash mismatch")
 			return true
 		}
 		replayResponse(c, ik)

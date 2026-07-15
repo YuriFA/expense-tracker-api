@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"expense-tracker-api/internal/http-server/handlers"
+	"expense-tracker-api/internal/http-server/httperr"
 	"expense-tracker-api/internal/storage"
 
 	"github.com/google/uuid"
@@ -96,9 +96,9 @@ func TestCreateCategory(t *testing.T) {
 				w := f.do(t, http.MethodPost, "/api/categories", tc.body)
 
 				assert.Equal(t, http.StatusBadRequest, w.Code)
-				var response handlers.ValidationErrorResponse
+				var response httperr.ValidationErrorResponse
 				parseBody(t, w, &response)
-				assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+				assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 				assert.Equal(t, "validation failed", response.Message)
 				require.Equal(t, tc.errorsLen, len(response.Errors))
 				assert.Equal(t, tc.wantField, response.Errors[0].Field)
@@ -125,9 +125,9 @@ func TestCreateCategory(t *testing.T) {
 		})
 
 		assert.Equal(t, http.StatusConflict, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		require.Equal(t, handlers.ErrCodeCategoryAlreadyExists, response.Code)
+		require.Equal(t, httperr.ErrCodeCategoryAlreadyExists, response.Code)
 	})
 }
 
@@ -177,9 +177,9 @@ func TestUpdateCategory(t *testing.T) {
 		w := f.do(t, http.MethodPatch, "/api/categories/"+existing.ID, map[string]any{})
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+		assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 		assert.Equal(t, "no fields to update", response.Message)
 	})
 
@@ -199,9 +199,9 @@ func TestUpdateCategory(t *testing.T) {
 		})
 
 		assert.Equal(t, http.StatusConflict, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeCategoryAlreadyExists, response.Code)
+		assert.Equal(t, httperr.ErrCodeCategoryAlreadyExists, response.Code)
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
@@ -212,9 +212,9 @@ func TestUpdateCategory(t *testing.T) {
 		})
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeCategoryNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeCategoryNotFound, response.Code)
 		assert.Equal(t, "category not found", response.Message)
 	})
 }
@@ -236,9 +236,9 @@ func TestDeleteCategory(t *testing.T) {
 		w := f.do(t, http.MethodDelete, "/api/categories/"+uuid.NewString(), nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeCategoryNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeCategoryNotFound, response.Code)
 		assert.Equal(t, "category not found", response.Message)
 	})
 
@@ -253,9 +253,9 @@ func TestDeleteCategory(t *testing.T) {
 		w := f.do(t, http.MethodDelete, "/api/categories/"+existing.ID, nil)
 
 		assert.Equal(t, http.StatusConflict, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeCategoryInUse, response.Code)
+		assert.Equal(t, httperr.ErrCodeCategoryInUse, response.Code)
 		assert.Equal(t, "category in use", response.Message)
 	})
 
@@ -267,9 +267,9 @@ func TestDeleteCategory(t *testing.T) {
 		w := f2.do(t, http.MethodDelete, "/api/categories/"+existing.ID, nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeCategoryNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeCategoryNotFound, response.Code)
 		assert.Equal(t, "category not found", response.Message)
 	})
 }
@@ -297,9 +297,9 @@ func TestGetCategory(t *testing.T) {
 		w := f.do(t, http.MethodGet, "/api/categories/"+uuid.NewString(), nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeCategoryNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeCategoryNotFound, response.Code)
 		assert.Equal(t, "category not found", response.Message)
 	})
 
@@ -311,9 +311,9 @@ func TestGetCategory(t *testing.T) {
 		w := f2.do(t, http.MethodGet, "/api/categories/"+existing.ID, nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeCategoryNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeCategoryNotFound, response.Code)
 		assert.Equal(t, "category not found", response.Message)
 	})
 }

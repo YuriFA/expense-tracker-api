@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"expense-tracker-api/internal/logger"
+	"expense-tracker-api/internal/http-server/httperr"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -19,7 +20,7 @@ func bindAndValidateJSON[T any](c *gin.Context, log *slog.Logger, req *T) bool {
 			return false
 		}
 		log.Info("invalid request body", logger.Error(err))
-		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid request body")
+		httperr.Write(c, http.StatusBadRequest, httperr.ErrCodeInvalidRequest, "invalid request body")
 		return false
 	}
 
@@ -34,7 +35,7 @@ func bindAndValidateQuery[T any](c *gin.Context, log *slog.Logger, req *T) bool 
 			return false
 		}
 		log.Info("invalid query", logger.Error(err))
-		writeError(c, http.StatusBadRequest, ErrCodeInvalidRequest, "invalid query")
+		httperr.Write(c, http.StatusBadRequest, httperr.ErrCodeInvalidRequest, "invalid query")
 		return false
 	}
 

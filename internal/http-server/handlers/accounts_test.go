@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"expense-tracker-api/internal/http-server/handlers"
+	"expense-tracker-api/internal/http-server/httperr"
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/storage/sqlite"
 
@@ -90,9 +90,9 @@ func TestCreateAccount(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				w := f.do(t, http.MethodPost, "/api/accounts", tc.body)
 				assert.Equal(t, http.StatusBadRequest, w.Code)
-				var response handlers.ValidationErrorResponse
+				var response httperr.ValidationErrorResponse
 				parseBody(t, w, &response)
-				assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+				assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 				assert.Equal(t, "validation failed", response.Message)
 				require.Equal(t, tc.errorsLen, len(response.Errors))
 				assert.Equal(t, tc.wantField, response.Errors[0].Field)
@@ -183,9 +183,9 @@ func TestUpdateAccount(t *testing.T) {
 		})
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		var response handlers.ValidationErrorResponse
+		var response httperr.ValidationErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+		assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 		assert.Equal(t, "validation failed", response.Message)
 		assert.Equal(t, 1, len(response.Errors))
 		assert.Equal(t, "name", response.Errors[0].Field)
@@ -202,9 +202,9 @@ func TestUpdateAccount(t *testing.T) {
 		w := f.do(t, http.MethodPatch, "/api/accounts/"+existing.ID, map[string]any{})
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+		assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 		assert.Equal(t, "no fields to update", response.Message)
 	})
 
@@ -215,9 +215,9 @@ func TestUpdateAccount(t *testing.T) {
 		})
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeAccountNotFound, response.Code)
 		assert.Equal(t, "account not found", response.Message)
 	})
 
@@ -232,9 +232,9 @@ func TestUpdateAccount(t *testing.T) {
 		})
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeAccountNotFound, response.Code)
 		assert.Equal(t, "account not found", response.Message)
 	})
 }
@@ -254,9 +254,9 @@ func TestDeleteAccount(t *testing.T) {
 		w := f.do(t, http.MethodDelete, "/api/accounts/"+uuid.NewString(), nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeAccountNotFound, response.Code)
 		assert.Equal(t, "account not found", response.Message)
 	})
 
@@ -270,9 +270,9 @@ func TestDeleteAccount(t *testing.T) {
 		w := f.do(t, http.MethodDelete, "/api/accounts/"+existing.ID, nil)
 
 		assert.Equal(t, http.StatusConflict, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeAccountInUse, response.Code)
+		assert.Equal(t, httperr.ErrCodeAccountInUse, response.Code)
 		assert.Equal(t, "account in use", response.Message)
 	})
 }
@@ -329,9 +329,9 @@ func TestGetAccount(t *testing.T) {
 		w := f.do(t, http.MethodGet, "/api/accounts/"+uuid.NewString(), nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeAccountNotFound, response.Code)
 		assert.Equal(t, "account not found", response.Message)
 	})
 
@@ -343,9 +343,9 @@ func TestGetAccount(t *testing.T) {
 		w := f.do(t, http.MethodGet, "/api/accounts/"+existing.ID, nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeAccountNotFound, response.Code)
 		assert.Equal(t, "account not found", response.Message)
 	})
 }

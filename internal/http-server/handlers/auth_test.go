@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"expense-tracker-api/internal/auth"
-	"expense-tracker-api/internal/http-server/handlers"
+	"expense-tracker-api/internal/http-server/httperr"
 	"expense-tracker-api/internal/storage"
 
 	"github.com/stretchr/testify/assert"
@@ -44,9 +44,9 @@ func TestRegisterUser(t *testing.T) {
 		w := performRequest(t, router, req)
 
 		assert.Equal(t, http.StatusConflict, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		require.Equal(t, handlers.ErrCodeUserAlreadyExists, response.Code)
+		require.Equal(t, httperr.ErrCodeUserAlreadyExists, response.Code)
 	})
 
 	t.Run("ValidationFail", func(t *testing.T) {
@@ -93,9 +93,9 @@ func TestRegisterUser(t *testing.T) {
 				w := performRequest(t, router, req)
 
 				assert.Equal(t, http.StatusBadRequest, w.Code)
-				var response handlers.ValidationErrorResponse
+				var response httperr.ValidationErrorResponse
 				parseBody(t, w, &response)
-				assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+				assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 				assert.Equal(t, "validation failed", response.Message)
 				require.Equal(t, tc.errorsLen, len(response.Errors))
 				assert.Equal(t, tc.wantField, response.Errors[0].Field)
@@ -143,9 +143,9 @@ func TestLoginUser(t *testing.T) {
 		w := performRequest(t, router, req)
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeInvalidCredentials, response.Code)
+		assert.Equal(t, httperr.ErrCodeInvalidCredentials, response.Code)
 	})
 
 	t.Run("ValidationFail", func(t *testing.T) {
@@ -157,9 +157,9 @@ func TestLoginUser(t *testing.T) {
 		w := performRequest(t, router, req)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		var response handlers.ValidationErrorResponse
+		var response httperr.ValidationErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+		assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 	})
 
 	t.Run("RateLimitExceeded", func(t *testing.T) {

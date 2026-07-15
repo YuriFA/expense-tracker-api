@@ -9,6 +9,7 @@ import (
 	"expense-tracker-api/internal/auth"
 	"expense-tracker-api/internal/http-server/context"
 	"expense-tracker-api/internal/http-server/cookie"
+	"expense-tracker-api/internal/http-server/httperr"
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
 
@@ -65,7 +66,7 @@ func (h *Handler) Register(c *gin.Context) {
 	passwordHash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		log.Error("failed to hash password", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to hash password")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to hash password")
 		return
 	}
 
@@ -76,17 +77,17 @@ func (h *Handler) Register(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, storage.ErrUserAlreadyExists) {
 			log.Info("user already exists", logger.Error(err))
-			writeError(c, http.StatusConflict, ErrCodeUserAlreadyExists, "user already exists")
+			httperr.Write(c, http.StatusConflict, httperr.ErrCodeUserAlreadyExists, "user already exists")
 			return
 		}
 		log.Error("failed to register user", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to register user")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to register user")
 		return
 	}
 
 	if err := h.startUserSession(c, user.ID); err != nil {
 		log.Error("failed to create session", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to create session")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to create session")
 		return
 	}
 
@@ -102,10 +103,10 @@ func (h *Handler) Login(c *gin.Context) {
 
 	key := c.ClientIP()
 	if h.RateLimiter.IsLocked(key) {
-		writeError(
+		httperr.Write(
 			c,
 			http.StatusTooManyRequests,
-			ErrCodeTooManyRequests,
+			httperr.ErrCodeTooManyRequests,
 			"too many login attempts, please try again later",
 		)
 		return
@@ -120,10 +121,10 @@ func (h *Handler) Login(c *gin.Context) {
 	if err != nil {
 		h.RateLimiter.RecordFailure(key)
 		log.Error("failed to get user by email", logger.Error(err))
-		writeError(
+		httperr.Write(
 			c,
 			http.StatusUnauthorized,
-			ErrCodeInvalidCredentials,
+			httperr.ErrCodeInvalidCredentials,
 			"invalid credentials",
 		)
 		return
@@ -132,13 +133,13 @@ func (h *Handler) Login(c *gin.Context) {
 	if err != nil {
 		h.RateLimiter.RecordFailure(key)
 		log.Info("invalid credentials", logger.Error(err))
-		writeError(c, http.StatusUnauthorized, ErrCodeInvalidCredentials, "invalid credentials")
+		httperr.Write(c, http.StatusUnauthorized, httperr.ErrCodeInvalidCredentials, "invalid credentials")
 		return
 	}
 
 	if err := h.startUserSession(c, user.ID); err != nil {
 		log.Error("failed to create session", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to create session")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to create session")
 		return
 	}
 
@@ -162,7 +163,7 @@ func (h *Handler) Logout(c *gin.Context) {
 	err = h.DB.DeleteSession(sessionCookie.Value)
 	if err != nil && !errors.Is(err, storage.ErrSessionNotFound) {
 		log.Error("failed to delete session", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to logout")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to logout")
 		return
 	}
 
@@ -187,7 +188,7 @@ func (h *Handler) Me(c *gin.Context) {
 	user := context.CurrentUser(c)
 	if user == nil {
 		log.Info("no current user found")
-		writeError(c, http.StatusUnauthorized, ErrCodeUnauthorized, "unauthorized")
+		httperr.Write(c, http.StatusUnauthorized, httperr.ErrCodeUnauthorized, "unauthorized")
 		return
 	}
 

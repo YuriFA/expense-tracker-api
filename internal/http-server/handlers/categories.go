@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"expense-tracker-api/internal/http-server/context"
+	"expense-tracker-api/internal/http-server/httperr"
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/util"
@@ -55,17 +56,17 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, storage.ErrCategoryAlreadyExists) {
 			log.Info("category duplicate", slog.String("name", req.Name))
-			writeError(
+			httperr.Write(
 				c,
 				http.StatusConflict,
-				ErrCodeCategoryAlreadyExists,
+				httperr.ErrCodeCategoryAlreadyExists,
 				"category already exists",
 			)
 			return
 		}
 
 		log.Error("failed to create category", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to create category")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to create category")
 		return
 	}
 
@@ -88,7 +89,7 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 
 	if req.Name == nil && req.Type == nil && req.Icon == nil &&
 		req.Color == nil {
-		writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "no fields to update")
+		httperr.Write(c, http.StatusBadRequest, httperr.ErrCodeValidationFailed, "no fields to update")
 		return
 	}
 
@@ -102,10 +103,10 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, storage.ErrCategoryAlreadyExists) {
 			log.Info("category not found", slog.String("Name", util.FromPtrOr(req.Name, "NoName")))
-			writeError(
+			httperr.Write(
 				c,
 				http.StatusConflict,
-				ErrCodeCategoryAlreadyExists,
+				httperr.ErrCodeCategoryAlreadyExists,
 				"category already exists",
 			)
 			return
@@ -113,12 +114,12 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 
 		if errors.Is(err, storage.ErrCategoryNotFound) {
 			log.Info("category not found", slog.String("id", id))
-			writeError(c, http.StatusNotFound, ErrCodeCategoryNotFound, "category not found")
+			httperr.Write(c, http.StatusNotFound, httperr.ErrCodeCategoryNotFound, "category not found")
 			return
 		}
 
 		log.Error("failed to update category", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to update category")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to update category")
 		return
 	}
 
@@ -139,18 +140,18 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, storage.ErrCategoryNotFound) {
 			log.Info("category not found", slog.String("id", id))
-			writeError(c, http.StatusNotFound, ErrCodeCategoryNotFound, "category not found")
+			httperr.Write(c, http.StatusNotFound, httperr.ErrCodeCategoryNotFound, "category not found")
 			return
 		}
 
 		if errors.Is(err, storage.ErrCategoryHasTransactions) {
 			log.Info("category in use", slog.String("id", id))
-			writeError(c, http.StatusConflict, ErrCodeCategoryInUse, "category in use")
+			httperr.Write(c, http.StatusConflict, httperr.ErrCodeCategoryInUse, "category in use")
 			return
 		}
 
 		log.Error("failed to delete category", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to delete category")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to delete category")
 		return
 	}
 
@@ -171,12 +172,12 @@ func (h *Handler) GetCategory(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, storage.ErrCategoryNotFound) {
 			log.Info("category not found", slog.String("id", id))
-			writeError(c, http.StatusNotFound, ErrCodeCategoryNotFound, "category not found")
+			httperr.Write(c, http.StatusNotFound, httperr.ErrCodeCategoryNotFound, "category not found")
 			return
 		}
 
 		log.Error("failed to get category", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to get category")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to get category")
 		return
 	}
 
@@ -202,7 +203,7 @@ func (h *Handler) ListCategories(c *gin.Context) {
 	})
 	if err != nil {
 		log.Error("failed to get categories", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to get categories")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to get categories")
 		return
 	}
 

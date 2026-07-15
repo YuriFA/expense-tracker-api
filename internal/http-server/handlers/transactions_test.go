@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"expense-tracker-api/internal/http-server/handlers"
+	"expense-tracker-api/internal/http-server/httperr"
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/testutil"
 
@@ -308,9 +308,9 @@ func TestCreateTransaction(t *testing.T) {
 				w := f.do(t, http.MethodPost, "/api/transactions", tc.body)
 
 				assert.Equal(t, http.StatusBadRequest, w.Code)
-				var response handlers.ValidationErrorResponse
+				var response httperr.ValidationErrorResponse
 				parseBody(t, w, &response)
-				assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+				assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 				assert.Equal(t, "validation failed", response.Message)
 				require.Equal(t, tc.errorsLen, len(response.Errors))
 				assert.Equal(t, tc.wantField, response.Errors[0].Field)
@@ -332,9 +332,9 @@ func TestCreateTransaction(t *testing.T) {
 		})
 
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeAccountNotFound, response.Code)
 		assert.Equal(t, "account not found", response.Message)
 	})
 
@@ -351,9 +351,9 @@ func TestCreateTransaction(t *testing.T) {
 		})
 
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeAccountNotFound, response.Code)
 		assert.Equal(t, "account not found", response.Message)
 	})
 
@@ -373,9 +373,9 @@ func TestCreateTransaction(t *testing.T) {
 		)
 
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeSameAccountTransfer, response.Code)
+		assert.Equal(t, httperr.ErrCodeSameAccountTransfer, response.Code)
 		assert.Equal(t, "transaction from and to accounts are the same", response.Message)
 	})
 }
@@ -456,9 +456,9 @@ func TestUpdateTransaction(t *testing.T) {
 		)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+		assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 		assert.Equal(t, "no fields to update", response.Message)
 	})
 
@@ -481,9 +481,9 @@ func TestUpdateTransaction(t *testing.T) {
 		)
 
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeAccountNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeAccountNotFound, response.Code)
 		assert.Equal(t, "account not found", response.Message)
 	})
 
@@ -531,9 +531,9 @@ func TestUpdateTransaction(t *testing.T) {
 		)
 
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeCategoryNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeCategoryNotFound, response.Code)
 		assert.Equal(t, "category not found", response.Message)
 	})
 
@@ -558,9 +558,9 @@ func TestUpdateTransaction(t *testing.T) {
 		)
 
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeCategoryTypeMismatch, response.Code)
+		assert.Equal(t, httperr.ErrCodeCategoryTypeMismatch, response.Code)
 		assert.Equal(t, "transaction type does not match category type", response.Message)
 	})
 
@@ -577,9 +577,9 @@ func TestUpdateTransaction(t *testing.T) {
 		)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeTransactionNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeTransactionNotFound, response.Code)
 		assert.Equal(t, "transaction not found", response.Message)
 	})
 
@@ -646,9 +646,9 @@ func TestUpdateTransaction(t *testing.T) {
 				)
 
 				assert.Equal(t, http.StatusBadRequest, w.Code)
-				var response handlers.ValidationErrorResponse
+				var response httperr.ValidationErrorResponse
 				parseBody(t, w, &response)
-				assert.Equal(t, handlers.ErrCodeValidationFailed, response.Code)
+				assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 				assert.Equal(t, "validation failed", response.Message)
 				assert.Equal(t, 1, len(response.Errors))
 				assert.Equal(t, tc.wantField, response.Errors[0].Field)
@@ -678,9 +678,9 @@ func TestDeleteTransaction(t *testing.T) {
 		w := f.do(t, http.MethodDelete, "/api/transactions/"+uuid.NewString(), nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeTransactionNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeTransactionNotFound, response.Code)
 		assert.Equal(t, "transaction not found", response.Message)
 	})
 
@@ -695,9 +695,9 @@ func TestDeleteTransaction(t *testing.T) {
 		w := f2.do(t, http.MethodDelete, "/api/transactions/"+existing.ID, nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeTransactionNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeTransactionNotFound, response.Code)
 		assert.Equal(t, "transaction not found", response.Message)
 	})
 }
@@ -755,9 +755,9 @@ func TestGetTransaction(t *testing.T) {
 		w := f.do(t, http.MethodGet, "/api/transactions/"+uuid.NewString(), nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeTransactionNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeTransactionNotFound, response.Code)
 		assert.Equal(t, "transaction not found", response.Message)
 	})
 
@@ -772,9 +772,9 @@ func TestGetTransaction(t *testing.T) {
 		w := f2.do(t, http.MethodGet, "/api/transactions/"+existing.ID, nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
-		var response handlers.ErrorResponse
+		var response httperr.ErrorResponse
 		parseBody(t, w, &response)
-		assert.Equal(t, handlers.ErrCodeTransactionNotFound, response.Code)
+		assert.Equal(t, httperr.ErrCodeTransactionNotFound, response.Code)
 		assert.Equal(t, "transaction not found", response.Message)
 	})
 }

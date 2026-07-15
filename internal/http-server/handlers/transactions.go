@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"expense-tracker-api/internal/http-server/context"
+	"expense-tracker-api/internal/http-server/httperr"
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
 	"expense-tracker-api/internal/util"
@@ -45,33 +46,33 @@ type GetTransactionsQuery struct {
 	Sort       *storage.SortParam `form:"sort"       binding:"omitempty,oneof=occurredAt -occurredAt amount -amount"`
 }
 
-func validateTransactionRequest(req TransactionRequest) []FieldError {
-	var errs []FieldError
+func validateTransactionRequest(req TransactionRequest) []httperr.FieldError {
+	var errs []httperr.FieldError
 	switch req.Type {
 	case "income", "expense":
 		if req.AccountID == nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "accountId",
 				Message: "accountId is required",
 			})
 		}
 
 		if req.CategoryID == nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "categoryId",
 				Message: "categoryId is required",
 			})
 		}
 
 		if req.FromAccountID != nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "fromAccountId",
 				Message: "not allowed for income or expense transactions",
 			})
 		}
 
 		if req.ToAccountID != nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "toAccountId",
 				Message: "not allowed for income or expense transactions",
 			})
@@ -79,25 +80,25 @@ func validateTransactionRequest(req TransactionRequest) []FieldError {
 
 	case "transfer":
 		if req.FromAccountID == nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "fromAccountId",
 				Message: "fromAccountId is required",
 			})
 		}
 		if req.ToAccountID == nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "toAccountId",
 				Message: "toAccountId is required",
 			})
 		}
 		if req.AccountID != nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "accountId",
 				Message: "not allowed for transfer transactions",
 			})
 		}
 		if req.CategoryID != nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "categoryId",
 				Message: "not allowed for transfer transactions",
 			})
@@ -109,31 +110,31 @@ func validateTransactionRequest(req TransactionRequest) []FieldError {
 func validateUpdateTransactionRequest(
 	currentType string,
 	req UpdateTransactionRequest,
-) []FieldError {
-	var errs []FieldError
+) []httperr.FieldError {
+	var errs []httperr.FieldError
 	switch currentType {
 	case "income", "expense":
 		if req.FromAccountID != nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "fromAccountId",
 				Message: "not allowed for income or expense transactions",
 			})
 		}
 		if req.ToAccountID != nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "toAccountId",
 				Message: "not allowed for income or expense transactions",
 			})
 		}
 	case "transfer":
 		if req.AccountId != nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "accountId",
 				Message: "not allowed for transfer transactions",
 			})
 		}
 		if req.CategoryID != nil {
-			errs = append(errs, FieldError{
+			errs = append(errs, httperr.FieldError{
 				Field:   "categoryId",
 				Message: "not allowed for transfer transactions",
 			})
@@ -158,16 +159,16 @@ func writeTransactionError(
 	switch {
 	case errors.Is(err, storage.ErrTransactionNotFound):
 		log.Info("transaction not found")
-		writeError(c, http.StatusNotFound, ErrCodeTransactionNotFound, "transaction not found")
+		httperr.Write(c, http.StatusNotFound, httperr.ErrCodeTransactionNotFound, "transaction not found")
 	case errors.Is(err, storage.ErrAccountNotFound):
 		log.Info(
 			"account not found",
 			slog.String("accountId", util.FromPtrOr(req.AccountId, "empty")),
 		)
-		writeError(
+		httperr.Write(
 			c,
 			http.StatusUnprocessableEntity,
-			ErrCodeAccountNotFound,
+			httperr.ErrCodeAccountNotFound,
 			"account not found",
 		)
 	case errors.Is(err, storage.ErrCategoryNotFound):
@@ -175,10 +176,10 @@ func writeTransactionError(
 			"category not found",
 			slog.String("categoryId", util.FromPtrOr(req.CategoryId, "empty")),
 		)
-		writeError(
+		httperr.Write(
 			c,
 			http.StatusUnprocessableEntity,
-			ErrCodeCategoryNotFound,
+			httperr.ErrCodeCategoryNotFound,
 			"category not found",
 		)
 	case errors.Is(err, storage.ErrCategoryTypeMismatch):
@@ -189,10 +190,10 @@ func writeTransactionError(
 				util.FromPtrOr(req.CategoryId, "empty"),
 			),
 		)
-		writeError(
+		httperr.Write(
 			c,
 			http.StatusUnprocessableEntity,
-			ErrCodeCategoryTypeMismatch,
+			httperr.ErrCodeCategoryTypeMismatch,
 			"transaction type does not match category type",
 		)
 	case errors.Is(err, storage.ErrSameAccountTransfer):
@@ -207,10 +208,10 @@ func writeTransactionError(
 				util.FromPtrOr(req.ToAccountId, "empty"),
 			),
 		)
-		writeError(
+		httperr.Write(
 			c,
 			http.StatusUnprocessableEntity,
-			ErrCodeSameAccountTransfer,
+			httperr.ErrCodeSameAccountTransfer,
 			"transaction from and to accounts are the same",
 		)
 	case errors.Is(err, storage.ErrInvalidRefs):
@@ -233,18 +234,18 @@ func writeTransactionError(
 				util.FromPtrOr(req.ToAccountId, "empty"),
 			),
 		)
-		writeError(
+		httperr.Write(
 			c,
 			http.StatusUnprocessableEntity,
-			ErrCodeInvalidRefs,
+			httperr.ErrCodeInvalidRefs,
 			"invalid references",
 		)
 	default:
 		log.Error("failed to create transaction", logger.Error(err))
-		writeError(
+		httperr.Write(
 			c,
 			http.StatusInternalServerError,
-			ErrCodeInternal,
+			httperr.ErrCodeInternal,
 			"failed to create transaction",
 		)
 	}
@@ -265,7 +266,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 	}
 
 	if errs := validateTransactionRequest(req); len(errs) > 0 {
-		writeValidationFieldErrors(c, errs)
+		httperr.WriteValidation(c, httperr.ErrCodeValidationFailed, "validation failed", errs)
 		return
 	}
 
@@ -309,7 +310,7 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 
 	if req.AccountId == nil && req.Description == nil &&
 		req.OccurredAt == nil && req.CategoryID == nil && req.Amount == nil && req.FromAccountID == nil && req.ToAccountID == nil {
-		writeError(c, http.StatusBadRequest, ErrCodeValidationFailed, "no fields to update")
+		httperr.Write(c, http.StatusBadRequest, httperr.ErrCodeValidationFailed, "no fields to update")
 		return
 	}
 
@@ -319,16 +320,16 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, storage.ErrTransactionNotFound) {
 			log.Info("transaction not found", slog.String("id", id))
-			writeError(c, http.StatusNotFound, ErrCodeTransactionNotFound, "transaction not found")
+			httperr.Write(c, http.StatusNotFound, httperr.ErrCodeTransactionNotFound, "transaction not found")
 			return
 		}
 		log.Error("failed to get transaction", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to get transaction")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to get transaction")
 		return
 	}
 
 	if errs := validateUpdateTransactionRequest(current.Type, req); len(errs) > 0 {
-		writeValidationFieldErrors(c, errs)
+		httperr.WriteValidation(c, httperr.ErrCodeValidationFailed, "validation failed", errs)
 		return
 	}
 
@@ -369,15 +370,15 @@ func (h *Handler) DeleteTransaction(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, storage.ErrTransactionNotFound) {
 			log.Info("transaction not found", slog.String("id", id))
-			writeError(c, http.StatusNotFound, ErrCodeTransactionNotFound, "transaction not found")
+			httperr.Write(c, http.StatusNotFound, httperr.ErrCodeTransactionNotFound, "transaction not found")
 			return
 		}
 
 		log.Error("failed to delete transaction", logger.Error(err))
-		writeError(
+		httperr.Write(
 			c,
 			http.StatusInternalServerError,
-			ErrCodeInternal,
+			httperr.ErrCodeInternal,
 			"failed to delete transaction",
 		)
 		return
@@ -400,12 +401,12 @@ func (h *Handler) GetTransaction(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, storage.ErrTransactionNotFound) {
 			log.Info("transaction not found", slog.String("id", id))
-			writeError(c, http.StatusNotFound, ErrCodeTransactionNotFound, "transaction not found")
+			httperr.Write(c, http.StatusNotFound, httperr.ErrCodeTransactionNotFound, "transaction not found")
 			return
 		}
 
 		log.Error("failed to get transaction", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to get transaction")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to get transaction")
 		return
 	}
 
@@ -445,7 +446,7 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 	})
 	if err != nil {
 		log.Error("failed to get transactions", logger.Error(err))
-		writeError(c, http.StatusInternalServerError, ErrCodeInternal, "failed to get transactions")
+		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to get transactions")
 		return
 	}
 
