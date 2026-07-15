@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"expense-tracker-api/internal/http-server/context"
+	"expense-tracker-api/internal/http-server/httpctx"
 	"expense-tracker-api/internal/http-server/httperr"
 	"expense-tracker-api/internal/logger"
 	"expense-tracker-api/internal/storage"
@@ -64,7 +64,7 @@ func Idempotency(db *sqlite.Storage, log *slog.Logger) gin.HandlerFunc {
 			return
 		}
 
-		user := context.CurrentUser(c)
+		user := httpctx.CurrentUser(c)
 
 		bodyBytes, err := io.ReadAll(c.Request.Body)
 		if err != nil {

@@ -1,4 +1,4 @@
-package context
+package httpctx
 
 import (
 	"expense-tracker-api/internal/http-server/keys"

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"expense-tracker-api/internal/auth"
-	"expense-tracker-api/internal/http-server/context"
+	"expense-tracker-api/internal/http-server/httpctx"
 	"expense-tracker-api/internal/http-server/cookie"
 	"expense-tracker-api/internal/http-server/httperr"
 	"expense-tracker-api/internal/logger"
@@ -185,7 +185,7 @@ func (h *Handler) Me(c *gin.Context) {
 		slog.String("op", op),
 	)
 
-	user := context.CurrentUser(c)
+	user := httpctx.CurrentUser(c)
 	if user == nil {
 		log.Info("no current user found")
 		httperr.Write(c, http.StatusUnauthorized, httperr.ErrCodeUnauthorized, "unauthorized")
