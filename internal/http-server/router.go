@@ -79,5 +79,9 @@ func NewRouter(
 		}
 	}
 
+	// API docs (OpenAPI spec + Redoc UI)
+	router.StaticFile("/docs", "docs/api/redoc.html")
+	router.StaticFile("/docs/openapi.yaml", "docs/api/openapi.yaml")
+
 	return router
 }

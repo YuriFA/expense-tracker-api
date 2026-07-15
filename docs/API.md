@@ -2,6 +2,14 @@
 
 REST API для expense tracker. Все endpoints начинаются с `/api`. Auth — через session cookie (stateful).
 
+> **Formal spec:** [`api/openapi.yaml`](./api/openapi.yaml) — OpenAPI 3.0.3.
+> Просмотр в браузере: поднять сервер и открыть `/docs` (Redoc). Локальный
+> preview без сервера: `npx @redocly/cli preview-docs docs/api/openapi.yaml`.
+>
+> Spec сейчас покрывает `auth + transactions`. Остальные endpoints
+> добавляются по мере надобности — prose-документация ниже актуальна для всех
+> ресурсов.
+
 ## Соглашения
 
 - **Базовый путь:** `/api`
