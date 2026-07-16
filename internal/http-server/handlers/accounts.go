@@ -27,9 +27,7 @@ type UpdateAccountRequest struct {
 func (h *Handler) CreateAccount(c *gin.Context) {
 	op := "handlers.accounts.CreateAccount"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -56,9 +54,7 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 func (h *Handler) UpdateAccount(c *gin.Context) {
 	op := "handlers.accounts.UpdateAccount"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -96,9 +92,7 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 func (h *Handler) DeleteAccount(c *gin.Context) {
 	op := "handlers.accounts.DeleteAccount"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -128,9 +122,7 @@ func (h *Handler) DeleteAccount(c *gin.Context) {
 func (h *Handler) GetAccount(c *gin.Context) {
 	op := "handlers.accounts.GetAccount"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -154,9 +146,7 @@ func (h *Handler) GetAccount(c *gin.Context) {
 func (h *Handler) ListAccounts(c *gin.Context) {
 	op := "handlers.accounts.ListAccounts"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -180,9 +170,7 @@ func calculateNetWorth(balances []storage.AccountBalance) int64 {
 
 func (h *Handler) GetAccountBalances(c *gin.Context) {
 	op := "handlers.accounts.GetAccountBalances"
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 	user := httpctx.CurrentUser(c)
 
 	balances, err := h.DB.GetAccountBalances(c.Request.Context(), user.ID)

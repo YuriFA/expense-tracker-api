@@ -8,6 +8,7 @@ import (
 
 	"github.com/yurifa/expense-tracker-api/internal/config"
 	"github.com/yurifa/expense-tracker-api/internal/http-server/cookie"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/httpctx"
 	"github.com/yurifa/expense-tracker-api/internal/http-server/httperr"
 	"github.com/yurifa/expense-tracker-api/internal/http-server/keys"
 	"github.com/yurifa/expense-tracker-api/internal/storage"
@@ -19,9 +20,13 @@ import (
 
 func AuthRequired(db *sqlite.Storage, log *slog.Logger, cfg *config.HTTPServer) gin.HandlerFunc {
 	op := "httpserver.middleware.AuthRequired"
-	log = log.With(slog.String("op", op))
 
 	return func(c *gin.Context) {
+		log := log.With(
+			slog.String("op", op),
+			slog.String("request_id", httpctx.RequestID(c)),
+		)
+
 		sessionID, err := c.Request.Cookie(cfg.SessionConfig.CookieName)
 		if err != nil {
 			httperr.Write(c, http.StatusUnauthorized,

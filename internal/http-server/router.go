@@ -55,6 +55,7 @@ func NewRouter(
 		AllowCredentials: true,
 		MaxAge:           corsMaxAge,
 	}))
+	router.Use(middleware.RequestID())
 	router.Use(gin.Recovery())
 	router.Use(middleware.SlogLogger(log))
 

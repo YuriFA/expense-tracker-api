@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/yurifa/expense-tracker-api/internal/http-server/httpctx"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,6 +22,7 @@ func SlogLogger(log *slog.Logger) gin.HandlerFunc {
 
 		status := c.Writer.Status()
 		entry := log.With(
+			slog.String("request_id", httpctx.RequestID(c)),
 			slog.String("method", c.Request.Method),
 			slog.String("path", path),
 			slog.String("query", c.Request.URL.RawQuery),

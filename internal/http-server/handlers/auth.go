@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -54,9 +53,7 @@ func (h *Handler) startUserSession(c *gin.Context, userID string) error {
 func (h *Handler) Register(c *gin.Context) {
 	op := "handlers.auth.Register"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	var req RegisterUserParams
 	if !bindAndValidateJSON(c, log, &req) {
@@ -97,9 +94,7 @@ func (h *Handler) Register(c *gin.Context) {
 func (h *Handler) Login(c *gin.Context) {
 	op := "handlers.auth.Login"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	key := c.ClientIP()
 	if h.RateLimiter.IsLocked(key) {
@@ -150,9 +145,7 @@ func (h *Handler) Login(c *gin.Context) {
 func (h *Handler) Logout(c *gin.Context) {
 	op := "handlers.auth.Logout"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	sessionCookie, err := c.Request.Cookie(h.Config.SessionConfig.CookieName)
 	if err != nil {
@@ -181,9 +174,7 @@ func (h *Handler) Logout(c *gin.Context) {
 func (h *Handler) Me(c *gin.Context) {
 	op := "handlers.auth.Me"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 	if user == nil {

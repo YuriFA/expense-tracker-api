@@ -35,9 +35,7 @@ type GetCategoriesQuery struct {
 func (h *Handler) CreateCategory(c *gin.Context) {
 	op := "handlers.categories.CreateCategory"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -76,9 +74,7 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 func (h *Handler) UpdateCategory(c *gin.Context) {
 	op := "handlers.categories.UpdateCategory"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -130,9 +126,7 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 func (h *Handler) DeleteCategory(c *gin.Context) {
 	op := "handlers.categories.DeleteCategory"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -162,9 +156,7 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 func (h *Handler) GetCategory(c *gin.Context) {
 	op := "handlers.categories.GetCategory"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -188,9 +180,7 @@ func (h *Handler) GetCategory(c *gin.Context) {
 func (h *Handler) ListCategories(c *gin.Context) {
 	op := "handlers.categories.ListCategories"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 

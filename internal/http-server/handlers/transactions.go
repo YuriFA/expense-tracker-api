@@ -260,9 +260,7 @@ func writeTransactionError(
 func (h *Handler) CreateTransaction(c *gin.Context) {
 	op := "handlers.transactions.CreateTransaction"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -303,9 +301,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 func (h *Handler) UpdateTransaction(c *gin.Context) {
 	op := "handlers.transactions.UpdateTransaction"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -379,9 +375,7 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 func (h *Handler) DeleteTransaction(c *gin.Context) {
 	op := "handlers.transactions.DeleteTransaction"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -416,9 +410,7 @@ func (h *Handler) DeleteTransaction(c *gin.Context) {
 func (h *Handler) GetTransaction(c *gin.Context) {
 	op := "handlers.transactions.GetTransaction"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 
@@ -452,9 +444,7 @@ func (h *Handler) GetTransaction(c *gin.Context) {
 func (h *Handler) ListTransactions(c *gin.Context) {
 	op := "handlers.transactions.ListTransactions"
 
-	log := h.Logger.With(
-		slog.String("op", op),
-	)
+	log := h.loggerFor(c, op)
 
 	user := httpctx.CurrentUser(c)
 

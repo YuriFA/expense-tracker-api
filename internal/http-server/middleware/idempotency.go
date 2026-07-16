@@ -50,7 +50,10 @@ func isPendingStale(createdAt string) bool {
 
 func Idempotency(db *sqlite.Storage, log *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log := log.With(slog.String("op", "httpserver.middleware.Idempotency"))
+		log := log.With(
+			slog.String("op", "httpserver.middleware.Idempotency"),
+			slog.String("request_id", httpctx.RequestID(c)),
+		)
 
 		key := c.GetHeader("Idempotency-Key")
 		if key == "" {
