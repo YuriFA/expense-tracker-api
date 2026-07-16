@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"expense-tracker-api/internal/auth"
-	"expense-tracker-api/internal/config"
-	httpserver "expense-tracker-api/internal/http-server"
-	"expense-tracker-api/internal/http-server/handlers"
-	"expense-tracker-api/internal/logger"
-	"expense-tracker-api/internal/storage/sqlite"
+	"github.com/yurifa/expense-tracker-api/internal/auth"
+	"github.com/yurifa/expense-tracker-api/internal/config"
+	httpserver "github.com/yurifa/expense-tracker-api/internal/http-server"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/handlers"
+	"github.com/yurifa/expense-tracker-api/internal/logger"
+	"github.com/yurifa/expense-tracker-api/internal/storage/sqlite"
 )
 
 func main() {

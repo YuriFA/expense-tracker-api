@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"net/http"
 
-	"expense-tracker-api/internal/http-server/httpctx"
-	"expense-tracker-api/internal/http-server/httperr"
-	"expense-tracker-api/internal/logger"
-	"expense-tracker-api/internal/storage"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/httpctx"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/httperr"
+	"github.com/yurifa/expense-tracker-api/internal/logger"
+	"github.com/yurifa/expense-tracker-api/internal/storage"
 
 	"github.com/gin-gonic/gin"
 )

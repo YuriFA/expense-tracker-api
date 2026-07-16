@@ -1,4 +1,4 @@
-module expense-tracker-api
+module github.com/yurifa/expense-tracker-api
 
 go 1.26.3
 

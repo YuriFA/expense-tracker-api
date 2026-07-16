@@ -1,8 +1,8 @@
 package httpctx
 
 import (
-	"expense-tracker-api/internal/http-server/keys"
-	"expense-tracker-api/internal/storage"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/keys"
+	"github.com/yurifa/expense-tracker-api/internal/storage"
 
 	"github.com/gin-gonic/gin"
 )

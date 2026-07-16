@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"expense-tracker-api/internal/http-server/httperr"
-	"expense-tracker-api/internal/storage"
-	"expense-tracker-api/internal/storage/sqlite"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/httperr"
+	"github.com/yurifa/expense-tracker-api/internal/storage"
+	"github.com/yurifa/expense-tracker-api/internal/storage/sqlite"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

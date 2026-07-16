@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"expense-tracker-api/internal/config"
+	"github.com/yurifa/expense-tracker-api/internal/config"
 )
 
 func ParseSameSite(s string) http.SameSite {

@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"expense-tracker-api/internal/http-server/keys"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/keys"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

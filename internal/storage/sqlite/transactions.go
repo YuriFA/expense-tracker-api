@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"expense-tracker-api/internal/storage"
+	"github.com/yurifa/expense-tracker-api/internal/storage"
 
 	"github.com/google/uuid"
 )

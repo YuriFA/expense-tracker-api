@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"expense-tracker-api/internal/config"
-	"expense-tracker-api/internal/http-server/handlers"
-	"expense-tracker-api/internal/http-server/middleware"
-	"expense-tracker-api/internal/storage/sqlite"
+	"github.com/yurifa/expense-tracker-api/internal/config"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/handlers"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/middleware"
+	"github.com/yurifa/expense-tracker-api/internal/storage/sqlite"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

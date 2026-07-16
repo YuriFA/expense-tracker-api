@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"expense-tracker-api/internal/http-server/httpctx"
-	"expense-tracker-api/internal/http-server/middleware"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/httpctx"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

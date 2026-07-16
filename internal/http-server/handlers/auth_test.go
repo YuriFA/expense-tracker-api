@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"testing"
 
-	"expense-tracker-api/internal/auth"
-	"expense-tracker-api/internal/http-server/httperr"
-	"expense-tracker-api/internal/storage"
+	"github.com/yurifa/expense-tracker-api/internal/auth"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/httperr"
+	"github.com/yurifa/expense-tracker-api/internal/storage"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

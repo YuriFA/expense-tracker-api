@@ -6,13 +6,13 @@ import (
 	"net/http"
 	"time"
 
-	"expense-tracker-api/internal/config"
-	"expense-tracker-api/internal/http-server/cookie"
-	"expense-tracker-api/internal/http-server/httperr"
-	"expense-tracker-api/internal/http-server/keys"
-	"expense-tracker-api/internal/storage"
-	"expense-tracker-api/internal/storage/sqlite"
-	"expense-tracker-api/internal/util"
+	"github.com/yurifa/expense-tracker-api/internal/config"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/cookie"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/httperr"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/keys"
+	"github.com/yurifa/expense-tracker-api/internal/storage"
+	"github.com/yurifa/expense-tracker-api/internal/storage/sqlite"
+	"github.com/yurifa/expense-tracker-api/internal/util"
 
 	"github.com/gin-gonic/gin"
 )

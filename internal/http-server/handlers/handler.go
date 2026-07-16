@@ -3,9 +3,9 @@ package handlers
 import (
 	"log/slog"
 
-	"expense-tracker-api/internal/auth"
-	"expense-tracker-api/internal/config"
-	"expense-tracker-api/internal/storage/sqlite"
+	"github.com/yurifa/expense-tracker-api/internal/auth"
+	"github.com/yurifa/expense-tracker-api/internal/config"
+	"github.com/yurifa/expense-tracker-api/internal/storage/sqlite"
 )
 
 type Handler struct {

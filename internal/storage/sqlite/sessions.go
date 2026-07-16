@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"expense-tracker-api/internal/storage"
+	"github.com/yurifa/expense-tracker-api/internal/storage"
 )
 
 func (s *Storage) CreateSession(params storage.CreateSessionParams) (*storage.Session, error) {

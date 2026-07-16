@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"expense-tracker-api/internal/storage"
+	"github.com/yurifa/expense-tracker-api/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

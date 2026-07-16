@@ -7,11 +7,11 @@ import (
 	"sync"
 	"testing"
 
-	"expense-tracker-api/internal/http-server/keys"
-	"expense-tracker-api/internal/http-server/middleware"
-	"expense-tracker-api/internal/logger"
-	"expense-tracker-api/internal/storage"
-	"expense-tracker-api/internal/storage/sqlite"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/keys"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/middleware"
+	"github.com/yurifa/expense-tracker-api/internal/logger"
+	"github.com/yurifa/expense-tracker-api/internal/storage"
+	"github.com/yurifa/expense-tracker-api/internal/storage/sqlite"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

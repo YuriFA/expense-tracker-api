@@ -3,8 +3,8 @@ package sqlite_test
 import (
 	"testing"
 
-	"expense-tracker-api/internal/storage"
-	"expense-tracker-api/internal/storage/sqlite"
+	"github.com/yurifa/expense-tracker-api/internal/storage"
+	"github.com/yurifa/expense-tracker-api/internal/storage/sqlite"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"

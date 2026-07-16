@@ -3,7 +3,7 @@ package handlers
 import (
 	"strings"
 
-	"expense-tracker-api/internal/http-server/httperr"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/httperr"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
