@@ -1,3 +1,6 @@
 package keys
 
-const CurrentUserKey = "currentUser"
+const (
+	CurrentUserKey = "currentUser"
+	RequestIDHeader = "X-Request-ID"
+)

@@ -18,3 +18,7 @@ func CurrentUser(c *gin.Context) *storage.User {
 	}
 	return user
 }
+
+func RequestID(c *gin.Context) string {
+	return c.GetHeader(keys.RequestIDHeader)
+}
