@@ -1,6 +1,7 @@
 package sqlite_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/yurifa/expense-tracker-api/internal/storage"
@@ -12,6 +13,7 @@ import (
 )
 
 func TestCreateAccount(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		name           string
 		openingBalance int64
@@ -34,12 +36,13 @@ func TestCreateAccount(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			f := newFixture(t)
 			params := defaultAccountParams(f.User.ID)
 			params.Name = tc.name
 			params.Currency = tc.currency
 			params.OpeningBalance = tc.openingBalance
-			account, err := f.DB.CreateAccount(params)
+			account, err := f.DB.CreateAccount(context.Background(), params)
 			if tc.respError {
 				require.Error(t, err)
 				return
@@ -61,6 +64,7 @@ func TestCreateAccount(t *testing.T) {
 	}
 
 	t.Run("non duplicate account ids", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account1 := seedAccount(t, f.DB, f.User.ID, 10000)
 		account2 := seedAccount(t, f.DB, f.User.ID, 20000)
@@ -68,16 +72,19 @@ func TestCreateAccount(t *testing.T) {
 	})
 
 	t.Run("same name for different users is allowed", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		_ = seedAccount(t, f.DB, f.User.ID, 10000)
-		_, err := f.DB.CreateAccount(defaultAccountParams(user2.ID))
+		_, err := f.DB.CreateAccount(context.Background(), defaultAccountParams(user2.ID))
 		require.NoError(t, err)
 	})
 }
 
 func TestUpdateAccount(t *testing.T) {
+	t.Parallel()
 	t.Run("full params updates both params", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 10000)
 		params := storage.UpdateAccountParams{
@@ -85,7 +92,7 @@ func TestUpdateAccount(t *testing.T) {
 			ManualAdjustment: new(int64(500)),
 		}
 
-		updatedAccount, err := f.DB.UpdateAccount(f.User.ID, account.ID, params)
+		updatedAccount, err := f.DB.UpdateAccount(context.Background(), f.User.ID, account.ID, params)
 		require.NoError(t, err)
 		require.Equal(t, *params.Name, updatedAccount.Name)
 		require.Equal(t, *params.ManualAdjustment, updatedAccount.ManualAdjustment)
@@ -93,13 +100,14 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("only name change", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 10000)
 		params := storage.UpdateAccountParams{
 			Name: new("UpdatedAccount"),
 		}
 
-		updatedAccount, err := f.DB.UpdateAccount(f.User.ID, account.ID, params)
+		updatedAccount, err := f.DB.UpdateAccount(context.Background(), f.User.ID, account.ID, params)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), updatedAccount.ManualAdjustment)
 		require.Equal(t, *params.Name, updatedAccount.Name)
@@ -111,35 +119,41 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("wrong account id return not found", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
-		_, err := f.DB.UpdateAccount(f.User.ID, uuid.NewString(), storage.UpdateAccountParams{})
+		_, err := f.DB.UpdateAccount(context.Background(), f.User.ID, uuid.NewString(), storage.UpdateAccountParams{})
 		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 
 	t.Run("update account for another user returns not found", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		account := seedAccount(t, f.DB, f.User.ID, 10000)
-		_, err := f.DB.UpdateAccount(user2.ID, account.ID, storage.UpdateAccountParams{})
+		_, err := f.DB.UpdateAccount(context.Background(), user2.ID, account.ID, storage.UpdateAccountParams{})
 		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 }
 
 func TestDeleteAccount(t *testing.T) {
+	t.Parallel()
 	t.Run("existing account", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 10000)
-		err := f.DB.DeleteAccount(f.User.ID, account.ID)
+		err := f.DB.DeleteAccount(context.Background(), f.User.ID, account.ID)
 		require.NoError(t, err)
 	})
 
 	t.Run("non existing account", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
-		err := f.DB.DeleteAccount(f.User.ID, uuid.NewString())
+		err := f.DB.DeleteAccount(context.Background(), f.User.ID, uuid.NewString())
 		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 
 	t.Run("account with cashflow transaction", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 100000)
 		category := seedCategory(t, f.DB, defaultCategoryParams(f.User.ID))
@@ -151,14 +165,15 @@ func TestDeleteAccount(t *testing.T) {
 				amount:          20000,
 				accountID:       account.ID,
 				categoryID:      category.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
-		err := f.DB.DeleteAccount(f.User.ID, account.ID)
+		err := f.DB.DeleteAccount(context.Background(), f.User.ID, account.ID)
 		require.ErrorIs(t, err, storage.ErrAccountHasTransactions)
 	})
 
 	t.Run("account with transfer transaction", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account1 := seedAccount(t, f.DB, f.User.ID, 100000)
 		account2 := seedAccount(t, f.DB, f.User.ID, 100000)
@@ -172,29 +187,32 @@ func TestDeleteAccount(t *testing.T) {
 				toAccountID:   account2.ID,
 			},
 		)
-		err := f.DB.DeleteAccount(f.User.ID, account1.ID)
+		err := f.DB.DeleteAccount(context.Background(), f.User.ID, account1.ID)
 		require.ErrorIs(t, err, storage.ErrAccountHasTransactions)
 	})
 
 	t.Run("double delete account", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 10000)
-		err := f.DB.DeleteAccount(f.User.ID, account.ID)
+		err := f.DB.DeleteAccount(context.Background(), f.User.ID, account.ID)
 		require.NoError(t, err)
-		err = f.DB.DeleteAccount(f.User.ID, account.ID)
+		err = f.DB.DeleteAccount(context.Background(), f.User.ID, account.ID)
 		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 
 	t.Run("delete account for another user returns not found", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		account := seedAccount(t, f.DB, f.User.ID, 10000)
-		err := f.DB.DeleteAccount(user2.ID, account.ID)
+		err := f.DB.DeleteAccount(context.Background(), user2.ID, account.ID)
 		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 }
 
 func TestGetAccount(t *testing.T) {
+	t.Parallel()
 	f := newFixture(t)
 	account := seedAccount(t, f.DB, f.User.ID, 10000)
 
@@ -221,7 +239,8 @@ func TestGetAccount(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			fetched, err := f.DB.GetAccount(f.User.ID, tc.id)
+			t.Parallel()
+			fetched, err := f.DB.GetAccount(context.Background(), f.User.ID, tc.id)
 
 			if tc.respError {
 				require.ErrorIs(t, err, tc.expectedErr)
@@ -235,6 +254,7 @@ func TestGetAccount(t *testing.T) {
 	}
 
 	t.Run("account with transactions returns correct balance", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 40000)
 		account2 := seedAccount(t, f.DB, f.User.ID, 30000)
@@ -244,7 +264,7 @@ func TestGetAccount(t *testing.T) {
 			amount:          5000,
 			accountID:       account.ID,
 			categoryID:      category.ID,
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 		transaction2 := seedTransferTransaction(t, f.DB, seedTransferTransactionParams{
 			userID:        f.User.ID,
@@ -253,7 +273,7 @@ func TestGetAccount(t *testing.T) {
 			toAccountID:   account.ID,
 		})
 
-		fetched, err := f.DB.GetAccount(f.User.ID, account.ID)
+		fetched, err := f.DB.GetAccount(context.Background(), f.User.ID, account.ID)
 		require.NoError(t, err)
 		require.Equal(t, account.ID, fetched.ID)
 		assert.Equal(
@@ -264,35 +284,40 @@ func TestGetAccount(t *testing.T) {
 	})
 
 	t.Run("get account for another user returns not found", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		account := seedAccount(t, f.DB, f.User.ID, 10000)
-		_, err := f.DB.GetAccount(user2.ID, account.ID)
+		_, err := f.DB.GetAccount(context.Background(), user2.ID, account.ID)
 		require.ErrorIs(t, err, storage.ErrAccountNotFound)
 	})
 }
 
 func TestGetAccounts(t *testing.T) {
+	t.Parallel()
 	t.Run("empty accounts in database", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
-		accounts, err := f.DB.GetAccounts(f.User.ID)
+		accounts, err := f.DB.GetAccounts(context.Background(), f.User.ID)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(accounts))
+		require.Empty(t, accounts)
 	})
 
 	t.Run("existing accounts in database", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		accounts := seedAccounts(t, f.DB, f.User.ID, 4)
-		fetched, err := f.DB.GetAccounts(f.User.ID)
+		fetched, err := f.DB.GetAccounts(context.Background(), f.User.ID)
 		require.NoError(t, err)
-		require.Equal(t, len(accounts), len(fetched))
+		require.Len(t, fetched, len(accounts))
 	})
 
 	t.Run("accounts with transactions returns correct balances", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account1 := seedAccount(t, f.DB, f.User.ID, 10000)
 		incomeCategoryParams := defaultCategoryParams(f.User.ID)
-		incomeCategoryParams.Type = "income"
+		incomeCategoryParams.Type = storage.TransactionTypeIncome
 		incomeCategoryParams.Name = "IncomeCategory"
 		incomeCategory := seedCategory(t, f.DB, incomeCategoryParams)
 		transaction1 := seedCashflowTransaction(t, f.DB, seedCashflowTransactionParams{
@@ -300,11 +325,11 @@ func TestGetAccounts(t *testing.T) {
 			amount:          5000,
 			accountID:       account1.ID,
 			categoryID:      incomeCategory.ID,
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 		account2 := seedAccount(t, f.DB, f.User.ID, 20000)
 		expenseCategoryParams := defaultCategoryParams(f.User.ID)
-		expenseCategoryParams.Type = "expense"
+		expenseCategoryParams.Type = storage.TransactionTypeExpense
 		expenseCategoryParams.Name = "ExpenseCategory"
 		expenseCategory := seedCategory(t, f.DB, expenseCategoryParams)
 		transaction2 := seedCashflowTransaction(t, f.DB, seedCashflowTransactionParams{
@@ -312,7 +337,7 @@ func TestGetAccounts(t *testing.T) {
 			amount:          10000,
 			accountID:       account2.ID,
 			categoryID:      expenseCategory.ID,
-			transactionType: "expense",
+			transactionType: storage.TransactionTypeExpense,
 		})
 		transaction3 := seedTransferTransaction(t, f.DB, seedTransferTransactionParams{
 			userID:        f.User.ID,
@@ -321,9 +346,9 @@ func TestGetAccounts(t *testing.T) {
 			toAccountID:   account1.ID,
 		})
 
-		fetched, err := f.DB.GetAccounts(f.User.ID)
+		fetched, err := f.DB.GetAccounts(context.Background(), f.User.ID)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(fetched))
+		require.Len(t, fetched, 2)
 
 		for _, account := range fetched {
 			if account.ID == account1.ID {
@@ -345,27 +370,31 @@ func TestGetAccounts(t *testing.T) {
 	})
 
 	t.Run("get accounts for another user returns empty list", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		_ = seedAccount(t, f.DB, f.User.ID, 10000)
-		accounts, err := f.DB.GetAccounts(user2.ID)
+		accounts, err := f.DB.GetAccounts(context.Background(), user2.ID)
 		require.NoError(t, err)
 		assert.Empty(t, accounts)
 	})
 }
 
 func TestGetAccountBalances(t *testing.T) {
+	t.Parallel()
 	t.Run("empty db returns empty list", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
-		balances, err := f.DB.GetAccountBalances(f.User.ID)
+		balances, err := f.DB.GetAccountBalances(context.Background(), f.User.ID)
 		require.NoError(t, err)
 		assert.Empty(t, balances)
 	})
 
 	t.Run("accounts without transactions returns opening + adjustment", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 10000)
-		balances, err := f.DB.GetAccountBalances(f.User.ID)
+		balances, err := f.DB.GetAccountBalances(context.Background(), f.User.ID)
 		require.NoError(t, err)
 		require.Len(t, balances, 1)
 
@@ -375,10 +404,11 @@ func TestGetAccountBalances(t *testing.T) {
 	})
 
 	t.Run("income only account returns opening + adjustment + income", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 10000)
 		categoryParams := defaultCategoryParams(f.User.ID)
-		categoryParams.Type = "income"
+		categoryParams.Type = storage.TransactionTypeIncome
 		categoryParams.Name = "IncomeCategory"
 		category := seedCategory(t, f.DB, categoryParams)
 		transaction := seedCashflowTransaction(t, f.DB, seedCashflowTransactionParams{
@@ -386,9 +416,9 @@ func TestGetAccountBalances(t *testing.T) {
 			amount:          5000,
 			accountID:       account.ID,
 			categoryID:      category.ID,
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
-		balances, err := f.DB.GetAccountBalances(f.User.ID)
+		balances, err := f.DB.GetAccountBalances(context.Background(), f.User.ID)
 		require.NoError(t, err)
 		require.Len(t, balances, 1)
 
@@ -402,20 +432,21 @@ func TestGetAccountBalances(t *testing.T) {
 	})
 
 	t.Run("expense only account returns opening + adjustment + expense", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 10000)
 		expenseCategoryParams := defaultCategoryParams(f.User.ID)
-		expenseCategoryParams.Type = "expense"
+		expenseCategoryParams.Type = storage.TransactionTypeExpense
 		expenseCategoryParams.Name = "ExpenseCategory"
 		expenseCategory := seedCategory(t, f.DB, expenseCategoryParams)
 		transaction := seedCashflowTransaction(t, f.DB, seedCashflowTransactionParams{
 			userID:          f.User.ID,
-			transactionType: "expense",
+			transactionType: storage.TransactionTypeExpense,
 			amount:          5000,
 			accountID:       account.ID,
 			categoryID:      expenseCategory.ID,
 		})
-		balances, err := f.DB.GetAccountBalances(f.User.ID)
+		balances, err := f.DB.GetAccountBalances(context.Background(), f.User.ID)
 		require.NoError(t, err)
 		require.Len(t, balances, 1)
 
@@ -431,14 +462,15 @@ func TestGetAccountBalances(t *testing.T) {
 	t.Run(
 		"income and expense account returns opening + adjustment + income - expense",
 		func(t *testing.T) {
+			t.Parallel()
 			f := newFixture(t)
 			account := seedAccount(t, f.DB, f.User.ID, 10000)
 			incomeCategoryParams := defaultCategoryParams(f.User.ID)
-			incomeCategoryParams.Type = "income"
+			incomeCategoryParams.Type = storage.TransactionTypeIncome
 			incomeCategoryParams.Name = "IncomeCategory"
 			incomeCategory := seedCategory(t, f.DB, incomeCategoryParams)
 			expenseCategoryParams := defaultCategoryParams(f.User.ID)
-			expenseCategoryParams.Type = "expense"
+			expenseCategoryParams.Type = storage.TransactionTypeExpense
 			expenseCategoryParams.Name = "ExpenseCategory"
 			expenseCategory := seedCategory(t, f.DB, expenseCategoryParams)
 			transaction1 := seedCashflowTransaction(
@@ -449,7 +481,7 @@ func TestGetAccountBalances(t *testing.T) {
 					amount:          10000,
 					accountID:       account.ID,
 					categoryID:      incomeCategory.ID,
-					transactionType: "income",
+					transactionType: storage.TransactionTypeIncome,
 				},
 			)
 			transaction2 := seedCashflowTransaction(
@@ -460,10 +492,10 @@ func TestGetAccountBalances(t *testing.T) {
 					amount:          10000,
 					accountID:       account.ID,
 					categoryID:      expenseCategory.ID,
-					transactionType: "expense",
+					transactionType: storage.TransactionTypeExpense,
 				},
 			)
-			balances, err := f.DB.GetAccountBalances(f.User.ID)
+			balances, err := f.DB.GetAccountBalances(context.Background(), f.User.ID)
 			require.NoError(t, err)
 			require.Len(t, balances, 1)
 
@@ -478,20 +510,21 @@ func TestGetAccountBalances(t *testing.T) {
 	)
 
 	t.Run("multiple accounts with different transactions", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account1 := seedAccount(t, f.DB, f.User.ID, 200000)
-		account1, err := f.DB.UpdateAccount(f.User.ID, account1.ID, storage.UpdateAccountParams{
+		account1, err := f.DB.UpdateAccount(context.Background(), f.User.ID, account1.ID, storage.UpdateAccountParams{
 			Name:             new("UpdatedAccount"),
 			ManualAdjustment: new(int64(5540)),
 		})
 		require.NoError(t, err)
 		account2 := seedAccount(t, f.DB, f.User.ID, 330000)
 		incomeCategoryParams := defaultCategoryParams(f.User.ID)
-		incomeCategoryParams.Type = "income"
+		incomeCategoryParams.Type = storage.TransactionTypeIncome
 		incomeCategoryParams.Name = "IncomeCategory"
 		incomeCategory := seedCategory(t, f.DB, incomeCategoryParams)
 		expenseCategoryParams := defaultCategoryParams(f.User.ID)
-		expenseCategoryParams.Type = "expense"
+		expenseCategoryParams.Type = storage.TransactionTypeExpense
 		expenseCategoryParams.Name = "ExpenseCategory"
 		expenseCategory := seedCategory(t, f.DB, expenseCategoryParams)
 
@@ -503,7 +536,7 @@ func TestGetAccountBalances(t *testing.T) {
 				amount:          10000,
 				accountID:       account1.ID,
 				categoryID:      incomeCategory.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
 		transaction2 := seedCashflowTransaction(
@@ -514,7 +547,7 @@ func TestGetAccountBalances(t *testing.T) {
 				amount:          10000,
 				accountID:       account1.ID,
 				categoryID:      expenseCategory.ID,
-				transactionType: "expense",
+				transactionType: storage.TransactionTypeExpense,
 			},
 		)
 		transaction3 := seedCashflowTransaction(
@@ -525,7 +558,7 @@ func TestGetAccountBalances(t *testing.T) {
 				amount:          20000,
 				accountID:       account1.ID,
 				categoryID:      expenseCategory.ID,
-				transactionType: "expense",
+				transactionType: storage.TransactionTypeExpense,
 			},
 		)
 		transaction4 := seedCashflowTransaction(
@@ -536,7 +569,7 @@ func TestGetAccountBalances(t *testing.T) {
 				amount:          30000,
 				accountID:       account1.ID,
 				categoryID:      incomeCategory.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
 		transaction5 := seedTransferTransaction(
@@ -555,7 +588,7 @@ func TestGetAccountBalances(t *testing.T) {
 				amount:          250000,
 				accountID:       account2.ID,
 				categoryID:      incomeCategory.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
 		acc2transaction2 := seedCashflowTransaction(
@@ -566,10 +599,10 @@ func TestGetAccountBalances(t *testing.T) {
 				amount:          50000,
 				accountID:       account2.ID,
 				categoryID:      expenseCategory.ID,
-				transactionType: "expense",
+				transactionType: storage.TransactionTypeExpense,
 			},
 		)
-		balances, err := f.DB.GetAccountBalances(f.User.ID)
+		balances, err := f.DB.GetAccountBalances(context.Background(), f.User.ID)
 		require.NoError(t, err)
 		require.Len(t, balances, 2)
 
@@ -593,10 +626,11 @@ func TestGetAccountBalances(t *testing.T) {
 	})
 
 	t.Run("get account balances for another user returns empty list", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		_ = seedAccount(t, f.DB, f.User.ID, 10000)
-		balances, err := f.DB.GetAccountBalances(user2.ID)
+		balances, err := f.DB.GetAccountBalances(context.Background(), user2.ID)
 		require.NoError(t, err)
 		assert.Empty(t, balances)
 	})

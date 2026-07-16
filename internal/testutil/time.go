@@ -24,8 +24,8 @@ func GetTimeFromStr(t *testing.T, timeStr string) *time.Time {
 }
 
 func AssertTimeEqual(t *testing.T, expected, actual time.Time) {
-    t.Helper()
-    if !expected.Equal(actual) {
-        t.Errorf("time mismatch:\nexpected: %v\nactual:   %v", expected, actual)
-    }
+	t.Helper()
+	if !expected.Equal(actual) {
+		t.Errorf("time mismatch:\nexpected: %v\nactual:   %v", expected, actual)
+	}
 }

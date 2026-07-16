@@ -15,21 +15,21 @@ import (
 )
 
 type CategoryRequest struct {
-	Name  string `json:"name"  binding:"required"`
-	Type  string `json:"type"  binding:"required,oneof=income expense"`
-	Icon  string `json:"icon"  binding:"required"`
-	Color string `json:"color" binding:"required"`
+	Name  string                  `json:"name"  binding:"required"`
+	Type  storage.TransactionType `json:"type"  binding:"required,oneof=income expense"`
+	Icon  string                  `json:"icon"  binding:"required"`
+	Color string                  `json:"color" binding:"required"`
 }
 
 type UpdateCategoryRequest struct {
-	Name  *string `json:"name"  binding:"omitempty,min=1"`
-	Type  *string `json:"type"  binding:"omitempty,oneof=income expense"`
-	Icon  *string `json:"icon"  binding:"omitempty,min=1"`
-	Color *string `json:"color" binding:"omitempty,min=1"`
+	Name  *string                  `json:"name"  binding:"omitempty,min=1"`
+	Type  *storage.TransactionType `json:"type"  binding:"omitempty,oneof=income expense"`
+	Icon  *string                  `json:"icon"  binding:"omitempty,min=1"`
+	Color *string                  `json:"color" binding:"omitempty,min=1"`
 }
 
 type GetCategoriesQuery struct {
-	Type *string `form:"type" binding:"omitempty,oneof=income expense"`
+	Type *storage.TransactionType `form:"type" binding:"omitempty,oneof=income expense"`
 }
 
 func (h *Handler) CreateCategory(c *gin.Context) {
@@ -46,7 +46,7 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 		return
 	}
 
-	category, err := h.DB.CreateCategory(storage.CreateCategoryParams{
+	category, err := h.DB.CreateCategory(c.Request.Context(), storage.CreateCategoryParams{
 		UserID: user.ID,
 		Name:   req.Name,
 		Type:   req.Type,
@@ -94,7 +94,7 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	category, err := h.DB.UpdateCategory(user.ID, id, storage.UpdateCategoryParams{
+	category, err := h.DB.UpdateCategory(c.Request.Context(), user.ID, id, storage.UpdateCategoryParams{
 		Name:  req.Name,
 		Type:  req.Type,
 		Icon:  req.Icon,
@@ -126,6 +126,7 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 	c.JSON(http.StatusOK, category)
 }
 
+//nolint:dupl // CRUD handler intentionally mirrors DeleteAccount structure
 func (h *Handler) DeleteCategory(c *gin.Context) {
 	op := "handlers.categories.DeleteCategory"
 
@@ -136,7 +137,7 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 	user := httpctx.CurrentUser(c)
 
 	id := c.Param("id")
-	err := h.DB.DeleteCategory(user.ID, id)
+	err := h.DB.DeleteCategory(c.Request.Context(), user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrCategoryNotFound) {
 			log.Info("category not found", slog.String("id", id))
@@ -168,7 +169,7 @@ func (h *Handler) GetCategory(c *gin.Context) {
 	user := httpctx.CurrentUser(c)
 
 	id := c.Param("id")
-	category, err := h.DB.GetCategory(user.ID, id)
+	category, err := h.DB.GetCategory(c.Request.Context(), user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrCategoryNotFound) {
 			log.Info("category not found", slog.String("id", id))
@@ -198,7 +199,7 @@ func (h *Handler) ListCategories(c *gin.Context) {
 		return
 	}
 
-	categories, err := h.DB.GetCategories(user.ID, storage.GetCategoriesParams{
+	categories, err := h.DB.GetCategories(c.Request.Context(), user.ID, storage.GetCategoriesParams{
 		Type: params.Type,
 	})
 	if err != nil {

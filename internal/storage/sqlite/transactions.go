@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -11,7 +12,7 @@ import (
 )
 
 type validateTransactionRefsParams struct {
-	Type          string
+	Type          storage.TransactionType
 	UserID        string
 	AccountID     *string
 	CategoryID    *string
@@ -19,9 +20,9 @@ type validateTransactionRefsParams struct {
 	ToAccountID   *string
 }
 
-func (s *Storage) validateTransactionRefs(params validateTransactionRefsParams) error {
+func (s *Storage) validateTransactionRefs(ctx context.Context, params validateTransactionRefsParams) error {
 	switch params.Type {
-	case "income", "expense":
+	case storage.TransactionTypeIncome, storage.TransactionTypeExpense:
 		if params.FromAccountID != nil || params.ToAccountID != nil {
 			return storage.ErrInvalidRefs
 		}
@@ -30,12 +31,12 @@ func (s *Storage) validateTransactionRefs(params validateTransactionRefsParams) 
 			return storage.ErrInvalidRefs
 		}
 		// Business rule: account must exist
-		_, err := s.GetAccount(params.UserID, *params.AccountID)
+		_, err := s.GetAccount(ctx, params.UserID, *params.AccountID)
 		if err != nil {
 			return err
 		}
 		// Business rule: category must exist
-		category, err := s.GetCategory(params.UserID, *params.CategoryID)
+		category, err := s.GetCategory(ctx, params.UserID, *params.CategoryID)
 		if err != nil {
 			return err
 		}
@@ -44,7 +45,7 @@ func (s *Storage) validateTransactionRefs(params validateTransactionRefsParams) 
 		if category.Type != params.Type {
 			return storage.ErrCategoryTypeMismatch
 		}
-	case "transfer":
+	case storage.TransactionTypeTransfer:
 		if params.AccountID != nil || params.CategoryID != nil {
 			return storage.ErrInvalidRefs
 		}
@@ -53,12 +54,12 @@ func (s *Storage) validateTransactionRefs(params validateTransactionRefsParams) 
 			return storage.ErrInvalidRefs
 		}
 		// Business rule: from account must exist
-		_, err := s.GetAccount(params.UserID, *params.FromAccountID)
+		_, err := s.GetAccount(ctx, params.UserID, *params.FromAccountID)
 		if err != nil {
 			return err
 		}
 		// Business rule: to account must exist
-		_, err = s.GetAccount(params.UserID, *params.ToAccountID)
+		_, err = s.GetAccount(ctx, params.UserID, *params.ToAccountID)
 		if err != nil {
 			return err
 		}
@@ -71,12 +72,12 @@ func (s *Storage) validateTransactionRefs(params validateTransactionRefsParams) 
 	return nil
 }
 
-func (s *Storage) CreateTransaction(
+func (s *Storage) CreateTransaction(ctx context.Context,
 	params storage.CreateTransactionParams,
 ) (*storage.Transaction, error) {
 	const op = "storage.sqlite.CreateTransaction"
 
-	if err := s.validateTransactionRefs(validateTransactionRefsParams{
+	if err := s.validateTransactionRefs(ctx, validateTransactionRefsParams{
 		Type:          params.Type,
 		UserID:        params.UserID,
 		AccountID:     params.AccountID,
@@ -87,7 +88,8 @@ func (s *Storage) CreateTransaction(
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	stmt, err := s.db.Prepare(
+	stmt, err := s.db.PrepareContext(
+		ctx,
 		`INSERT INTO transactions (id, user_id, type, amount, description, occurred_at, account_id, category_id, from_account_id, to_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, user_id, type, amount, description, occurred_at, created_at, updated_at, account_id, category_id, from_account_id, to_account_id`,
 	)
 	if err != nil {
@@ -97,7 +99,7 @@ func (s *Storage) CreateTransaction(
 
 	id := uuid.NewString()
 	var transaction storage.Transaction
-	err = stmt.QueryRow(id, params.UserID, params.Type, params.Amount, params.Description, params.OccurredAt, params.AccountID, params.CategoryID, params.FromAccountID, params.ToAccountID).
+	err = stmt.QueryRowContext(ctx, id, params.UserID, params.Type, params.Amount, params.Description, params.OccurredAt, params.AccountID, params.CategoryID, params.FromAccountID, params.ToAccountID).
 		Scan(&transaction.ID, &transaction.UserID, &transaction.Type, &transaction.Amount, &transaction.Description, &transaction.OccurredAt, &transaction.CreatedAt, &transaction.UpdatedAt, &transaction.AccountID, &transaction.CategoryID, &transaction.FromAccountID, &transaction.ToAccountID)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -106,14 +108,14 @@ func (s *Storage) CreateTransaction(
 	return &transaction, nil
 }
 
-func (s *Storage) UpdateTransaction(
+func (s *Storage) UpdateTransaction(ctx context.Context,
 	userID string,
 	id string,
 	params storage.UpdateTransactionParams,
 ) (*storage.Transaction, error) {
 	const op = "storage.sqlite.UpdateTransaction"
 
-	current, err := s.GetTransaction(userID, id)
+	current, err := s.GetTransaction(ctx, userID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +137,7 @@ func (s *Storage) UpdateTransaction(
 		effectiveToAccountID = params.ToAccountID
 	}
 
-	if err := s.validateTransactionRefs(validateTransactionRefsParams{
+	if err := s.validateTransactionRefs(ctx, validateTransactionRefsParams{
 		Type:          current.Type,
 		UserID:        userID,
 		AccountID:     effectiveAccountID,
@@ -159,13 +161,13 @@ func (s *Storage) UpdateTransaction(
 	args = append(args, id)
 	args = append(args, userID)
 
-	query := fmt.Sprintf(
+	query := fmt.Sprintf( //nolint:gosec // G201: setParts is built from a fixed whitelist, not user input
 		`UPDATE transactions SET %s WHERE id = ? AND user_id = ? RETURNING id, user_id, type, amount, description, occurred_at, created_at, updated_at, account_id, category_id, from_account_id, to_account_id`,
 		setParts,
 	)
 
 	var transaction storage.Transaction
-	err = s.db.QueryRow(query, args...).
+	err = s.db.QueryRowContext(ctx, query, args...).
 		Scan(&transaction.ID, &transaction.UserID, &transaction.Type, &transaction.Amount, &transaction.Description, &transaction.OccurredAt, &transaction.CreatedAt, &transaction.UpdatedAt, &transaction.AccountID, &transaction.CategoryID, &transaction.FromAccountID, &transaction.ToAccountID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -177,18 +179,16 @@ func (s *Storage) UpdateTransaction(
 	return &transaction, nil
 }
 
-func (s *Storage) DeleteTransaction(userID string, id string) error {
+func (s *Storage) DeleteTransaction(ctx context.Context, userID string, id string) error {
 	const op = "storage.sqlite.DeleteTransaction"
 
-	stmt, err := s.db.Prepare(
-		`DELETE FROM transactions WHERE id = ? AND user_id = ?`,
-	)
+	stmt, err := s.db.PrepareContext(ctx, `DELETE FROM transactions WHERE id = ? AND user_id = ?`)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(id, userID)
+	res, err := stmt.ExecContext(ctx, id, userID)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -204,10 +204,11 @@ func (s *Storage) DeleteTransaction(userID string, id string) error {
 	return nil
 }
 
-func (s *Storage) GetTransaction(userID string, id string) (*storage.Transaction, error) {
+func (s *Storage) GetTransaction(ctx context.Context, userID string, id string) (*storage.Transaction, error) {
 	const op = "storage.sqlite.GetTransaction"
 
-	stmt, err := s.db.Prepare(
+	stmt, err := s.db.PrepareContext(
+		ctx,
 		`SELECT id, user_id, type, amount, description, occurred_at, created_at, updated_at, account_id, category_id, from_account_id, to_account_id FROM transactions WHERE id = ? AND user_id = ?`,
 	)
 	if err != nil {
@@ -216,7 +217,7 @@ func (s *Storage) GetTransaction(userID string, id string) (*storage.Transaction
 	defer stmt.Close()
 
 	var transaction storage.Transaction
-	err = stmt.QueryRow(id, userID).
+	err = stmt.QueryRowContext(ctx, id, userID).
 		Scan(&transaction.ID, &transaction.UserID, &transaction.Type, &transaction.Amount, &transaction.Description, &transaction.OccurredAt, &transaction.CreatedAt, &transaction.UpdatedAt, &transaction.AccountID, &transaction.CategoryID, &transaction.FromAccountID, &transaction.ToAccountID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -228,7 +229,7 @@ func (s *Storage) GetTransaction(userID string, id string) (*storage.Transaction
 	return &transaction, nil
 }
 
-func (s *Storage) GetTransactions(
+func (s *Storage) GetTransactions(ctx context.Context,
 	userID string,
 	params storage.GetTransactionsParams,
 ) ([]storage.Transaction, error) {
@@ -236,7 +237,7 @@ func (s *Storage) GetTransactions(
 
 	whereParts, args := newWhereBuilder().
 		addString("user_id", &userID).
-		addString("type", params.Type).
+		addTransactionType("type", params.Type).
 		addStringsForOr([]string{"account_id", "from_account_id", "to_account_id"}, params.AccountID).
 		addString("category_id", params.CategoryID).
 		addTimeOp("occurred_at", params.FromDate, ">=").
@@ -270,7 +271,7 @@ func (s *Storage) GetTransactions(
 	}
 
 	transactions := []storage.Transaction{}
-	rows, err := s.db.Query(query, args...)
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}

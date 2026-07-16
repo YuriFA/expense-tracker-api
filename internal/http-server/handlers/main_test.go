@@ -10,6 +10,6 @@ import (
 
 func TestMain(m *testing.M) {
 	gin.SetMode(gin.TestMode)
-	time.Local = time.UTC // Set the default timezone to UTC for tests
+	time.Local = time.UTC //nolint:reassign // Set the default timezone to UTC for tests
 	os.Exit(m.Run())
 }

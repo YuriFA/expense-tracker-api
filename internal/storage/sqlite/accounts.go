@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -10,10 +11,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Storage) CreateAccount(params storage.CreateAccountParams) (*storage.Account, error) {
+func (s *Storage) CreateAccount(ctx context.Context, params storage.CreateAccountParams) (*storage.Account, error) {
 	const op = "storage.sqlite.CreateAccount"
 
-	stmt, err := s.db.Prepare(
+	stmt, err := s.db.PrepareContext(
+		ctx,
 		`INSERT INTO accounts (id, user_id, name, currency, opening_balance, manual_adjustment)
 		VALUES (?, ?, ?, ?, ?, ?)
 		RETURNING id, user_id, name, currency, opening_balance, manual_adjustment, opening_balance + manual_adjustment, created_at, updated_at`,
@@ -25,7 +27,7 @@ func (s *Storage) CreateAccount(params storage.CreateAccountParams) (*storage.Ac
 
 	id := uuid.NewString()
 	var account storage.Account
-	err = stmt.QueryRow(id, params.UserID, params.Name, params.Currency, params.OpeningBalance, int64(0)).
+	err = stmt.QueryRowContext(ctx, id, params.UserID, params.Name, params.Currency, params.OpeningBalance, int64(0)).
 		Scan(&account.ID, &account.UserID, &account.Name, &account.Currency, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -34,7 +36,7 @@ func (s *Storage) CreateAccount(params storage.CreateAccountParams) (*storage.Ac
 	return &account, nil
 }
 
-func (s *Storage) UpdateAccount(
+func (s *Storage) UpdateAccount(ctx context.Context,
 	userID string,
 	id string,
 	params storage.UpdateAccountParams,
@@ -49,7 +51,7 @@ func (s *Storage) UpdateAccount(
 	args = append(args, id)
 	args = append(args, userID)
 
-	query := fmt.Sprintf(
+	query := fmt.Sprintf( //nolint:gosec // G201: setParts is built from a fixed whitelist, not user input
 		`UPDATE accounts SET %s
 		WHERE id = ? AND user_id = ?
 		RETURNING id, user_id, name, currency, opening_balance, manual_adjustment,
@@ -63,7 +65,7 @@ func (s *Storage) UpdateAccount(
 	)
 
 	var account storage.Account
-	err := s.db.QueryRow(query, args...).
+	err := s.db.QueryRowContext(ctx, query, args...).
 		Scan(&account.ID, &account.UserID, &account.Name, &account.Currency, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -75,18 +77,16 @@ func (s *Storage) UpdateAccount(
 	return &account, nil
 }
 
-func (s *Storage) DeleteAccount(userID string, id string) error {
+func (s *Storage) DeleteAccount(ctx context.Context, userID string, id string) error {
 	const op = "storage.sqlite.DeleteAccount"
 
-	stmt, err := s.db.Prepare(
-		`DELETE FROM accounts WHERE id = ? AND user_id = ?`,
-	)
+	stmt, err := s.db.PrepareContext(ctx, `DELETE FROM accounts WHERE id = ? AND user_id = ?`)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(id, userID)
+	res, err := stmt.ExecContext(ctx, id, userID)
 	if err != nil {
 		if isFKViolationError(err) {
 			return fmt.Errorf("%s: %w", op, storage.ErrAccountHasTransactions)
@@ -105,10 +105,11 @@ func (s *Storage) DeleteAccount(userID string, id string) error {
 	return nil
 }
 
-func (s *Storage) GetAccount(userID string, id string) (*storage.Account, error) {
+func (s *Storage) GetAccount(ctx context.Context, userID string, id string) (*storage.Account, error) {
 	const op = "storage.sqlite.GetAccount"
 
-	stmt, err := s.db.Prepare(
+	stmt, err := s.db.PrepareContext(
+		ctx,
 		`SELECT a.id, a.user_id, a.name, a.currency, a.opening_balance, a.manual_adjustment, 
 			a.opening_balance + a.manual_adjustment + COALESCE(SUM(c.signed),0) AS balance,
 			a.created_at, a.updated_at
@@ -123,7 +124,7 @@ func (s *Storage) GetAccount(userID string, id string) (*storage.Account, error)
 	defer stmt.Close()
 
 	var account storage.Account
-	err = stmt.QueryRow(id, userID).
+	err = stmt.QueryRowContext(ctx, id, userID).
 		Scan(&account.ID, &account.UserID, &account.Name, &account.Currency, &account.OpeningBalance, &account.ManualAdjustment, &account.Balance, &account.CreatedAt, &account.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -135,10 +136,11 @@ func (s *Storage) GetAccount(userID string, id string) (*storage.Account, error)
 	return &account, nil
 }
 
-func (s *Storage) GetAccounts(userID string) ([]storage.Account, error) {
+func (s *Storage) GetAccounts(ctx context.Context, userID string) ([]storage.Account, error) {
 	const op = "storage.sqlite.GetAccounts"
 
-	stmt, err := s.db.Prepare(
+	stmt, err := s.db.PrepareContext(
+		ctx,
 		`SELECT a.id, a.user_id, a.name, a.currency, a.opening_balance, a.manual_adjustment, 
 			a.opening_balance + a.manual_adjustment + COALESCE(SUM(c.signed),0) AS balance,
 			a.created_at, a.updated_at
@@ -153,7 +155,7 @@ func (s *Storage) GetAccounts(userID string) ([]storage.Account, error) {
 	defer stmt.Close()
 
 	accounts := []storage.Account{}
-	rows, err := stmt.Query(userID)
+	rows, err := stmt.QueryContext(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -185,10 +187,11 @@ func (s *Storage) GetAccounts(userID string) ([]storage.Account, error) {
 	return accounts, nil
 }
 
-func (s *Storage) GetAccountBalances(userID string) ([]storage.AccountBalance, error) {
+func (s *Storage) GetAccountBalances(ctx context.Context, userID string) ([]storage.AccountBalance, error) {
 	const op = "storage.sqlite.GetAccountBalances"
 
-	stmt, err := s.db.Prepare(
+	stmt, err := s.db.PrepareContext(
+		ctx,
 		`SELECT a.id, a.user_id, a.name, a.currency, a.opening_balance + a.manual_adjustment + COALESCE(SUM(c.signed), 0) AS balance
 		FROM accounts a
 		LEFT JOIN account_contributions c ON c.account_id = a.id
@@ -201,7 +204,7 @@ func (s *Storage) GetAccountBalances(userID string) ([]storage.AccountBalance, e
 	defer stmt.Close()
 
 	balances := []storage.AccountBalance{}
-	rows, err := stmt.Query(userID)
+	rows, err := stmt.QueryContext(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}

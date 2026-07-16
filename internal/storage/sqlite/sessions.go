@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -9,10 +10,11 @@ import (
 	"github.com/yurifa/expense-tracker-api/internal/storage"
 )
 
-func (s *Storage) CreateSession(params storage.CreateSessionParams) (*storage.Session, error) {
+func (s *Storage) CreateSession(ctx context.Context, params storage.CreateSessionParams) (*storage.Session, error) {
 	const op = "storage.sqlite.CreateSession"
 
-	stmt, err := s.db.Prepare(
+	stmt, err := s.db.PrepareContext(
+		ctx,
 		`INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?) RETURNING id, user_id, expires_at, created_at, updated_at`,
 	)
 	if err != nil {
@@ -21,7 +23,7 @@ func (s *Storage) CreateSession(params storage.CreateSessionParams) (*storage.Se
 	defer stmt.Close()
 
 	var session storage.Session
-	err = stmt.QueryRow(params.SessionID, params.UserID, params.ExpiresAt).
+	err = stmt.QueryRowContext(ctx, params.SessionID, params.UserID, params.ExpiresAt).
 		Scan(&session.ID, &session.UserID, &session.ExpiresAt, &session.CreatedAt, &session.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -30,10 +32,11 @@ func (s *Storage) CreateSession(params storage.CreateSessionParams) (*storage.Se
 	return &session, nil
 }
 
-func (s *Storage) GetSessionByID(id string) (*storage.Session, error) {
+func (s *Storage) GetSessionByID(ctx context.Context, id string) (*storage.Session, error) {
 	const op = "storage.sqlite.GetSessionByID"
 
-	stmt, err := s.db.Prepare(
+	stmt, err := s.db.PrepareContext(
+		ctx,
 		`SELECT id, user_id, expires_at, created_at, updated_at FROM sessions WHERE id = ? AND expires_at > CURRENT_TIMESTAMP`,
 	)
 	if err != nil {
@@ -42,7 +45,7 @@ func (s *Storage) GetSessionByID(id string) (*storage.Session, error) {
 	defer stmt.Close()
 
 	var session storage.Session
-	err = stmt.QueryRow(id).
+	err = stmt.QueryRowContext(ctx, id).
 		Scan(&session.ID, &session.UserID, &session.ExpiresAt, &session.CreatedAt, &session.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -54,18 +57,16 @@ func (s *Storage) GetSessionByID(id string) (*storage.Session, error) {
 	return &session, nil
 }
 
-func (s *Storage) DeleteSession(id string) error {
+func (s *Storage) DeleteSession(ctx context.Context, id string) error {
 	const op = "storage.sqlite.DeleteSession"
 
-	stmt, err := s.db.Prepare(
-		`DELETE FROM sessions WHERE id = ?`,
-	)
+	stmt, err := s.db.PrepareContext(ctx, `DELETE FROM sessions WHERE id = ?`)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(id)
+	res, err := stmt.ExecContext(ctx, id)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -81,10 +82,11 @@ func (s *Storage) DeleteSession(id string) error {
 	return nil
 }
 
-func (s *Storage) ExtendSession(id string, newExpiresAt time.Time) error {
+func (s *Storage) ExtendSession(ctx context.Context, id string, newExpiresAt time.Time) error {
 	const op = "storage.sqlite.ExtendSession"
 
-	stmt, err := s.db.Prepare(
+	stmt, err := s.db.PrepareContext(
+		ctx,
 		`UPDATE sessions SET expires_at = ? WHERE id = ? AND expires_at > CURRENT_TIMESTAMP`,
 	)
 	if err != nil {
@@ -92,7 +94,7 @@ func (s *Storage) ExtendSession(id string, newExpiresAt time.Time) error {
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(newExpiresAt, id)
+	res, err := stmt.ExecContext(ctx, newExpiresAt, id)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -108,10 +110,10 @@ func (s *Storage) ExtendSession(id string, newExpiresAt time.Time) error {
 	return nil
 }
 
-func (s *Storage) DeleteExpiredSessions() (int64, error) {
+func (s *Storage) DeleteExpiredSessions(ctx context.Context) (int64, error) {
 	const op = "storage.sqlite.DeleteExpiredSessions"
 
-	res, err := s.db.Exec(`DELETE FROM sessions WHERE expires_at <= CURRENT_TIMESTAMP`)
+	res, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at <= CURRENT_TIMESTAMP`)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}

@@ -38,7 +38,7 @@ func (h *Handler) CreateAccount(c *gin.Context) {
 		return
 	}
 
-	account, err := h.DB.CreateAccount(storage.CreateAccountParams{
+	account, err := h.DB.CreateAccount(c.Request.Context(), storage.CreateAccountParams{
 		UserID:         user.ID,
 		Name:           req.Name,
 		Currency:       req.Currency,
@@ -73,7 +73,7 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	account, err := h.DB.UpdateAccount(user.ID, id, storage.UpdateAccountParams{
+	account, err := h.DB.UpdateAccount(c.Request.Context(), user.ID, id, storage.UpdateAccountParams{
 		Name:             req.Name,
 		ManualAdjustment: req.ManualAdjustment,
 	})
@@ -92,6 +92,7 @@ func (h *Handler) UpdateAccount(c *gin.Context) {
 	c.JSON(http.StatusOK, account)
 }
 
+//nolint:dupl // CRUD handler intentionally mirrors DeleteCategory structure
 func (h *Handler) DeleteAccount(c *gin.Context) {
 	op := "handlers.accounts.DeleteAccount"
 
@@ -102,7 +103,7 @@ func (h *Handler) DeleteAccount(c *gin.Context) {
 	user := httpctx.CurrentUser(c)
 
 	id := c.Param("id")
-	err := h.DB.DeleteAccount(user.ID, id)
+	err := h.DB.DeleteAccount(c.Request.Context(), user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrAccountNotFound) {
 			log.Info("account not found", slog.String("id", id))
@@ -134,7 +135,7 @@ func (h *Handler) GetAccount(c *gin.Context) {
 	user := httpctx.CurrentUser(c)
 
 	id := c.Param("id")
-	account, err := h.DB.GetAccount(user.ID, id)
+	account, err := h.DB.GetAccount(c.Request.Context(), user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrAccountNotFound) {
 			log.Info("account not found", slog.String("id", id))
@@ -159,7 +160,7 @@ func (h *Handler) ListAccounts(c *gin.Context) {
 
 	user := httpctx.CurrentUser(c)
 
-	accounts, err := h.DB.GetAccounts(user.ID)
+	accounts, err := h.DB.GetAccounts(c.Request.Context(), user.ID)
 	if err != nil {
 		log.Error("failed to get accounts", logger.Error(err))
 		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to get accounts")
@@ -184,7 +185,7 @@ func (h *Handler) GetAccountBalances(c *gin.Context) {
 	)
 	user := httpctx.CurrentUser(c)
 
-	balances, err := h.DB.GetAccountBalances(user.ID)
+	balances, err := h.DB.GetAccountBalances(c.Request.Context(), user.ID)
 	if err != nil {
 		log.Error("failed to get account balances", logger.Error(err))
 		httperr.Write(

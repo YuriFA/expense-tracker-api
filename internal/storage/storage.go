@@ -65,44 +65,52 @@ type UpdateAccountParams struct {
 }
 
 type Category struct {
-	ID        string `json:"id"`
-	UserID    string `json:"userId"`
-	Name      string `json:"name"`
-	Type      string `json:"type"`
-	Icon      string `json:"icon"`
-	Color     string `json:"color"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	ID        string          `json:"id"`
+	UserID    string          `json:"userId"`
+	Name      string          `json:"name"`
+	Type      TransactionType `json:"type"`
+	Icon      string          `json:"icon"`
+	Color     string          `json:"color"`
+	CreatedAt string          `json:"createdAt"`
+	UpdatedAt string          `json:"updatedAt"`
 }
 
 type CreateCategoryParams struct {
 	UserID string
 	Name   string
-	Type   string
+	Type   TransactionType
 	Icon   string
 	Color  string
 }
 
 type UpdateCategoryParams struct {
 	Name  *string
-	Type  *string
+	Type  *TransactionType
 	Icon  *string
 	Color *string
 }
 
 type GetCategoriesParams struct {
-	Type *string
+	Type *TransactionType
 }
 
+type TransactionType string
+
+const (
+	TransactionTypeIncome   TransactionType = "income"
+	TransactionTypeExpense  TransactionType = "expense"
+	TransactionTypeTransfer TransactionType = "transfer"
+)
+
 type Transaction struct {
-	ID          string `json:"id"`
-	UserID      string `json:"userId"`
-	Type        string `json:"type"`
-	Amount      int64  `json:"amount"`
-	Description string `json:"description"`
-	OccurredAt  string `json:"occurredAt"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
+	ID          string          `json:"id"`
+	UserID      string          `json:"userId"`
+	Type        TransactionType `json:"type"`
+	Amount      int64           `json:"amount"`
+	Description string          `json:"description"`
+	OccurredAt  string          `json:"occurredAt"`
+	CreatedAt   string          `json:"createdAt"`
+	UpdatedAt   string          `json:"updatedAt"`
 	// Cashflow fields
 	AccountID  *string `json:"accountId,omitempty"`
 	CategoryID *string `json:"categoryId,omitempty"`
@@ -113,7 +121,7 @@ type Transaction struct {
 
 type CreateTransactionParams struct {
 	UserID      string
-	Type        string
+	Type        TransactionType
 	Amount      int64
 	Description string
 	OccurredAt  time.Time
@@ -147,7 +155,7 @@ const (
 )
 
 type GetTransactionsParams struct {
-	Type       *string
+	Type       *TransactionType
 	AccountID  *string
 	CategoryID *string
 	FromDate   *time.Time
@@ -199,6 +207,6 @@ var (
 	ErrCategoryHasTransactions = errors.New("category has transactions and cannot be deleted")
 	ErrInvalidRefs             = errors.New("invalid references in transaction")
 	ErrSameAccountTransfer     = errors.New("transfer cannot be made to the same account")
-	ErrIdempotencyKeyNotFound = errors.New("idempotency key not found")
-	ErrIdempotencyKeyInUse    = errors.New("idempotency key is already in use")
+	ErrIdempotencyKeyNotFound  = errors.New("idempotency key not found")
+	ErrIdempotencyKeyInUse     = errors.New("idempotency key is already in use")
 )

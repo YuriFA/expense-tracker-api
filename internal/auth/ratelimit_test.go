@@ -1,15 +1,19 @@
-package auth
+package auth_test
 
 import (
 	"testing"
 	"time"
 
+	"github.com/yurifa/expense-tracker-api/internal/auth"
+
 	"github.com/stretchr/testify/require"
 )
 
 func TestLoginRateLimiter(t *testing.T) {
+	t.Parallel()
 	t.Run("TestLoginRateLimiter", func(t *testing.T) {
-		rl := NewLoginRateLimiter(3, time.Hour)
+		t.Parallel()
+		rl := auth.NewLoginRateLimiter(3, time.Hour)
 
 		key := "test-key"
 

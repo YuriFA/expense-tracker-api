@@ -10,7 +10,9 @@ import (
 )
 
 func TestHashPassword(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		password := "mysecretpassword"
 		hash, err := auth.HashPassword(password)
 		require.NoError(t, err)
@@ -19,14 +21,17 @@ func TestHashPassword(t *testing.T) {
 	})
 
 	t.Run("extra long password", func(t *testing.T) {
+		t.Parallel()
 		password := "thisisaverylongpasswordthatexceedstheusualmaximumlengthandshouldstillworkproperly"
 		_, err := auth.HashPassword(password)
-		require.ErrorAs(t, err, &bcrypt.ErrPasswordTooLong)
+		require.ErrorIs(t, err, bcrypt.ErrPasswordTooLong)
 	})
 }
 
 func TestVerifyPassword(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		password := "mysecretpassword"
 		hash, err := auth.HashPassword(password)
 		require.NoError(t, err)
@@ -35,6 +40,7 @@ func TestVerifyPassword(t *testing.T) {
 	})
 
 	t.Run("invalid hash", func(t *testing.T) {
+		t.Parallel()
 		require.Error(t, auth.VerifyPassword("invalidhash", "password"))
 	})
 }

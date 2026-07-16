@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,9 +30,9 @@ func SlogLogger(log *slog.Logger) gin.HandlerFunc {
 		)
 
 		switch {
-		case status >= 500:
+		case status >= http.StatusInternalServerError:
 			entry.Error("request")
-		case status >= 400:
+		case status >= http.StatusBadRequest:
 			entry.Warn("request")
 		default:
 			entry.Info("request")

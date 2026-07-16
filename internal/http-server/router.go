@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yurifa/expense-tracker-api/internal/config"
@@ -17,14 +18,25 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// corsMaxAge is how long a CORS preflight response is cached by the browser.
+const corsMaxAge = 12 * time.Hour
+
+var registerTagNameOnce sync.Once //nolint:gochecknoglobals // singleton guard for the process-wide validator
+
 func NewRouter(
 	log *slog.Logger,
 	db *sqlite.Storage,
 	handlers *handlers.Handler,
 	cfg *config.HTTPServer,
 ) *gin.Engine {
-	// Format validation error messages to use JSON field names instead of struct field names
-	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+	// Format validation error messages to use JSON field names instead of struct field names.
+	// Guarded by sync.Once because gin's binding validator is a process-wide singleton;
+	// concurrent calls (e.g. from parallel tests) would race on the underlying write.
+	registerTagNameOnce.Do(func() {
+		v, ok := binding.Validator.Engine().(*validator.Validate)
+		if !ok {
+			return
+		}
 		v.RegisterTagNameFunc(func(fld reflect.StructField) string {
 			name, _, _ := strings.Cut(fld.Tag.Get("json"), ",")
 			if name == "-" {
@@ -32,7 +44,7 @@ func NewRouter(
 			}
 			return name
 		})
-	}
+	})
 
 	router := gin.New()
 	router.Use(cors.New(cors.Config{
@@ -41,7 +53,7 @@ func NewRouter(
 		AllowHeaders:     cfg.CorsConfig.AllowedHeaders,
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
+		MaxAge:           corsMaxAge,
 	}))
 	router.Use(gin.Recovery())
 	router.Use(middleware.SlogLogger(log))

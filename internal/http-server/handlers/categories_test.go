@@ -13,7 +13,9 @@ import (
 )
 
 func TestCreateCategory(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodPost, "/api/categories", map[string]any{
@@ -27,12 +29,13 @@ func TestCreateCategory(t *testing.T) {
 		var response storage.Category
 		parseBody(t, w, &response)
 		assert.Equal(t, "CustomSalary", response.Name)
-		assert.Equal(t, "income", response.Type)
+		assert.Equal(t, storage.TransactionTypeIncome, response.Type)
 		assert.Equal(t, "dollar-sign", response.Icon)
 		assert.Equal(t, "green", response.Color)
 	})
 
 	t.Run("ValidationFail", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		cases := map[string]struct {
@@ -93,6 +96,7 @@ func TestCreateCategory(t *testing.T) {
 
 		for name, tc := range cases {
 			t.Run(name, func(t *testing.T) {
+				t.Parallel()
 				w := f.do(t, http.MethodPost, "/api/categories", tc.body)
 
 				assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -100,7 +104,7 @@ func TestCreateCategory(t *testing.T) {
 				parseBody(t, w, &response)
 				assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 				assert.Equal(t, "validation failed", response.Message)
-				require.Equal(t, tc.errorsLen, len(response.Errors))
+				require.Len(t, response.Errors, tc.errorsLen)
 				assert.Equal(t, tc.wantField, response.Errors[0].Field)
 				assert.Equal(t, tc.wantMessage, response.Errors[0].Message)
 			})
@@ -108,12 +112,13 @@ func TestCreateCategory(t *testing.T) {
 	})
 
 	t.Run("Duplicate category by name", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		seedCategory(t, f.DB, storage.CreateCategoryParams{
 			UserID: f.User.ID,
 			Name:   "CustomSalary",
-			Type:   "income",
+			Type:   storage.TransactionTypeIncome,
 			Icon:   "dollar-sign",
 			Color:  "green",
 		})
@@ -132,7 +137,9 @@ func TestCreateCategory(t *testing.T) {
 }
 
 func TestUpdateCategory(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedDefaultExpenseCategory(t, f.DB, f.User.ID)
 
@@ -148,12 +155,13 @@ func TestUpdateCategory(t *testing.T) {
 		var response storage.Category
 		parseBody(t, w, &response)
 		assert.Equal(t, params["name"], response.Name)
-		assert.Equal(t, params["type"], response.Type)
+		assert.Equal(t, storage.TransactionType(params["type"].(string)), response.Type)
 		assert.Equal(t, params["icon"], response.Icon)
 		assert.Equal(t, params["color"], response.Color)
 	})
 
 	t.Run("PartialUpdate", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 
@@ -171,6 +179,7 @@ func TestUpdateCategory(t *testing.T) {
 	})
 
 	t.Run("NoFields", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 
@@ -184,12 +193,13 @@ func TestUpdateCategory(t *testing.T) {
 	})
 
 	t.Run("New name is already existing", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		category := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 		category2 := seedCategory(t, f.DB, storage.CreateCategoryParams{
 			UserID: f.User.ID,
 			Name:   "CustomSalary",
-			Type:   "income",
+			Type:   storage.TransactionTypeIncome,
 			Icon:   "dollar-sign",
 			Color:  "green",
 		})
@@ -205,6 +215,7 @@ func TestUpdateCategory(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodPatch, "/api/categories/"+uuid.NewString(), map[string]any{
@@ -220,7 +231,9 @@ func TestUpdateCategory(t *testing.T) {
 }
 
 func TestDeleteCategory(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 
@@ -231,6 +244,7 @@ func TestDeleteCategory(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodDelete, "/api/categories/"+uuid.NewString(), nil)
@@ -243,11 +257,12 @@ func TestDeleteCategory(t *testing.T) {
 	})
 
 	t.Run("CategoryWithTransactions", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		account := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		existing := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 		transactionParams := defaultCashflowTransactionParams(f.User.ID, account.ID, existing.ID)
-		transactionParams.Type = "income"
+		transactionParams.Type = storage.TransactionTypeIncome
 		_ = seedTransaction(t, f.DB, transactionParams)
 
 		w := f.do(t, http.MethodDelete, "/api/categories/"+existing.ID, nil)
@@ -260,6 +275,7 @@ func TestDeleteCategory(t *testing.T) {
 	})
 
 	t.Run("Stranger category NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 		f2 := newAuthFixture(t)
@@ -275,7 +291,9 @@ func TestDeleteCategory(t *testing.T) {
 }
 
 func TestGetCategory(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 
@@ -292,6 +310,7 @@ func TestGetCategory(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodGet, "/api/categories/"+uuid.NewString(), nil)
@@ -304,6 +323,7 @@ func TestGetCategory(t *testing.T) {
 	})
 
 	t.Run("Stranger category NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 		f2 := newAuthFixture(t)
@@ -319,7 +339,9 @@ func TestGetCategory(t *testing.T) {
 }
 
 func TestListCategories(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		seeded1 := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 		seeded2 := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
@@ -339,12 +361,13 @@ func TestListCategories(t *testing.T) {
 		}
 		for _, c := range seededCategories {
 			category, exists := categoriesMap[c.ID]
-			assert.Equal(t, true, exists)
+			assert.True(t, exists)
 			assert.Equal(t, category, c)
 		}
 	})
 
 	t.Run("OnlyExpense", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		seeded1 := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
@@ -364,9 +387,9 @@ func TestListCategories(t *testing.T) {
 			categoriesMap[c.ID] = &c
 		}
 		for _, c := range seededCategories {
-			if c.Type == "expense" {
+			if c.Type == storage.TransactionTypeExpense {
 				category, exists := categoriesMap[c.ID]
-				assert.Equal(t, true, exists)
+				assert.True(t, exists)
 				assert.Equal(t, category, c)
 			}
 		}

@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -15,7 +16,9 @@ import (
 )
 
 func TestCreateAccount(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		w := f.do(t, http.MethodPost, "/api/accounts", map[string]any{
 			"name":           "Wallet",
@@ -34,6 +37,7 @@ func TestCreateAccount(t *testing.T) {
 	})
 
 	t.Run("ValidationFail", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		cases := map[string]struct {
 			body        map[string]any
@@ -88,13 +92,14 @@ func TestCreateAccount(t *testing.T) {
 
 		for name, tc := range cases {
 			t.Run(name, func(t *testing.T) {
+				t.Parallel()
 				w := f.do(t, http.MethodPost, "/api/accounts", tc.body)
 				assert.Equal(t, http.StatusBadRequest, w.Code)
 				var response httperr.ValidationErrorResponse
 				parseBody(t, w, &response)
 				assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 				assert.Equal(t, "validation failed", response.Message)
-				require.Equal(t, tc.errorsLen, len(response.Errors))
+				require.Len(t, response.Errors, tc.errorsLen)
 				assert.Equal(t, tc.wantField, response.Errors[0].Field)
 				assert.Equal(t, tc.wantMessage, response.Errors[0].Message)
 			})
@@ -103,7 +108,9 @@ func TestCreateAccount(t *testing.T) {
 }
 
 func TestUpdateAccount(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 
@@ -121,6 +128,7 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("PartialUpdate", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		w := f.do(t, http.MethodPatch, "/api/accounts/"+existing.ID, map[string]any{
@@ -137,6 +145,7 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("AccountWithTransactions", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		incomeCategory := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
@@ -147,7 +156,7 @@ func TestUpdateAccount(t *testing.T) {
 			incomeCategory.ID,
 		)
 		incomeTransactionParams.Amount = 50000
-		incomeTransactionParams.Type = "income"
+		incomeTransactionParams.Type = storage.TransactionTypeIncome
 		incomeTransaction := seedTransaction(t, f.DB, incomeTransactionParams)
 		expenseTransactionParams := defaultCashflowTransactionParams(
 			f.User.ID,
@@ -155,7 +164,7 @@ func TestUpdateAccount(t *testing.T) {
 			expenseCategory.ID,
 		)
 		expenseTransactionParams.Amount = 20000
-		expenseTransactionParams.Type = "expense"
+		expenseTransactionParams.Type = storage.TransactionTypeExpense
 		expenseTransaction := seedTransaction(t, f.DB, expenseTransactionParams)
 
 		w := f.do(t, http.MethodPatch, "/api/accounts/"+existing.ID, map[string]any{
@@ -176,6 +185,7 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("ShortName", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		w := f.do(t, http.MethodPatch, "/api/accounts/"+existing.ID, map[string]any{
@@ -187,7 +197,7 @@ func TestUpdateAccount(t *testing.T) {
 		parseBody(t, w, &response)
 		assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 		assert.Equal(t, "validation failed", response.Message)
-		assert.Equal(t, 1, len(response.Errors))
+		assert.Len(t, response.Errors, 1)
 		assert.Equal(t, "name", response.Errors[0].Field)
 		assert.Equal(
 			t,
@@ -197,6 +207,7 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("NoFields", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		w := f.do(t, http.MethodPatch, "/api/accounts/"+existing.ID, map[string]any{})
@@ -209,6 +220,7 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		w := f.do(t, http.MethodPatch, "/api/accounts/"+uuid.NewString(), map[string]any{
 			"name": "Updated Wallet",
@@ -222,6 +234,7 @@ func TestUpdateAccount(t *testing.T) {
 	})
 
 	t.Run("Stranger account NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		f2 := newAuthFixture(t)
 
@@ -240,7 +253,9 @@ func TestUpdateAccount(t *testing.T) {
 }
 
 func TestDeleteAccount(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		w := f.do(t, http.MethodDelete, "/api/accounts/"+existing.ID, nil)
@@ -250,6 +265,7 @@ func TestDeleteAccount(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		w := f.do(t, http.MethodDelete, "/api/accounts/"+uuid.NewString(), nil)
 
@@ -261,11 +277,12 @@ func TestDeleteAccount(t *testing.T) {
 	})
 
 	t.Run("AccountWithTransactions", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		category := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 		transactionParams := defaultCashflowTransactionParams(f.User.ID, existing.ID, category.ID)
-		transactionParams.Type = "income"
+		transactionParams.Type = storage.TransactionTypeIncome
 		_ = seedTransaction(t, f.DB, transactionParams)
 		w := f.do(t, http.MethodDelete, "/api/accounts/"+existing.ID, nil)
 
@@ -278,7 +295,9 @@ func TestDeleteAccount(t *testing.T) {
 }
 
 func TestGetAccount(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		w := f.do(t, http.MethodGet, "/api/accounts/"+existing.ID, nil)
@@ -293,6 +312,7 @@ func TestGetAccount(t *testing.T) {
 	})
 
 	t.Run("AccountWithTransactions", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		incomeCategory := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
@@ -303,7 +323,7 @@ func TestGetAccount(t *testing.T) {
 			expenseCategory.ID,
 		)
 		expenseTransactionParams.Amount = 20000
-		expenseTransactionParams.Type = "expense"
+		expenseTransactionParams.Type = storage.TransactionTypeExpense
 		transaction1 := seedTransaction(t, f.DB, expenseTransactionParams)
 		incomeTransactionParams := defaultCashflowTransactionParams(
 			f.User.ID,
@@ -311,7 +331,7 @@ func TestGetAccount(t *testing.T) {
 			incomeCategory.ID,
 		)
 		incomeTransactionParams.Amount = 10000
-		incomeTransactionParams.Type = "income"
+		incomeTransactionParams.Type = storage.TransactionTypeIncome
 		transaction2 := seedTransaction(t, f.DB, incomeTransactionParams)
 		w := f.do(t, http.MethodGet, "/api/accounts/"+existing.ID, nil)
 
@@ -325,6 +345,7 @@ func TestGetAccount(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		w := f.do(t, http.MethodGet, "/api/accounts/"+uuid.NewString(), nil)
 
@@ -336,6 +357,7 @@ func TestGetAccount(t *testing.T) {
 	})
 
 	t.Run("Stranger account NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		f2 := newAuthFixture(t)
 		existing := seedAccount(t, f2.DB, defaultAccountParams(f2.User.ID))
@@ -359,38 +381,40 @@ type seedAccountWithTransactionParams struct {
 func seedAccountWithTransaction(
 	t *testing.T,
 	db *sqlite.Storage,
-	userId string,
+	userID string,
 	params seedAccountWithTransactionParams,
 ) *storage.Account {
 	t.Helper()
 
-	accountParams := defaultAccountParams(userId)
+	accountParams := defaultAccountParams(userID)
 	accountParams.OpeningBalance = params.openingBalance
 	account := seedAccount(t, db, accountParams)
-	incomeCategory := seedDefaultIncomeCategory(t, db, userId)
-	expenseCategory := seedDefaultExpenseCategory(t, db, userId)
+	incomeCategory := seedDefaultIncomeCategory(t, db, userID)
+	expenseCategory := seedDefaultExpenseCategory(t, db, userID)
 	expenseTransactionParams := defaultCashflowTransactionParams(
-		userId,
+		userID,
 		account.ID,
 		expenseCategory.ID,
 	)
 	expenseTransactionParams.Amount = params.expense
-	expenseTransactionParams.Type = "expense"
+	expenseTransactionParams.Type = storage.TransactionTypeExpense
 	_ = seedTransaction(t, db, expenseTransactionParams)
 	incomeTransactionParams := defaultCashflowTransactionParams(
-		userId,
+		userID,
 		account.ID,
 		incomeCategory.ID,
 	)
 	incomeTransactionParams.Amount = params.income
-	incomeTransactionParams.Type = "income"
+	incomeTransactionParams.Type = storage.TransactionTypeIncome
 	_ = seedTransaction(t, db, incomeTransactionParams)
 
 	return account
 }
 
 func TestListAccounts(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		params := defaultAccountParams(f.User.ID)
 		params.Name = "Wallet"
@@ -408,7 +432,7 @@ func TestListAccounts(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 		var response []storage.Account
 		parseBody(t, w, &response)
-		assert.Equal(t, len(seededAccounts), len(response))
+		assert.Len(t, response, len(seededAccounts))
 
 		accountMap := make(map[string]*storage.Account)
 		for _, acc := range seededAccounts {
@@ -416,12 +440,13 @@ func TestListAccounts(t *testing.T) {
 		}
 		for _, acc := range response {
 			account, exists := accountMap[acc.ID]
-			assert.Equal(t, true, exists)
+			assert.True(t, exists)
 			assert.Equal(t, *account, acc)
 		}
 	})
 
 	t.Run("AccountsWithTransactions", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		seeded1 := seedAccountWithTransaction(
 			t,
@@ -449,6 +474,7 @@ func TestListAccounts(t *testing.T) {
 		)
 		seededAccounts := []struct {
 			*storage.Account
+
 			expectedBalance int64
 		}{
 			{seeded1, seeded1.OpeningBalance + seeded1.ManualAdjustment + 50000 - 20000},
@@ -462,10 +488,11 @@ func TestListAccounts(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 		var response []storage.Account
 		parseBody(t, w, &response)
-		assert.Equal(t, len(seededAccounts), len(response))
+		assert.Len(t, response, len(seededAccounts))
 
 		accountMap := make(map[string]struct {
 			*storage.Account
+
 			expectedBalance int64
 		})
 		for _, acc := range seededAccounts {
@@ -473,7 +500,7 @@ func TestListAccounts(t *testing.T) {
 		}
 		for _, acc := range response {
 			account, exists := accountMap[acc.ID]
-			assert.Equal(t, true, exists)
+			assert.True(t, exists)
 			assert.Equal(t, account.Name, acc.Name)
 			assert.Equal(t, account.OpeningBalance, acc.OpeningBalance)
 			assert.Equal(t, account.ManualAdjustment, acc.ManualAdjustment)
@@ -482,6 +509,7 @@ func TestListAccounts(t *testing.T) {
 	})
 
 	t.Run("NoAccounts", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodGet, "/api/accounts", nil)
@@ -489,10 +517,11 @@ func TestListAccounts(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 		var response []storage.Account
 		parseBody(t, w, &response)
-		assert.Equal(t, 0, len(response))
+		assert.Empty(t, response)
 	})
 
 	t.Run("Stranger accounts not in user accounts", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		params := defaultAccountParams(f.User.ID)
 		params.Name = "Wallet"
@@ -521,7 +550,7 @@ func TestListAccounts(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 		var response []storage.Account
 		parseBody(t, w, &response)
-		assert.Equal(t, len(seededAccounts), len(response))
+		assert.Len(t, response, len(seededAccounts))
 
 		account2Map := make(map[string]*storage.Account)
 		for _, acc := range seededAccounts2 {
@@ -529,19 +558,21 @@ func TestListAccounts(t *testing.T) {
 		}
 		for _, acc := range response {
 			account, exists := account2Map[acc.ID]
-			assert.Equal(t, false, exists)
+			assert.False(t, exists)
 			assert.Equal(t, (*storage.Account)(nil), account)
 		}
 	})
 }
 
 func TestGetAccountBalances(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		category := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 		account := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		transactionParams := defaultCashflowTransactionParams(f.User.ID, account.ID, category.ID)
-		transactionParams.Type = "income"
+		transactionParams.Type = storage.TransactionTypeIncome
 		transaction := seedTransaction(t, f.DB, transactionParams)
 
 		w := f.do(t, http.MethodGet, "/api/accounts/balances", nil)
@@ -552,7 +583,7 @@ func TestGetAccountBalances(t *testing.T) {
 			NetWorth int64                    `json:"netWorth"`
 		}
 		parseBody(t, w, &response)
-		assert.Equal(t, 1, len(response.Balances))
+		assert.Len(t, response.Balances, 1)
 		assert.Equal(t, account.ID, response.Balances[0].ID)
 		assert.Equal(t, account.Name, response.Balances[0].Name)
 		assert.Equal(
@@ -563,6 +594,7 @@ func TestGetAccountBalances(t *testing.T) {
 	})
 
 	t.Run("AccountWithoutTransactions", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		account := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 
@@ -574,7 +606,7 @@ func TestGetAccountBalances(t *testing.T) {
 			NetWorth int64                    `json:"netWorth"`
 		}
 		parseBody(t, w, &response)
-		assert.Equal(t, 1, len(response.Balances))
+		assert.Len(t, response.Balances, 1)
 		assert.Equal(t, account.ID, response.Balances[0].ID)
 		assert.Equal(t, account.Name, response.Balances[0].Name)
 		assert.Equal(
@@ -585,6 +617,7 @@ func TestGetAccountBalances(t *testing.T) {
 	})
 
 	t.Run("NoBalances", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodGet, "/api/accounts/balances", nil)
@@ -595,16 +628,17 @@ func TestGetAccountBalances(t *testing.T) {
 			NetWorth int64                    `json:"netWorth"`
 		}
 		parseBody(t, w, &response)
-		assert.Equal(t, 0, len(response.Balances))
+		assert.Empty(t, response.Balances)
 	})
 
 	t.Run("MultipleAccountsWithTransactions", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		account1Params := defaultAccountParams(f.User.ID)
 		account1Params.Name = "Account1"
 		account1 := seedAccount(t, f.DB, account1Params)
-		account1, err := f.DB.UpdateAccount(f.User.ID, account1.ID, storage.UpdateAccountParams{
+		account1, err := f.DB.UpdateAccount(context.Background(), f.User.ID, account1.ID, storage.UpdateAccountParams{
 			Name:             new("UpdatedAccount"),
 			ManualAdjustment: new(int64(5540)),
 		})
@@ -616,7 +650,7 @@ func TestGetAccountBalances(t *testing.T) {
 		expenseCategory := seedDefaultExpenseCategory(t, f.DB, f.User.ID)
 		acc1transaction := seedTransaction(t, f.DB, storage.CreateTransactionParams{
 			UserID:      f.User.ID,
-			Type:        "expense",
+			Type:        storage.TransactionTypeExpense,
 			Amount:      10000,
 			Description: "Shopping",
 			OccurredAt:  time.Now(),
@@ -625,7 +659,7 @@ func TestGetAccountBalances(t *testing.T) {
 		})
 		acc1transaction2 := seedTransaction(t, f.DB, storage.CreateTransactionParams{
 			UserID:      f.User.ID,
-			Type:        "income",
+			Type:        storage.TransactionTypeIncome,
 			Amount:      10000,
 			Description: "Salary",
 			OccurredAt:  time.Now(),
@@ -634,7 +668,7 @@ func TestGetAccountBalances(t *testing.T) {
 		})
 		acc2transaction := seedTransaction(t, f.DB, storage.CreateTransactionParams{
 			UserID:      f.User.ID,
-			Type:        "income",
+			Type:        storage.TransactionTypeIncome,
 			Amount:      10000,
 			Description: "Salary",
 			OccurredAt:  time.Now(),
@@ -643,7 +677,7 @@ func TestGetAccountBalances(t *testing.T) {
 		})
 		acc2transaction2 := seedTransaction(t, f.DB, storage.CreateTransactionParams{
 			UserID:        f.User.ID,
-			Type:          "transfer",
+			Type:          storage.TransactionTypeTransfer,
 			Amount:        5000,
 			Description:   "Transfer",
 			OccurredAt:    time.Now(),
@@ -659,7 +693,7 @@ func TestGetAccountBalances(t *testing.T) {
 			NetWorth int64                    `json:"netWorth"`
 		}
 		parseBody(t, w, &response)
-		assert.Equal(t, 2, len(response.Balances))
+		assert.Len(t, response.Balances, 2)
 		acc1ExpectedBalance := account1.OpeningBalance + account1.ManualAdjustment - acc1transaction.Amount + acc1transaction2.Amount + acc2transaction2.Amount
 		acc2ExpectedBalance := account2.OpeningBalance + account2.ManualAdjustment + acc2transaction.Amount - acc2transaction2.Amount
 		assert.Equal(
@@ -676,23 +710,23 @@ func TestGetAccountBalances(t *testing.T) {
 			if accBalance.ID == account2.ID {
 				assert.Equal(t, acc2ExpectedBalance, accBalance.Balance)
 			}
-
 		}
 	})
 
 	t.Run("Stranger accounts not in user accounts balance", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		category := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
 		account := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		transactionParams := defaultCashflowTransactionParams(f.User.ID, account.ID, category.ID)
-		transactionParams.Type = "income"
+		transactionParams.Type = storage.TransactionTypeIncome
 		fTransaction := seedTransaction(t, f.DB, transactionParams)
 
 		f2 := newAuthFixture(t)
 		category2 := seedDefaultIncomeCategory(t, f2.DB, f2.User.ID)
 		account2 := seedAccount(t, f2.DB, defaultAccountParams(f2.User.ID))
 		transactionParams = defaultCashflowTransactionParams(f2.User.ID, account2.ID, category2.ID)
-		transactionParams.Type = "income"
+		transactionParams.Type = storage.TransactionTypeIncome
 		_ = seedTransaction(t, f2.DB, transactionParams)
 
 		w := f.do(t, http.MethodGet, "/api/accounts/balances", nil)
@@ -703,7 +737,7 @@ func TestGetAccountBalances(t *testing.T) {
 			NetWorth int64                    `json:"netWorth"`
 		}
 		parseBody(t, w, &response)
-		assert.Equal(t, 1, len(response.Balances))
+		assert.Len(t, response.Balances, 1)
 		assert.Equal(t, account.ID, response.Balances[0].ID)
 		assert.Equal(t, account.Name, response.Balances[0].Name)
 		assert.Equal(

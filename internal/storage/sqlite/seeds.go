@@ -1,154 +1,156 @@
 package sqlite
 
+import "github.com/yurifa/expense-tracker-api/internal/storage"
+
 type CategoryTemplate struct {
 	Name  string
-	Type  string
+	Type  storage.TransactionType
 	Icon  string
 	Color string
 }
 
-var defaultCategories = []CategoryTemplate{
+var defaultCategories = []CategoryTemplate{ //nolint:gochecknoglobals // seed data for new users, not runtime state
 	{
 		Name:  "Food",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "🍔",
 		Color: "#FF6347",
 	},
 	{
 		Name:  "Transport",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "🚗",
 		Color: "#1E90FF",
 	},
 	{
 		Name:  "Entertainment",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "🎬",
 		Color: "#FFD700",
 	},
 	{
 		Name:  "Salary",
-		Type:  "income",
+		Type:  storage.TransactionTypeIncome,
 		Icon:  "💼",
 		Color: "#32CD32",
 	},
 	{
 		Name:  "Freelance",
-		Type:  "income",
+		Type:  storage.TransactionTypeIncome,
 		Icon:  "🖥️",
 		Color: "#8A2BE2",
 	},
 	{
 		Name:  "Health",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "💊",
 		Color: "#FF69B4",
 	},
 	{
 		Name:  "Education",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "📚",
 		Color: "#20B2AA",
 	},
 	{
 		Name:  "Investment",
-		Type:  "income",
+		Type:  storage.TransactionTypeIncome,
 		Icon:  "📈",
 		Color: "#FF4500",
 	},
 	{
 		Name:  "Gifts",
-		Type:  "income",
+		Type:  storage.TransactionTypeIncome,
 		Icon:  "🎁",
 		Color: "#FF1493",
 	},
 	{
 		Name:  "Utilities",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "💡",
 		Color: "#00CED1",
 	},
 	{
 		Name:  "Travel",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "✈️",
 		Color: "#FF8C00",
 	},
 	{
 		Name:  "Miscellaneous",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "🛍️",
 		Color: "#A52A2A",
 	},
 	{
 		Name:  "Bonus",
-		Type:  "income",
+		Type:  storage.TransactionTypeIncome,
 		Icon:  "🎉",
 		Color: "#32CD32",
 	},
 	{
 		Name:  "Rent",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "🏠",
 		Color: "#8B4513",
 	},
 	{
 		Name:  "Savings",
-		Type:  "income",
+		Type:  storage.TransactionTypeIncome,
 		Icon:  "💰",
 		Color: "#228B22",
 	},
 	{
 		Name:  "Charity",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "❤️",
 		Color: "#FF69B4",
 	},
 	{
 		Name:  "Side Hustle",
-		Type:  "income",
+		Type:  storage.TransactionTypeIncome,
 		Icon:  "🛠️",
 		Color: "#8A2BE2",
 	},
 	{
 		Name:  "Subscriptions",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "📱",
 		Color: "#1E90FF",
 	},
 	{
 		Name:  "Other Income",
-		Type:  "income",
+		Type:  storage.TransactionTypeIncome,
 		Icon:  "💵",
 		Color: "#32CD32",
 	},
 	{
 		Name:  "Other Expense",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "🛒",
 		Color: "#A52A2A",
 	},
 	{
 		Name:  "Health Insurance",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "🏥",
 		Color: "#FF69B4",
 	},
 	{
 		Name:  "Car Maintenance",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "🔧",
 		Color: "#1E90FF",
 	},
 	{
 		Name:  "Grocery",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "🛒",
 		Color: "#FF6347",
 	},
 	{
 		Name:  "Dining Out",
-		Type:  "expense",
+		Type:  storage.TransactionTypeExpense,
 		Icon:  "🍽️",
 		Color: "#FFD700",
 	},

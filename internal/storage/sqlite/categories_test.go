@@ -1,6 +1,7 @@
 package sqlite_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/yurifa/expense-tracker-api/internal/storage"
@@ -12,11 +13,13 @@ import (
 )
 
 func TestCreateCategory(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		params := defaultCategoryParams(f.User.ID)
-		category, err := f.DB.CreateCategory(params)
-		assert.NoError(t, err)
+		category, err := f.DB.CreateCategory(context.Background(), params)
+		require.NoError(t, err)
 		testutil.AssertValidUUID(t, category.ID)
 		assert.Equal(t, params.Name, category.Name)
 		assert.Equal(t, params.Icon, category.Icon)
@@ -29,34 +32,38 @@ func TestCreateCategory(t *testing.T) {
 	})
 
 	t.Run("duplicate name for same user returns error", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		params := defaultCategoryParams(f.User.ID)
 		_ = seedCategory(t, f.DB, params)
-		_, err := f.DB.CreateCategory(params)
+		_, err := f.DB.CreateCategory(context.Background(), params)
 		require.ErrorIs(t, err, storage.ErrCategoryAlreadyExists)
 	})
 
 	t.Run("same name for different users is allowed", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		_ = seedCategory(t, f.DB, defaultCategoryParams(f.User.ID))
-		_, err := f.DB.CreateCategory(defaultCategoryParams(user2.ID))
+		_, err := f.DB.CreateCategory(context.Background(), defaultCategoryParams(user2.ID))
 		require.NoError(t, err)
 	})
 }
 
 func TestUpdateCategory(t *testing.T) {
+	t.Parallel()
 	t.Run("full params updates both params", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		category := seedCategory(t, f.DB, defaultCategoryParams(f.User.ID))
 		params := storage.UpdateCategoryParams{
 			Name:  new("UpdatedCategory"),
-			Type:  new("expense"),
+			Type:  new(storage.TransactionTypeExpense),
 			Icon:  new("icon3"),
 			Color: new("red"),
 		}
 
-		updatedCategory, err := f.DB.UpdateCategory(f.User.ID, category.ID, params)
+		updatedCategory, err := f.DB.UpdateCategory(context.Background(), f.User.ID, category.ID, params)
 		require.NoError(t, err)
 
 		require.Equal(t, *params.Name, updatedCategory.Name)
@@ -65,13 +72,14 @@ func TestUpdateCategory(t *testing.T) {
 	})
 
 	t.Run("only name change", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		category := seedCategory(t, f.DB, defaultCategoryParams(f.User.ID))
 		params := storage.UpdateCategoryParams{
 			Name: new("UpdatedCategory"),
 		}
 
-		updatedCategory, err := f.DB.UpdateCategory(f.User.ID, category.ID, params)
+		updatedCategory, err := f.DB.UpdateCategory(context.Background(), f.User.ID, category.ID, params)
 		require.NoError(t, err)
 		require.Equal(t, *params.Name, updatedCategory.Name)
 
@@ -81,6 +89,7 @@ func TestUpdateCategory(t *testing.T) {
 	})
 
 	t.Run("name which already exising", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		params := defaultCategoryParams(f.User.ID)
 		params.Name = "customSalary"
@@ -89,7 +98,7 @@ func TestUpdateCategory(t *testing.T) {
 		params.Name = "customShopping"
 		category2 := seedCategory(t, f.DB, params)
 
-		_, err := f.DB.UpdateCategory(f.User.ID, category.ID, storage.UpdateCategoryParams{
+		_, err := f.DB.UpdateCategory(context.Background(), f.User.ID, category.ID, storage.UpdateCategoryParams{
 			Name: &category2.Name,
 		})
 
@@ -97,43 +106,50 @@ func TestUpdateCategory(t *testing.T) {
 	})
 
 	t.Run("wrong category id return not found", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
-		_, err := f.DB.UpdateCategory(f.User.ID, uuid.NewString(), storage.UpdateCategoryParams{})
+		_, err := f.DB.UpdateCategory(context.Background(), f.User.ID, uuid.NewString(), storage.UpdateCategoryParams{})
 		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 
 	t.Run("category for another user return not found", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		category := seedCategory(t, f.DB, defaultCategoryParams(f.User.ID))
-		_, err := f.DB.UpdateCategory(user2.ID, category.ID, storage.UpdateCategoryParams{})
+		_, err := f.DB.UpdateCategory(context.Background(), user2.ID, category.ID, storage.UpdateCategoryParams{})
 		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 }
 
 func TestDeleteCategory(t *testing.T) {
+	t.Parallel()
 	t.Run("existing category", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		category := seedCategory(t, f.DB, defaultCategoryParams(f.User.ID))
-		err := f.DB.DeleteCategory(f.User.ID, category.ID)
+		err := f.DB.DeleteCategory(context.Background(), f.User.ID, category.ID)
 		require.NoError(t, err)
 	})
 
 	t.Run("non existing category", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
-		err := f.DB.DeleteCategory(f.User.ID, uuid.NewString())
+		err := f.DB.DeleteCategory(context.Background(), f.User.ID, uuid.NewString())
 		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 
 	t.Run("category for another user", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		category := seedCategory(t, f.DB, defaultCategoryParams(f.User.ID))
-		err := f.DB.DeleteCategory(user2.ID, category.ID)
+		err := f.DB.DeleteCategory(context.Background(), user2.ID, category.ID)
 		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 
 	t.Run("category with transactions", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 100000)
 		category := seedCategory(t, f.DB, defaultCategoryParams(f.User.ID))
@@ -145,24 +161,26 @@ func TestDeleteCategory(t *testing.T) {
 				amount:          20000,
 				accountID:       account.ID,
 				categoryID:      category.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
-		err := f.DB.DeleteCategory(f.User.ID, category.ID)
+		err := f.DB.DeleteCategory(context.Background(), f.User.ID, category.ID)
 		require.ErrorIs(t, err, storage.ErrCategoryHasTransactions)
 	})
 
 	t.Run("double delete category", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		category := seedCategory(t, f.DB, defaultCategoryParams(f.User.ID))
-		err := f.DB.DeleteCategory(f.User.ID, category.ID)
+		err := f.DB.DeleteCategory(context.Background(), f.User.ID, category.ID)
 		require.NoError(t, err)
-		err = f.DB.DeleteCategory(f.User.ID, category.ID)
+		err = f.DB.DeleteCategory(context.Background(), f.User.ID, category.ID)
 		require.ErrorIs(t, err, storage.ErrCategoryNotFound)
 	})
 }
 
 func TestGetCategory(t *testing.T) {
+	t.Parallel()
 	f := newFixture(t)
 	user2 := seedUser(t, f.DB)
 	testCategory := seedCategory(t, f.DB, defaultCategoryParams(f.User.ID))
@@ -196,7 +214,8 @@ func TestGetCategory(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			category, err := f.DB.GetCategory(f.User.ID, tc.id)
+			t.Parallel()
+			category, err := f.DB.GetCategory(context.Background(), f.User.ID, tc.id)
 
 			if tc.respError {
 				require.ErrorIs(t, err, tc.expectedErr)
@@ -218,27 +237,31 @@ func categoryNames(categories []storage.Category) []string {
 }
 
 func TestGetCategories(t *testing.T) {
+	t.Parallel()
 	t.Run("seeded categories in database", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
-		categories, err := f.DB.GetCategories(f.User.ID, storage.GetCategoriesParams{})
+		categories, err := f.DB.GetCategories(context.Background(), f.User.ID, storage.GetCategoriesParams{})
 		require.NoError(t, err)
 		assert.NotEmpty(t, categories)
 	})
 
 	t.Run("no other user categories for another user", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
-		userCategories, err := f.DB.GetCategories(f.User.ID, storage.GetCategoriesParams{})
+		userCategories, err := f.DB.GetCategories(context.Background(), f.User.ID, storage.GetCategoriesParams{})
 		require.NoError(t, err)
-		user2Categories, err := f.DB.GetCategories(user2.ID, storage.GetCategoriesParams{})
+		user2Categories, err := f.DB.GetCategories(context.Background(), user2.ID, storage.GetCategoriesParams{})
 		require.NoError(t, err)
 		assert.NotContains(t, categoryNames(userCategories), categoryNames(user2Categories))
 	})
 
 	t.Run("existing categories in database with no params", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		createdCategories := seedCategories(t, f.DB, f.User.ID, 4)
-		categories, err := f.DB.GetCategories(f.User.ID, storage.GetCategoriesParams{})
+		categories, err := f.DB.GetCategories(context.Background(), f.User.ID, storage.GetCategoriesParams{})
 		require.NoError(t, err)
 
 		for _, c := range createdCategories {
@@ -247,15 +270,16 @@ func TestGetCategories(t *testing.T) {
 	})
 
 	t.Run("existing categories in database with type param = income", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		createdCategories := seedCategories(t, f.DB, f.User.ID, 4)
-		categories, err := f.DB.GetCategories(
+		categories, err := f.DB.GetCategories(context.Background(),
 			f.User.ID,
-			storage.GetCategoriesParams{Type: new("income")},
+			storage.GetCategoriesParams{Type: new(storage.TransactionTypeIncome)},
 		)
 		require.NoError(t, err)
 		for _, c := range categories {
-			require.Equal(t, "income", c.Type)
+			require.Equal(t, storage.TransactionTypeIncome, c.Type)
 		}
 
 		incomeFromTest := testutil.Filter(createdCategories, func(c *storage.Category) bool {

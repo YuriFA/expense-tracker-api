@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -11,10 +12,11 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-func (s *Storage) CreateCategory(params storage.CreateCategoryParams) (*storage.Category, error) {
+func (s *Storage) CreateCategory(ctx context.Context, params storage.CreateCategoryParams) (*storage.Category, error) {
 	const op = "storage.sqlite.CreateCategory"
 
-	stmt, err := s.db.Prepare(
+	stmt, err := s.db.PrepareContext(
+		ctx,
 		`INSERT INTO categories (id, user_id, name, type, icon, color) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, user_id, name, type, icon, color, created_at, updated_at`,
 	)
 	if err != nil {
@@ -24,7 +26,7 @@ func (s *Storage) CreateCategory(params storage.CreateCategoryParams) (*storage.
 
 	id := uuid.NewString()
 	var category storage.Category
-	err = stmt.QueryRow(id, params.UserID, params.Name, params.Type, params.Icon, params.Color).
+	err = stmt.QueryRowContext(ctx, id, params.UserID, params.Name, params.Type, params.Icon, params.Color).
 		Scan(&category.ID, &category.UserID, &category.Name, &category.Type, &category.Icon, &category.Color, &category.CreatedAt, &category.UpdatedAt)
 	if err != nil {
 		var sqliteErr sqlite3.Error
@@ -37,7 +39,7 @@ func (s *Storage) CreateCategory(params storage.CreateCategoryParams) (*storage.
 	return &category, nil
 }
 
-func (s *Storage) UpdateCategory(
+func (s *Storage) UpdateCategory(ctx context.Context,
 	userID string,
 	id string,
 	params storage.UpdateCategoryParams,
@@ -46,7 +48,7 @@ func (s *Storage) UpdateCategory(
 
 	setParts, args := newUpdateBuilder().
 		addString("name", params.Name).
-		addString("type", params.Type).
+		addTransactionType("type", params.Type).
 		addString("icon", params.Icon).
 		addString("color", params.Color).
 		build(", ")
@@ -54,13 +56,13 @@ func (s *Storage) UpdateCategory(
 	args = append(args, id)
 	args = append(args, userID)
 
-	query := fmt.Sprintf(
+	query := fmt.Sprintf( //nolint:gosec // G201: setParts is built from a fixed whitelist, not user input
 		`UPDATE categories SET %s WHERE id = ? AND user_id = ? RETURNING id, user_id, name, type, icon, color, created_at, updated_at`,
 		setParts,
 	)
 
 	var category storage.Category
-	err := s.db.QueryRow(query, args...).
+	err := s.db.QueryRowContext(ctx, query, args...).
 		Scan(&category.ID, &category.UserID, &category.Name, &category.Type, &category.Icon, &category.Color, &category.CreatedAt, &category.UpdatedAt)
 	if err != nil {
 		var sqliteErr sqlite3.Error
@@ -76,18 +78,16 @@ func (s *Storage) UpdateCategory(
 	return &category, nil
 }
 
-func (s *Storage) DeleteCategory(userID string, id string) error {
+func (s *Storage) DeleteCategory(ctx context.Context, userID string, id string) error {
 	const op = "storage.sqlite.DeleteCategory"
 
-	stmt, err := s.db.Prepare(
-		`DELETE FROM categories WHERE id = ? AND user_id = ?`,
-	)
+	stmt, err := s.db.PrepareContext(ctx, `DELETE FROM categories WHERE id = ? AND user_id = ?`)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(id, userID)
+	res, err := stmt.ExecContext(ctx, id, userID)
 	if err != nil {
 		if isFKViolationError(err) {
 			return fmt.Errorf("%s: %w", op, storage.ErrCategoryHasTransactions)
@@ -106,10 +106,11 @@ func (s *Storage) DeleteCategory(userID string, id string) error {
 	return nil
 }
 
-func (s *Storage) GetCategory(userID string, id string) (*storage.Category, error) {
+func (s *Storage) GetCategory(ctx context.Context, userID string, id string) (*storage.Category, error) {
 	const op = "storage.sqlite.GetCategory"
 
-	stmt, err := s.db.Prepare(
+	stmt, err := s.db.PrepareContext(
+		ctx,
 		`SELECT id, user_id, name, type, icon, color, created_at, updated_at FROM categories WHERE id = ? AND user_id = ?`,
 	)
 	if err != nil {
@@ -118,7 +119,7 @@ func (s *Storage) GetCategory(userID string, id string) (*storage.Category, erro
 	defer stmt.Close()
 
 	var category storage.Category
-	err = stmt.QueryRow(id, userID).
+	err = stmt.QueryRowContext(ctx, id, userID).
 		Scan(&category.ID, &category.UserID, &category.Name, &category.Type, &category.Icon, &category.Color, &category.CreatedAt, &category.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -130,7 +131,7 @@ func (s *Storage) GetCategory(userID string, id string) (*storage.Category, erro
 	return &category, nil
 }
 
-func (s *Storage) GetCategories(
+func (s *Storage) GetCategories(ctx context.Context,
 	userID string,
 	params storage.GetCategoriesParams,
 ) ([]storage.Category, error) {
@@ -138,7 +139,7 @@ func (s *Storage) GetCategories(
 
 	query := `SELECT id, user_id, name, type, icon, color, created_at, updated_at FROM categories`
 	whereParts, args := newWhereBuilder().
-		addString("type", params.Type).
+		addTransactionType("type", params.Type).
 		addString("user_id", &userID).
 		build(" AND ")
 
@@ -147,7 +148,7 @@ func (s *Storage) GetCategories(
 	}
 
 	categories := []storage.Category{}
-	rows, err := s.db.Query(query, args...)
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}

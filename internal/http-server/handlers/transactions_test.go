@@ -17,7 +17,9 @@ import (
 )
 
 func TestCreateTransaction(t *testing.T) {
+	t.Parallel()
 	t.Run("Success cashflow", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		occurredAt := time.Now()
 		category := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
@@ -35,7 +37,7 @@ func TestCreateTransaction(t *testing.T) {
 		assert.Equal(t, http.StatusCreated, w.Code)
 		var response storage.Transaction
 		parseBody(t, w, &response)
-		assert.Equal(t, "income", response.Type)
+		assert.Equal(t, storage.TransactionTypeIncome, response.Type)
 		assert.Equal(t, int64(100000), response.Amount)
 		assert.Equal(t, "Salary for June", response.Description)
 		testutil.AssertTimeEqual(t, occurredAt, testutil.ParseDatetime(t, response.OccurredAt))
@@ -46,6 +48,7 @@ func TestCreateTransaction(t *testing.T) {
 	})
 
 	t.Run("Success transfer", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		occurredAt := time.Now()
 		accountParams := defaultAccountParams(f.User.ID)
@@ -67,7 +70,7 @@ func TestCreateTransaction(t *testing.T) {
 		assert.Equal(t, http.StatusCreated, w.Code)
 		var response storage.Transaction
 		parseBody(t, w, &response)
-		assert.Equal(t, "transfer", response.Type)
+		assert.Equal(t, storage.TransactionTypeTransfer, response.Type)
 		assert.Equal(t, int64(100000), response.Amount)
 		assert.Equal(t, "Salary for June", response.Description)
 		testutil.AssertTimeEqual(t, occurredAt, testutil.ParseDatetime(t, response.OccurredAt))
@@ -78,6 +81,7 @@ func TestCreateTransaction(t *testing.T) {
 	})
 
 	t.Run("ValidationFail", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		occurredAt := time.Now()
 		category := seedDefaultIncomeCategory(t, f.DB, f.User.ID)
@@ -305,6 +309,7 @@ func TestCreateTransaction(t *testing.T) {
 
 		for name, tc := range cases {
 			t.Run(name, func(t *testing.T) {
+				t.Parallel()
 				w := f.do(t, http.MethodPost, "/api/transactions", tc.body)
 
 				assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -312,7 +317,7 @@ func TestCreateTransaction(t *testing.T) {
 				parseBody(t, w, &response)
 				assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 				assert.Equal(t, "validation failed", response.Message)
-				require.Equal(t, tc.errorsLen, len(response.Errors))
+				require.Len(t, response.Errors, tc.errorsLen)
 				assert.Equal(t, tc.wantField, response.Errors[0].Field)
 				assert.Equal(t, tc.wantMessage, response.Errors[0].Message)
 			})
@@ -320,6 +325,7 @@ func TestCreateTransaction(t *testing.T) {
 	})
 
 	t.Run("NonExistAccountForCashflow", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodPost, "/api/transactions", map[string]any{
@@ -339,6 +345,7 @@ func TestCreateTransaction(t *testing.T) {
 	})
 
 	t.Run("NonExistAccountForTransfer", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodPost, "/api/transactions", map[string]any{
@@ -358,6 +365,7 @@ func TestCreateTransaction(t *testing.T) {
 	})
 
 	t.Run("SameAccountForTransfer", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		account := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 
@@ -381,12 +389,14 @@ func TestCreateTransaction(t *testing.T) {
 }
 
 func TestUpdateTransaction(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "transport",
-			transactionType: "expense",
+			transactionType: storage.TransactionTypeExpense,
 		})
 		nextAccount := seedAccount(t, f.DB, defaultAccountParams(f.User.ID))
 		nextCategory := seedDefaultExpenseCategory(t, f.DB, f.User.ID)
@@ -415,11 +425,12 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("PartialUpdate", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "salary",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 
 		w := f.do(
@@ -441,11 +452,12 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("NoFields", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "salary",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 
 		w := f.do(
@@ -463,11 +475,12 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("NonExistAccount", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "salary",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 
 		w := f.do(
@@ -488,11 +501,12 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("TypeParamIgnored", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "salary",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 
 		w := f.do(
@@ -513,11 +527,12 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("NonExistCategory", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "salary",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 
 		w := f.do(
@@ -538,11 +553,12 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("CategoryTypeMismatch", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "salary",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 
 		nextCategory := seedDefaultExpenseCategory(t, f.DB, f.User.ID)
@@ -565,6 +581,7 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(
@@ -584,16 +601,17 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("ShapeViolation", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		cashflowTransaction := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "salary",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 		transferTransaction := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "transfer",
-			transactionType: "transfer",
+			transactionType: storage.TransactionTypeTransfer,
 		})
 
 		cases := map[string]struct {
@@ -638,6 +656,7 @@ func TestUpdateTransaction(t *testing.T) {
 
 		for name, tc := range cases {
 			t.Run(name, func(t *testing.T) {
+				t.Parallel()
 				w := f.do(
 					t,
 					http.MethodPatch,
@@ -650,7 +669,7 @@ func TestUpdateTransaction(t *testing.T) {
 				parseBody(t, w, &response)
 				assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 				assert.Equal(t, "validation failed", response.Message)
-				assert.Equal(t, 1, len(response.Errors))
+				assert.Len(t, response.Errors, 1)
 				assert.Equal(t, tc.wantField, response.Errors[0].Field)
 				assert.Equal(t, tc.wantMessage, response.Errors[0].Message)
 			})
@@ -659,11 +678,13 @@ func TestUpdateTransaction(t *testing.T) {
 }
 
 func TestDeleteTransaction(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 
 		w := f.do(t, http.MethodDelete, "/api/transactions/"+existing.ID, nil)
@@ -673,6 +694,7 @@ func TestDeleteTransaction(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodDelete, "/api/transactions/"+uuid.NewString(), nil)
@@ -685,10 +707,11 @@ func TestDeleteTransaction(t *testing.T) {
 	})
 
 	t.Run("Stranger transaction NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 		f2 := newAuthFixture(t)
 
@@ -703,11 +726,13 @@ func TestDeleteTransaction(t *testing.T) {
 }
 
 func TestGetTransaction(t *testing.T) {
+	t.Parallel()
 	t.Run("Success for cashflow", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 
 		w := f.do(t, http.MethodGet, "/api/transactions/"+existing.ID, nil)
@@ -727,10 +752,11 @@ func TestGetTransaction(t *testing.T) {
 	})
 
 	t.Run("Success for transfer", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
-			transactionType: "transfer",
+			transactionType: storage.TransactionTypeTransfer,
 		})
 
 		w := f.do(t, http.MethodGet, "/api/transactions/"+existing.ID, nil)
@@ -750,6 +776,7 @@ func TestGetTransaction(t *testing.T) {
 	})
 
 	t.Run("NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodGet, "/api/transactions/"+uuid.NewString(), nil)
@@ -762,10 +789,11 @@ func TestGetTransaction(t *testing.T) {
 	})
 
 	t.Run("Stranger transaction NotFound", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 		f2 := newAuthFixture(t)
 
@@ -780,37 +808,39 @@ func TestGetTransaction(t *testing.T) {
 }
 
 func TestListTransactions(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		seeded1 := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "salary",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 		seeded2 := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "groceries",
-			transactionType: "expense",
+			transactionType: storage.TransactionTypeExpense,
 		})
 		seeded3 := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "freelance",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 		})
 		seeded4 := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "transfer",
-			transactionType: "transfer",
+			transactionType: storage.TransactionTypeTransfer,
 		})
 		seeded5 := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "expense",
-			transactionType: "expense",
+			transactionType: storage.TransactionTypeExpense,
 		})
 		seeded6 := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
 			userID:          f.User.ID,
 			categoryName:    "transfer",
-			transactionType: "transfer",
+			transactionType: storage.TransactionTypeTransfer,
 		})
 		seededTransactions := []*storage.Transaction{
 			seeded1,
@@ -826,7 +856,7 @@ func TestListTransactions(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 		var response []storage.Transaction
 		parseBody(t, w, &response)
-		assert.Equal(t, len(seededTransactions), len(response))
+		assert.Len(t, response, len(seededTransactions))
 
 		transactionsMap := make(map[string]*storage.Transaction)
 		for _, trx := range seededTransactions {
@@ -834,12 +864,13 @@ func TestListTransactions(t *testing.T) {
 		}
 		for _, trx := range response {
 			transaction, exists := transactionsMap[trx.ID]
-			assert.Equal(t, true, exists)
+			assert.True(t, exists)
 			assert.Equal(t, *transaction, trx)
 		}
 	})
 
 	t.Run("SpecificParamsWithoutDateRange", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		seeded1 := seedTransactionAt(
 			t,
@@ -847,7 +878,7 @@ func TestListTransactions(t *testing.T) {
 			seedTransactionAtParams{
 				userID:          f.User.ID,
 				categoryName:    "salary",
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 				occurredAt:      time.Date(2024, 5, 10, 12, 0, 0, 0, time.UTC),
 				amount:          80000,
 			},
@@ -858,7 +889,7 @@ func TestListTransactions(t *testing.T) {
 			seedTransactionAtParams{
 				userID:          f.User.ID,
 				categoryName:    "groceries",
-				transactionType: "expense",
+				transactionType: storage.TransactionTypeExpense,
 				occurredAt:      time.Date(2024, 5, 15, 12, 14, 30, 0, time.UTC),
 				amount:          20000,
 			},
@@ -868,7 +899,7 @@ func TestListTransactions(t *testing.T) {
 			f.DB,
 			seedTransactionAtParams{
 				userID:          f.User.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 				categoryName:    "freelance",
 				occurredAt:      time.Date(2024, 4, 1, 12, 0, 0, 0, time.UTC),
 				amount:          1000000,
@@ -879,7 +910,7 @@ func TestListTransactions(t *testing.T) {
 			f.DB,
 			seedTransactionAtParams{
 				userID:          f.User.ID,
-				transactionType: "expense",
+				transactionType: storage.TransactionTypeExpense,
 				categoryName:    "groceries2",
 				occurredAt:      time.Date(2024, 5, 15, 12, 12, 30, 0, time.UTC),
 				amount:          300000,
@@ -891,7 +922,7 @@ func TestListTransactions(t *testing.T) {
 			seedTransactionAtParams{
 				userID:          f.User.ID,
 				categoryName:    "transfer2",
-				transactionType: "transfer",
+				transactionType: storage.TransactionTypeTransfer,
 				occurredAt:      time.Date(2024, 2, 10, 12, 15, 30, 0, time.UTC),
 				amount:          300000,
 			},
@@ -999,12 +1030,13 @@ func TestListTransactions(t *testing.T) {
 			paramsEncoded := params.Encode()
 
 			t.Run(fmt.Sprintf("Params: %v", params), func(t *testing.T) {
+				t.Parallel()
 				w := f.do(t, http.MethodGet, "/api/transactions"+"?"+paramsEncoded, nil)
 
 				assert.Equal(t, http.StatusOK, w.Code)
 				var response []storage.Transaction
 				parseBody(t, w, &response)
-				assert.Equal(t, len(tc.expected), len(response))
+				assert.Len(t, response, len(tc.expected))
 				for i, trx := range response {
 					assert.Equal(t, tc.expected[i].ID, trx.ID)
 				}
@@ -1013,11 +1045,12 @@ func TestListTransactions(t *testing.T) {
 	})
 
 	t.Run("DateRange", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 		beforeRange := seedTransactionAt(t, f.DB, seedTransactionAtParams{
 			userID:          f.User.ID,
 			categoryName:    "salary",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 			occurredAt:      time.Date(2024, 5, 15, 12, 0, 0, 0, time.UTC),
 			amount:          10000,
 		})
@@ -1027,7 +1060,7 @@ func TestListTransactions(t *testing.T) {
 			seedTransactionAtParams{
 				userID:          f.User.ID,
 				categoryName:    "groceries",
-				transactionType: "expense",
+				transactionType: storage.TransactionTypeExpense,
 				occurredAt:      time.Date(2024, 6, 30, 23, 59, 0, 0, time.UTC),
 				amount:          10000,
 			},
@@ -1038,7 +1071,7 @@ func TestListTransactions(t *testing.T) {
 			seedTransactionAtParams{
 				userID:          f.User.ID,
 				categoryName:    "salary2",
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 				occurredAt:      time.Date(2024, 7, 1, 0, 0, 0, 0, time.UTC),
 				amount:          10000,
 			},
@@ -1046,21 +1079,21 @@ func TestListTransactions(t *testing.T) {
 		onLowerBoundary := seedTransactionAt(t, f.DB, seedTransactionAtParams{
 			userID:          f.User.ID,
 			categoryName:    "salary3",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 			occurredAt:      time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
 			amount:          10000,
 		})
 		inMiddle := seedTransactionAt(t, f.DB, seedTransactionAtParams{
 			userID:          f.User.ID,
 			categoryName:    "groceries2",
-			transactionType: "expense",
+			transactionType: storage.TransactionTypeExpense,
 			occurredAt:      time.Date(2024, 6, 15, 14, 30, 0, 0, time.UTC),
 			amount:          10000,
 		})
 		afterRange := seedTransactionAt(t, f.DB, seedTransactionAtParams{
 			userID:          f.User.ID,
 			categoryName:    "salary4",
-			transactionType: "income",
+			transactionType: storage.TransactionTypeIncome,
 			occurredAt:      time.Date(2024, 7, 15, 12, 0, 0, 0, time.UTC),
 			amount:          10000,
 		})

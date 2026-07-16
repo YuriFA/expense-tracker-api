@@ -16,40 +16,40 @@ import (
 )
 
 type TransactionRequest struct {
-	Type          string    `json:"type"          binding:"required,oneof=income expense transfer"`
-	Amount        int64     `json:"amount"        binding:"required,gt=0"`
-	Description   string    `json:"description"   binding:"omitempty"`
-	OccurredAt    time.Time `json:"occurredAt"    binding:"required"                               time_format:"2006-01-02T15:04:05Z07:00"`
-	AccountID     *string   `json:"accountId"     binding:"omitempty,uuid"`
-	CategoryID    *string   `json:"categoryId"    binding:"omitempty,uuid"`
-	FromAccountID *string   `json:"fromAccountId" binding:"omitempty,uuid"`
-	ToAccountID   *string   `json:"toAccountId"   binding:"omitempty,uuid"`
+	Type          storage.TransactionType `json:"type"          binding:"required,oneof=income expense transfer"`
+	Amount        int64                   `json:"amount"        binding:"required,gt=0"`
+	Description   string                  `json:"description"   binding:"omitempty"`
+	OccurredAt    time.Time               `json:"occurredAt"    binding:"required"                               time_format:"2006-01-02T15:04:05Z07:00"`
+	AccountID     *string                 `json:"accountId"     binding:"omitempty,uuid"`
+	CategoryID    *string                 `json:"categoryId"    binding:"omitempty,uuid"`
+	FromAccountID *string                 `json:"fromAccountId" binding:"omitempty,uuid"`
+	ToAccountID   *string                 `json:"toAccountId"   binding:"omitempty,uuid"`
 }
 
 type UpdateTransactionRequest struct {
 	Amount        *int64     `json:"amount"        binding:"omitempty,gt=0"`
 	Description   *string    `json:"description"   binding:"omitempty"`
 	OccurredAt    *time.Time `json:"occurredAt"    binding:"omitempty"      time_format:"2006-01-02T15:04:05Z07:00"`
-	AccountId     *string    `json:"accountId"     binding:"omitempty,uuid"`
+	AccountID     *string    `json:"accountId"     binding:"omitempty,uuid"`
 	CategoryID    *string    `json:"categoryId"    binding:"omitempty,uuid"`
 	FromAccountID *string    `json:"fromAccountId" binding:"omitempty,uuid"`
 	ToAccountID   *string    `json:"toAccountId"   binding:"omitempty,uuid"`
 }
 
 type GetTransactionsQuery struct {
-	Type       *string            `form:"type"       binding:"omitempty,oneof=income expense transfer"`
-	AccountID  *string            `form:"accountId"  binding:"omitempty,uuid"`
-	CategoryID *string            `form:"categoryId" binding:"omitempty,uuid"`
-	FromDate   *time.Time         `form:"fromDate"   binding:"omitempty"                                             time_format:"2006-01-02"`
-	ToDate     *time.Time         `form:"toDate"     binding:"omitempty,gtefield=FromDate"                           time_format:"2006-01-02"`
-	Limit      *int               `form:"limit"      binding:"omitempty,gt=0"`
-	Sort       *storage.SortParam `form:"sort"       binding:"omitempty,oneof=occurredAt -occurredAt amount -amount"`
+	Type       *storage.TransactionType `form:"type"       binding:"omitempty,oneof=income expense transfer"`
+	AccountID  *string                  `form:"accountId"  binding:"omitempty,uuid"`
+	CategoryID *string                  `form:"categoryId" binding:"omitempty,uuid"`
+	FromDate   *time.Time               `form:"fromDate"   binding:"omitempty"                                             time_format:"2006-01-02"`
+	ToDate     *time.Time               `form:"toDate"     binding:"omitempty,gtefield=FromDate"                           time_format:"2006-01-02"`
+	Limit      *int                     `form:"limit"      binding:"omitempty,gt=0"`
+	Sort       *storage.SortParam       `form:"sort"       binding:"omitempty,oneof=occurredAt -occurredAt amount -amount"`
 }
 
 func validateTransactionRequest(req TransactionRequest) []httperr.FieldError {
 	var errs []httperr.FieldError
 	switch req.Type {
-	case "income", "expense":
+	case storage.TransactionTypeIncome, storage.TransactionTypeExpense:
 		if req.AccountID == nil {
 			errs = append(errs, httperr.FieldError{
 				Field:   "accountId",
@@ -78,7 +78,7 @@ func validateTransactionRequest(req TransactionRequest) []httperr.FieldError {
 			})
 		}
 
-	case "transfer":
+	case storage.TransactionTypeTransfer:
 		if req.FromAccountID == nil {
 			errs = append(errs, httperr.FieldError{
 				Field:   "fromAccountId",
@@ -108,12 +108,12 @@ func validateTransactionRequest(req TransactionRequest) []httperr.FieldError {
 }
 
 func validateUpdateTransactionRequest(
-	currentType string,
+	currentType storage.TransactionType,
 	req UpdateTransactionRequest,
 ) []httperr.FieldError {
 	var errs []httperr.FieldError
 	switch currentType {
-	case "income", "expense":
+	case storage.TransactionTypeIncome, storage.TransactionTypeExpense:
 		if req.FromAccountID != nil {
 			errs = append(errs, httperr.FieldError{
 				Field:   "fromAccountId",
@@ -126,8 +126,8 @@ func validateUpdateTransactionRequest(
 				Message: "not allowed for income or expense transactions",
 			})
 		}
-	case "transfer":
-		if req.AccountId != nil {
+	case storage.TransactionTypeTransfer:
+		if req.AccountID != nil {
 			errs = append(errs, httperr.FieldError{
 				Field:   "accountId",
 				Message: "not allowed for transfer transactions",
@@ -144,12 +144,13 @@ func validateUpdateTransactionRequest(
 }
 
 type commonTransactionParamsReq struct {
-	AccountId     *string
-	CategoryId    *string
-	FromAccountId *string
-	ToAccountId   *string
+	AccountID     *string
+	CategoryID    *string
+	FromAccountID *string
+	ToAccountID   *string
 }
 
+//nolint:funlen // flat switch with 6 cases, single-screen readable
 func writeTransactionError(
 	c *gin.Context,
 	log *slog.Logger,
@@ -159,11 +160,16 @@ func writeTransactionError(
 	switch {
 	case errors.Is(err, storage.ErrTransactionNotFound):
 		log.Info("transaction not found")
-		httperr.Write(c, http.StatusNotFound, httperr.ErrCodeTransactionNotFound, "transaction not found")
+		httperr.Write(
+			c,
+			http.StatusNotFound,
+			httperr.ErrCodeTransactionNotFound,
+			"transaction not found",
+		)
 	case errors.Is(err, storage.ErrAccountNotFound):
 		log.Info(
 			"account not found",
-			slog.String("accountId", util.FromPtrOr(req.AccountId, "empty")),
+			slog.String("accountId", util.FromPtrOr(req.AccountID, "empty")),
 		)
 		httperr.Write(
 			c,
@@ -174,7 +180,7 @@ func writeTransactionError(
 	case errors.Is(err, storage.ErrCategoryNotFound):
 		log.Info(
 			"category not found",
-			slog.String("categoryId", util.FromPtrOr(req.CategoryId, "empty")),
+			slog.String("categoryId", util.FromPtrOr(req.CategoryID, "empty")),
 		)
 		httperr.Write(
 			c,
@@ -187,7 +193,7 @@ func writeTransactionError(
 			"transaction type does not match category type",
 			slog.String(
 				"categoryId",
-				util.FromPtrOr(req.CategoryId, "empty"),
+				util.FromPtrOr(req.CategoryID, "empty"),
 			),
 		)
 		httperr.Write(
@@ -201,11 +207,11 @@ func writeTransactionError(
 			"transaction from and to accounts are the same",
 			slog.String(
 				"fromAccountId",
-				util.FromPtrOr(req.FromAccountId, "empty"),
+				util.FromPtrOr(req.FromAccountID, "empty"),
 			),
 			slog.String(
 				"toAccountId",
-				util.FromPtrOr(req.ToAccountId, "empty"),
+				util.FromPtrOr(req.ToAccountID, "empty"),
 			),
 		)
 		httperr.Write(
@@ -219,19 +225,19 @@ func writeTransactionError(
 			"invalid references",
 			slog.String(
 				"accountId",
-				util.FromPtrOr(req.AccountId, "empty"),
+				util.FromPtrOr(req.AccountID, "empty"),
 			),
 			slog.String(
 				"categoryId",
-				util.FromPtrOr(req.CategoryId, "empty"),
+				util.FromPtrOr(req.CategoryID, "empty"),
 			),
 			slog.String(
 				"fromAccountId",
-				util.FromPtrOr(req.FromAccountId, "empty"),
+				util.FromPtrOr(req.FromAccountID, "empty"),
 			),
 			slog.String(
 				"toAccountId",
-				util.FromPtrOr(req.ToAccountId, "empty"),
+				util.FromPtrOr(req.ToAccountID, "empty"),
 			),
 		)
 		httperr.Write(
@@ -270,7 +276,7 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 		return
 	}
 
-	transaction, err := h.DB.CreateTransaction(storage.CreateTransactionParams{
+	transaction, err := h.DB.CreateTransaction(c.Request.Context(), storage.CreateTransactionParams{
 		UserID:        user.ID,
 		Type:          req.Type,
 		Amount:        req.Amount,
@@ -283,10 +289,10 @@ func (h *Handler) CreateTransaction(c *gin.Context) {
 	})
 	if err != nil {
 		writeTransactionError(c, log, err, commonTransactionParamsReq{
-			AccountId:     req.AccountID,
-			CategoryId:    req.CategoryID,
-			FromAccountId: req.FromAccountID,
-			ToAccountId:   req.ToAccountID,
+			AccountID:     req.AccountID,
+			CategoryID:    req.CategoryID,
+			FromAccountID: req.FromAccountID,
+			ToAccountID:   req.ToAccountID,
 		})
 		return
 	}
@@ -308,23 +314,38 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		return
 	}
 
-	if req.AccountId == nil && req.Description == nil &&
+	if req.AccountID == nil && req.Description == nil &&
 		req.OccurredAt == nil && req.CategoryID == nil && req.Amount == nil && req.FromAccountID == nil && req.ToAccountID == nil {
-		httperr.Write(c, http.StatusBadRequest, httperr.ErrCodeValidationFailed, "no fields to update")
+		httperr.Write(
+			c,
+			http.StatusBadRequest,
+			httperr.ErrCodeValidationFailed,
+			"no fields to update",
+		)
 		return
 	}
 
 	id := c.Param("id")
 
-	current, err := h.DB.GetTransaction(user.ID, id)
+	current, err := h.DB.GetTransaction(c.Request.Context(), user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrTransactionNotFound) {
 			log.Info("transaction not found", slog.String("id", id))
-			httperr.Write(c, http.StatusNotFound, httperr.ErrCodeTransactionNotFound, "transaction not found")
+			httperr.Write(
+				c,
+				http.StatusNotFound,
+				httperr.ErrCodeTransactionNotFound,
+				"transaction not found",
+			)
 			return
 		}
 		log.Error("failed to get transaction", logger.Error(err))
-		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to get transaction")
+		httperr.Write(
+			c,
+			http.StatusInternalServerError,
+			httperr.ErrCodeInternal,
+			"failed to get transaction",
+		)
 		return
 	}
 
@@ -333,21 +354,21 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		return
 	}
 
-	transaction, err := h.DB.UpdateTransaction(user.ID, id, storage.UpdateTransactionParams{
+	transaction, err := h.DB.UpdateTransaction(c.Request.Context(), user.ID, id, storage.UpdateTransactionParams{
 		Amount:        req.Amount,
 		Description:   req.Description,
 		OccurredAt:    req.OccurredAt,
-		AccountID:     req.AccountId,
+		AccountID:     req.AccountID,
 		CategoryID:    req.CategoryID,
 		FromAccountID: req.FromAccountID,
 		ToAccountID:   req.ToAccountID,
 	})
 	if err != nil {
 		writeTransactionError(c, log, err, commonTransactionParamsReq{
-			AccountId:     req.AccountId,
-			CategoryId:    req.CategoryID,
-			FromAccountId: req.FromAccountID,
-			ToAccountId:   req.ToAccountID,
+			AccountID:     req.AccountID,
+			CategoryID:    req.CategoryID,
+			FromAccountID: req.FromAccountID,
+			ToAccountID:   req.ToAccountID,
 		})
 		return
 	}
@@ -366,11 +387,16 @@ func (h *Handler) DeleteTransaction(c *gin.Context) {
 
 	id := c.Param("id")
 
-	err := h.DB.DeleteTransaction(user.ID, id)
+	err := h.DB.DeleteTransaction(c.Request.Context(), user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrTransactionNotFound) {
 			log.Info("transaction not found", slog.String("id", id))
-			httperr.Write(c, http.StatusNotFound, httperr.ErrCodeTransactionNotFound, "transaction not found")
+			httperr.Write(
+				c,
+				http.StatusNotFound,
+				httperr.ErrCodeTransactionNotFound,
+				"transaction not found",
+			)
 			return
 		}
 
@@ -397,16 +423,26 @@ func (h *Handler) GetTransaction(c *gin.Context) {
 	user := httpctx.CurrentUser(c)
 
 	id := c.Param("id")
-	transaction, err := h.DB.GetTransaction(user.ID, id)
+	transaction, err := h.DB.GetTransaction(c.Request.Context(), user.ID, id)
 	if err != nil {
 		if errors.Is(err, storage.ErrTransactionNotFound) {
 			log.Info("transaction not found", slog.String("id", id))
-			httperr.Write(c, http.StatusNotFound, httperr.ErrCodeTransactionNotFound, "transaction not found")
+			httperr.Write(
+				c,
+				http.StatusNotFound,
+				httperr.ErrCodeTransactionNotFound,
+				"transaction not found",
+			)
 			return
 		}
 
 		log.Error("failed to get transaction", logger.Error(err))
-		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to get transaction")
+		httperr.Write(
+			c,
+			http.StatusInternalServerError,
+			httperr.ErrCodeInternal,
+			"failed to get transaction",
+		)
 		return
 	}
 
@@ -428,14 +464,14 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 	}
 
 	if params.ToDate != nil {
-		params.ToDate = new(endOfDay(*params.ToDate))
+		params.ToDate = new(util.EndOfDay(*params.ToDate))
 	}
 
 	log.Debug(
 		"query parameters after parse",
 		slog.Any("params", params),
 	)
-	transactions, err := h.DB.GetTransactions(user.ID, storage.GetTransactionsParams{
+	transactions, err := h.DB.GetTransactions(c.Request.Context(), user.ID, storage.GetTransactionsParams{
 		Type:       params.Type,
 		AccountID:  params.AccountID,
 		CategoryID: params.CategoryID,
@@ -446,7 +482,12 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 	})
 	if err != nil {
 		log.Error("failed to get transactions", logger.Error(err))
-		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to get transactions")
+		httperr.Write(
+			c,
+			http.StatusInternalServerError,
+			httperr.ErrCodeInternal,
+			"failed to get transactions",
+		)
 		return
 	}
 

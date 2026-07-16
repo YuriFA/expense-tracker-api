@@ -1,7 +1,7 @@
 package config
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"time"
 
@@ -9,9 +9,10 @@ import (
 )
 
 type Config struct {
+	HTTPServer `yaml:"http_server"`
+
 	Env         string `yaml:"env"          env:"ENV"          env-required:"true"`
 	StoragePath string `yaml:"storage_path" env:"STORAGE_PATH" env-required:"true"`
-	HTTPServer  `       yaml:"http_server"`
 }
 
 type HTTPServer struct {
@@ -44,22 +45,32 @@ type CORSConfig struct {
 	AllowedHeaders []string `yaml:"allowed_headers" env:"CORS_ALLOWED_HEADERS" env-default:"Content-Type,Authorization"  env-separator:","`
 }
 
-func MustLoad() *Config {
-	configPath := os.Getenv("CONFIG_PATH")
-
-	if configPath == "" {
-		log.Fatal("CONFIG_PATH environment variable is not set")
+//nolint:gosec // G703: config path is operator-controlled (env var), not user input
+func loadConfig(path string) (*Config, error) {
+	if path == "" {
+		return nil, fmt.Errorf("CONFIG_PATH environment variable is not set")
 	}
 
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Fatalf("Config file does not exist at path: %s", configPath)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, fmt.Errorf("config file does not exist at path: %s", path)
 	}
 
 	var cfg Config
 
-	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
-		log.Fatalf("Failed to read config file: %v", err)
+	if err := cleanenv.ReadConfig(path, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	return &cfg
+	return &cfg, nil
+}
+
+func MustLoad() *Config {
+	configPath := os.Getenv("CONFIG_PATH")
+
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		panic(fmt.Sprintf("failed to load config: %v", err))
+	}
+
+	return cfg
 }

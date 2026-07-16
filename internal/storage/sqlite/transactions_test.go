@@ -1,6 +1,7 @@
 package sqlite_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -13,12 +14,13 @@ import (
 )
 
 func TestCreateTransaction(t *testing.T) {
+	t.Parallel()
 	f := newFixture(t)
 	user := f.User
 	user2 := seedUser(t, f.DB)
 	account := seedAccount(t, f.DB, user.ID, 100000)
 	categoryParams := defaultCategoryParams(f.User.ID)
-	categoryParams.Type = "income"
+	categoryParams.Type = storage.TransactionTypeIncome
 	category := seedCategory(t, f.DB, categoryParams)
 	account2 := seedAccount(t, f.DB, user.ID, 100000)
 
@@ -30,7 +32,7 @@ func TestCreateTransaction(t *testing.T) {
 		"cashflow with existing category and account": {
 			params: storage.CreateTransactionParams{
 				UserID:      user.ID,
-				Type:        "income",
+				Type:        storage.TransactionTypeIncome,
 				Amount:      1000,
 				Description: "Salary",
 				OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
@@ -42,7 +44,7 @@ func TestCreateTransaction(t *testing.T) {
 		"cashflow with existing category and account but category type not same": {
 			params: storage.CreateTransactionParams{
 				UserID:      user.ID,
-				Type:        "expense",
+				Type:        storage.TransactionTypeExpense,
 				Amount:      1000,
 				Description: "Salary",
 				OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
@@ -55,7 +57,7 @@ func TestCreateTransaction(t *testing.T) {
 		"cashflow with non existing category and account": {
 			params: storage.CreateTransactionParams{
 				UserID:      user.ID,
-				Type:        "income",
+				Type:        storage.TransactionTypeIncome,
 				Amount:      1000,
 				Description: "Salary",
 				OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
@@ -68,7 +70,7 @@ func TestCreateTransaction(t *testing.T) {
 		"transfer with existing account": {
 			params: storage.CreateTransactionParams{
 				UserID:        user.ID,
-				Type:          "transfer",
+				Type:          storage.TransactionTypeTransfer,
 				Amount:        1000,
 				Description:   "Transfer",
 				OccurredAt:    *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
@@ -80,7 +82,7 @@ func TestCreateTransaction(t *testing.T) {
 		"transfer with non existing account": {
 			params: storage.CreateTransactionParams{
 				UserID:        user.ID,
-				Type:          "transfer",
+				Type:          storage.TransactionTypeTransfer,
 				Amount:        1000,
 				Description:   "Transfer",
 				OccurredAt:    *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
@@ -93,7 +95,7 @@ func TestCreateTransaction(t *testing.T) {
 		"transfer with same from and to account": {
 			params: storage.CreateTransactionParams{
 				UserID:        user.ID,
-				Type:          "transfer",
+				Type:          storage.TransactionTypeTransfer,
 				Amount:        1000,
 				Description:   "Transfer",
 				OccurredAt:    *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
@@ -106,7 +108,7 @@ func TestCreateTransaction(t *testing.T) {
 		"transfer for another user not found": {
 			params: storage.CreateTransactionParams{
 				UserID:        user2.ID,
-				Type:          "transfer",
+				Type:          storage.TransactionTypeTransfer,
 				Amount:        1000,
 				Description:   "Transfer",
 				OccurredAt:    *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
@@ -120,7 +122,8 @@ func TestCreateTransaction(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			transaction, err := f.DB.CreateTransaction(tc.params)
+			t.Parallel()
+			transaction, err := f.DB.CreateTransaction(context.Background(), tc.params)
 			if tc.respError {
 				require.ErrorIs(t, err, tc.expectedErr)
 				return
@@ -149,12 +152,14 @@ func TestCreateTransaction(t *testing.T) {
 }
 
 func TestUpdateTransaction(t *testing.T) {
+	t.Parallel()
 	t.Run("cashflow full params updates", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user := f.User
 		account := seedAccount(t, f.DB, user.ID, 100000)
 		categoryParams := defaultCategoryParams(user.ID)
-		categoryParams.Type = "income"
+		categoryParams.Type = storage.TransactionTypeIncome
 		category := seedCategory(t, f.DB, categoryParams)
 		transaction := seedCashflowTransaction(
 			t,
@@ -164,7 +169,7 @@ func TestUpdateTransaction(t *testing.T) {
 				amount:          1000,
 				accountID:       account.ID,
 				categoryID:      category.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
 		params := storage.UpdateTransactionParams{
@@ -175,7 +180,7 @@ func TestUpdateTransaction(t *testing.T) {
 			CategoryID:  new(category.ID),
 		}
 
-		updatedTransaction, err := f.DB.UpdateTransaction(user.ID, transaction.ID, params)
+		updatedTransaction, err := f.DB.UpdateTransaction(context.Background(), user.ID, transaction.ID, params)
 		require.NoError(t, err)
 
 		require.Equal(t, *params.Amount, updatedTransaction.Amount)
@@ -190,6 +195,7 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("transfer full params updates", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user := f.User
 		account1 := seedAccount(t, f.DB, user.ID, 20000)
@@ -212,7 +218,7 @@ func TestUpdateTransaction(t *testing.T) {
 			ToAccountID:   new(account2.ID),
 		}
 
-		updatedTransaction, err := f.DB.UpdateTransaction(user.ID, transaction.ID, params)
+		updatedTransaction, err := f.DB.UpdateTransaction(context.Background(), user.ID, transaction.ID, params)
 		require.NoError(t, err)
 
 		require.Equal(t, *params.Amount, updatedTransaction.Amount)
@@ -227,16 +233,17 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("cashflow only category change", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user := f.User
 		account := seedAccount(t, f.DB, user.ID, 100000)
 		categoryParams := defaultCategoryParams(user.ID)
 		categoryParams.Name = "salary"
-		categoryParams.Type = "income"
+		categoryParams.Type = storage.TransactionTypeIncome
 		category := seedCategory(t, f.DB, categoryParams)
 		expenseCategoryParams := defaultCategoryParams(user.ID)
 		expenseCategoryParams.Name = "shopping"
-		expenseCategoryParams.Type = "expense"
+		expenseCategoryParams.Type = storage.TransactionTypeExpense
 		expenseCategory := seedCategory(t, f.DB, expenseCategoryParams)
 		transaction := seedCashflowTransaction(
 			t,
@@ -246,18 +253,19 @@ func TestUpdateTransaction(t *testing.T) {
 				amount:          1000,
 				accountID:       account.ID,
 				categoryID:      category.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
 		params := storage.UpdateTransactionParams{
 			CategoryID: new(expenseCategory.ID),
 		}
 
-		_, err := f.DB.UpdateTransaction(user.ID, transaction.ID, params)
+		_, err := f.DB.UpdateTransaction(context.Background(), user.ID, transaction.ID, params)
 		require.ErrorIs(t, err, storage.ErrCategoryTypeMismatch)
 	})
 
 	t.Run("transfer only fromAccountID change", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account1 := seedAccount(t, f.DB, f.User.ID, 20000)
 		account2 := seedAccount(t, f.DB, f.User.ID, 30000)
@@ -276,7 +284,7 @@ func TestUpdateTransaction(t *testing.T) {
 			FromAccountID: new(account3.ID),
 		}
 
-		updatedTransaction, err := f.DB.UpdateTransaction(f.User.ID, transaction.ID, params)
+		updatedTransaction, err := f.DB.UpdateTransaction(context.Background(), f.User.ID, transaction.ID, params)
 		require.NoError(t, err)
 
 		require.Equal(t, transaction.Amount, updatedTransaction.Amount)
@@ -287,6 +295,7 @@ func TestUpdateTransaction(t *testing.T) {
 	})
 
 	t.Run("transfer same fromAccountID toAccountID change", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user := f.User
 		account1 := seedAccount(t, f.DB, user.ID, 20000)
@@ -305,11 +314,12 @@ func TestUpdateTransaction(t *testing.T) {
 			FromAccountID: new(account2.ID),
 		}
 
-		_, err := f.DB.UpdateTransaction(user.ID, transaction.ID, params)
+		_, err := f.DB.UpdateTransaction(context.Background(), user.ID, transaction.ID, params)
 		require.ErrorIs(t, err, storage.ErrSameAccountTransfer)
 	})
 
 	t.Run("transfer with cashflow params", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user := f.User
 		account1 := seedAccount(t, f.DB, user.ID, 20000)
@@ -329,20 +339,21 @@ func TestUpdateTransaction(t *testing.T) {
 			FromAccountID: new(account2.ID),
 		}
 
-		_, err := f.DB.UpdateTransaction(user.ID, transaction.ID, params)
+		_, err := f.DB.UpdateTransaction(context.Background(), user.ID, transaction.ID, params)
 		require.ErrorIs(t, err, storage.ErrInvalidRefs)
 	})
 
 	t.Run("cashflow with transfer params", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 100000)
 		categoryParams := defaultCategoryParams(f.User.ID)
 		categoryParams.Name = "salary"
-		categoryParams.Type = "income"
+		categoryParams.Type = storage.TransactionTypeIncome
 		category := seedCategory(t, f.DB, categoryParams)
 		expenseCategoryParams := defaultCategoryParams(f.User.ID)
 		expenseCategoryParams.Name = "shopping"
-		expenseCategoryParams.Type = "expense"
+		expenseCategoryParams.Type = storage.TransactionTypeExpense
 		expenseCategory := seedCategory(t, f.DB, expenseCategoryParams)
 		transaction := seedCashflowTransaction(
 			t,
@@ -352,7 +363,7 @@ func TestUpdateTransaction(t *testing.T) {
 				amount:          1000,
 				accountID:       account.ID,
 				categoryID:      category.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
 		params := storage.UpdateTransactionParams{
@@ -360,22 +371,29 @@ func TestUpdateTransaction(t *testing.T) {
 			FromAccountID: new(account.ID),
 		}
 
-		_, err := f.DB.UpdateTransaction(f.User.ID, transaction.ID, params)
+		_, err := f.DB.UpdateTransaction(context.Background(), f.User.ID, transaction.ID, params)
 		require.ErrorIs(t, err, storage.ErrInvalidRefs)
 	})
 
 	t.Run("wrong transaction id return not found", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
-		_, err := f.DB.UpdateTransaction(f.User.ID, uuid.NewString(), storage.UpdateTransactionParams{})
+		_, err := f.DB.UpdateTransaction(
+			context.Background(),
+			f.User.ID,
+			uuid.NewString(),
+			storage.UpdateTransactionParams{},
+		)
 		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 
 	t.Run("transaction for another user return not found", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		account := seedAccount(t, f.DB, f.User.ID, 100000)
 		categoryParams := defaultCategoryParams(f.User.ID)
-		categoryParams.Type = "income"
+		categoryParams.Type = storage.TransactionTypeIncome
 		category := seedCategory(t, f.DB, categoryParams)
 		transaction := seedCashflowTransaction(
 			t,
@@ -385,20 +403,22 @@ func TestUpdateTransaction(t *testing.T) {
 				amount:          1000,
 				accountID:       account.ID,
 				categoryID:      category.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
-		_, err := f.DB.GetTransaction(user2.ID, transaction.ID)
+		_, err := f.DB.GetTransaction(context.Background(), user2.ID, transaction.ID)
 		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 }
 
 func TestDeleteTransaction(t *testing.T) {
+	t.Parallel()
 	t.Run("existing transaction", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 100000)
 		categoryParams := defaultCategoryParams(f.User.ID)
-		categoryParams.Type = "income"
+		categoryParams.Type = storage.TransactionTypeIncome
 		category := seedCategory(t, f.DB, categoryParams)
 		transaction := seedCashflowTransaction(
 			t,
@@ -408,25 +428,27 @@ func TestDeleteTransaction(t *testing.T) {
 				amount:          1000,
 				accountID:       account.ID,
 				categoryID:      category.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
 
-		err := f.DB.DeleteTransaction(f.User.ID, transaction.ID)
+		err := f.DB.DeleteTransaction(context.Background(), f.User.ID, transaction.ID)
 		require.NoError(t, err)
 	})
 
 	t.Run("non existing transaction", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
-		err := f.DB.DeleteTransaction(f.User.ID, uuid.NewString())
+		err := f.DB.DeleteTransaction(context.Background(), f.User.ID, uuid.NewString())
 		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 
 	t.Run("double delete transaction", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 100000)
 		categoryParams := defaultCategoryParams(f.User.ID)
-		categoryParams.Type = "income"
+		categoryParams.Type = storage.TransactionTypeIncome
 		category := seedCategory(t, f.DB, categoryParams)
 		transaction := seedCashflowTransaction(
 			t,
@@ -436,22 +458,23 @@ func TestDeleteTransaction(t *testing.T) {
 				amount:          1000,
 				accountID:       account.ID,
 				categoryID:      category.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
 
-		err := f.DB.DeleteTransaction(f.User.ID, transaction.ID)
+		err := f.DB.DeleteTransaction(context.Background(), f.User.ID, transaction.ID)
 		require.NoError(t, err)
-		err = f.DB.DeleteTransaction(f.User.ID, transaction.ID)
+		err = f.DB.DeleteTransaction(context.Background(), f.User.ID, transaction.ID)
 		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 
 	t.Run("transaction for another user return not found", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		account := seedAccount(t, f.DB, f.User.ID, 100000)
 		categoryParams := defaultCategoryParams(f.User.ID)
-		categoryParams.Type = "income"
+		categoryParams.Type = storage.TransactionTypeIncome
 		category := seedCategory(t, f.DB, categoryParams)
 		transaction := seedCashflowTransaction(
 			t,
@@ -461,20 +484,22 @@ func TestDeleteTransaction(t *testing.T) {
 				amount:          1000,
 				accountID:       account.ID,
 				categoryID:      category.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
-		_, err := f.DB.GetTransaction(user2.ID, transaction.ID)
+		_, err := f.DB.GetTransaction(context.Background(), user2.ID, transaction.ID)
 		require.ErrorIs(t, err, storage.ErrTransactionNotFound)
 	})
 }
 
 func TestGetTransaction(t *testing.T) {
+	t.Parallel()
 	t.Run("cashflow", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account := seedAccount(t, f.DB, f.User.ID, 100000)
 		categoryParams := defaultCategoryParams(f.User.ID)
-		categoryParams.Type = "income"
+		categoryParams.Type = storage.TransactionTypeIncome
 		category := seedCategory(t, f.DB, categoryParams)
 		transaction := seedCashflowTransaction(
 			t,
@@ -484,13 +509,13 @@ func TestGetTransaction(t *testing.T) {
 				amount:          1000,
 				accountID:       account.ID,
 				categoryID:      category.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
 		user2 := seedUser(t, f.DB)
 		account2 := seedAccount(t, f.DB, user2.ID, 100000)
 		category2Params := defaultCategoryParams(user2.ID)
-		category2Params.Type = "income"
+		category2Params.Type = storage.TransactionTypeIncome
 		category2 := seedCategory(t, f.DB, category2Params)
 		transaction2 := seedCashflowTransaction(
 			t,
@@ -500,7 +525,7 @@ func TestGetTransaction(t *testing.T) {
 				amount:          1000,
 				accountID:       account2.ID,
 				categoryID:      category2.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
 
@@ -532,7 +557,8 @@ func TestGetTransaction(t *testing.T) {
 
 		for name, tc := range cases {
 			t.Run(name, func(t *testing.T) {
-				fetched, err := f.DB.GetTransaction(f.User.ID, tc.id)
+				t.Parallel()
+				fetched, err := f.DB.GetTransaction(context.Background(), f.User.ID, tc.id)
 
 				if tc.respError {
 					require.ErrorIs(t, err, tc.expectedErr)
@@ -546,6 +572,7 @@ func TestGetTransaction(t *testing.T) {
 	})
 
 	t.Run("transfer", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		account1 := seedAccount(t, f.DB, f.User.ID, 100000)
 		account2 := seedAccount(t, f.DB, f.User.ID, 100000)
@@ -583,7 +610,8 @@ func TestGetTransaction(t *testing.T) {
 
 		for name, tc := range cases {
 			t.Run(name, func(t *testing.T) {
-				fetched, err := f.DB.GetTransaction(f.User.ID, tc.id)
+				t.Parallel()
+				fetched, err := f.DB.GetTransaction(context.Background(), f.User.ID, tc.id)
 
 				if tc.respError {
 					require.ErrorIs(t, err, tc.expectedErr)
@@ -605,18 +633,18 @@ func createTestTransactions(
 	t.Helper()
 	account := seedAccount(t, db, userID, 100000)
 	incomeCategoryParams := defaultCategoryParams(userID)
-	incomeCategoryParams.Type = "income"
+	incomeCategoryParams.Type = storage.TransactionTypeIncome
 	incomeCategoryParams.Name = "salary"
 	incomeCategory := seedCategory(t, db, incomeCategoryParams)
 	account2 := seedAccount(t, db, userID, 100000)
 	expenseCategoryParams := defaultCategoryParams(userID)
-	expenseCategoryParams.Type = "expense"
+	expenseCategoryParams.Type = storage.TransactionTypeExpense
 	expenseCategoryParams.Name = "shopping"
 	expenseCategory := seedCategory(t, db, expenseCategoryParams)
 	transactionCreationParams := []storage.CreateTransactionParams{
 		{
 			UserID:      userID,
-			Type:        "income",
+			Type:        storage.TransactionTypeIncome,
 			Amount:      1000,
 			Description: "Salary1",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
@@ -625,7 +653,7 @@ func createTestTransactions(
 		},
 		{
 			UserID:      userID,
-			Type:        "expense",
+			Type:        storage.TransactionTypeExpense,
 			Amount:      2000,
 			Description: "Shopping1",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-07-01T14:30:00Z"),
@@ -634,7 +662,7 @@ func createTestTransactions(
 		},
 		{
 			UserID:      userID,
-			Type:        "income",
+			Type:        storage.TransactionTypeIncome,
 			Amount:      5000,
 			Description: "Salary2",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-05-01T23:59:00Z"),
@@ -643,7 +671,7 @@ func createTestTransactions(
 		},
 		{
 			UserID:      userID,
-			Type:        "expense",
+			Type:        storage.TransactionTypeExpense,
 			Amount:      3000,
 			Description: "Shopping2",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-07-01T00:00:00Z"),
@@ -652,7 +680,7 @@ func createTestTransactions(
 		},
 		{
 			UserID:      userID,
-			Type:        "income",
+			Type:        storage.TransactionTypeIncome,
 			Amount:      1000,
 			Description: "Salary3",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-05-01T00:00:00Z"),
@@ -661,7 +689,7 @@ func createTestTransactions(
 		},
 		{
 			UserID:      userID,
-			Type:        "expense",
+			Type:        storage.TransactionTypeExpense,
 			Amount:      1000,
 			Description: "Game1",
 			OccurredAt:  *testutil.GetTimeFromStr(t, "2024-05-04T00:00:00Z"),
@@ -670,7 +698,7 @@ func createTestTransactions(
 		},
 		{
 			UserID:        userID,
-			Type:          "transfer",
+			Type:          storage.TransactionTypeTransfer,
 			Amount:        100,
 			Description:   "Transfer1",
 			OccurredAt:    *testutil.GetTimeFromStr(t, "2024-05-02T00:00:00Z"),
@@ -679,7 +707,7 @@ func createTestTransactions(
 		},
 		{
 			UserID:        userID,
-			Type:          "transfer",
+			Type:          storage.TransactionTypeTransfer,
 			Amount:        300,
 			Description:   "Transfer2",
 			OccurredAt:    *testutil.GetTimeFromStr(t, "2024-05-03T00:00:00Z"),
@@ -688,7 +716,7 @@ func createTestTransactions(
 		},
 		{
 			UserID:        userID,
-			Type:          "transfer",
+			Type:          storage.TransactionTypeTransfer,
 			Amount:        200,
 			Description:   "Transfer3",
 			OccurredAt:    *testutil.GetTimeFromStr(t, "2024-06-04T00:00:00Z"),
@@ -700,7 +728,7 @@ func createTestTransactions(
 	result := []storage.Transaction{}
 
 	for _, params := range transactionCreationParams {
-		transaction, err := db.CreateTransaction(params)
+		transaction, err := db.CreateTransaction(context.Background(), params)
 		if err != nil {
 			return nil, err
 		}
@@ -712,31 +740,35 @@ func createTestTransactions(
 }
 
 func TestGetTransactions(t *testing.T) {
+	t.Parallel()
 	t.Run("empty transactions in database", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
-		transactions, err := f.DB.GetTransactions(f.User.ID, storage.GetTransactionsParams{})
+		transactions, err := f.DB.GetTransactions(context.Background(), f.User.ID, storage.GetTransactionsParams{})
 		require.NoError(t, err)
 		require.Empty(t, transactions)
 	})
 
 	t.Run("no params", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		createdTransactions, err := createTestTransactions(t, f.DB, f.User.ID)
 		require.NoError(t, err)
 
-		transactions, err := f.DB.GetTransactions(f.User.ID, storage.GetTransactionsParams{})
+		transactions, err := f.DB.GetTransactions(context.Background(), f.User.ID, storage.GetTransactionsParams{})
 		require.NoError(t, err)
-		require.Equal(t, len(createdTransactions), len(transactions))
+		require.Len(t, transactions, len(createdTransactions))
 	})
 
 	t.Run("account id", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		createdTransactions, err := createTestTransactions(t, f.DB, f.User.ID)
 		require.NoError(t, err)
 
 		accID := createdTransactions[0].AccountID
 
-		transactions, err := f.DB.GetTransactions(
+		transactions, err := f.DB.GetTransactions(context.Background(),
 			f.User.ID,
 			storage.GetTransactionsParams{AccountID: accID},
 		)
@@ -761,13 +793,14 @@ func TestGetTransactions(t *testing.T) {
 	})
 
 	t.Run("type param = income", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		createdTransactions, err := createTestTransactions(t, f.DB, f.User.ID)
 		require.NoError(t, err)
 
-		transactions, err := f.DB.GetTransactions(
+		transactions, err := f.DB.GetTransactions(context.Background(),
 			f.User.ID,
-			storage.GetTransactionsParams{Type: new("income")},
+			storage.GetTransactionsParams{Type: new(storage.TransactionTypeIncome)},
 		)
 		require.NoError(t, err)
 
@@ -787,11 +820,12 @@ func TestGetTransactions(t *testing.T) {
 	})
 
 	t.Run("sort param occurred_at DESC", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		createdTransactions, err := createTestTransactions(t, f.DB, f.User.ID)
 		require.NoError(t, err)
 
-		transactions, err := f.DB.GetTransactions(
+		transactions, err := f.DB.GetTransactions(context.Background(),
 			f.User.ID,
 			storage.GetTransactionsParams{Sort: new(storage.OccurredAtDesc)},
 		)
@@ -807,11 +841,12 @@ func TestGetTransactions(t *testing.T) {
 	})
 
 	t.Run("from date and to date", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		createdTransactions, err := createTestTransactions(t, f.DB, f.User.ID)
 		require.NoError(t, err)
 
-		transactions, err := f.DB.GetTransactions(
+		transactions, err := f.DB.GetTransactions(context.Background(),
 			f.User.ID,
 			storage.GetTransactionsParams{
 				FromDate: testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
@@ -833,11 +868,12 @@ func TestGetTransactions(t *testing.T) {
 	})
 
 	t.Run("from date only", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		createdTransactions, err := createTestTransactions(t, f.DB, f.User.ID)
 		require.NoError(t, err)
 
-		transactions, err := f.DB.GetTransactions(
+		transactions, err := f.DB.GetTransactions(context.Background(),
 			f.User.ID,
 			storage.GetTransactionsParams{
 				FromDate: testutil.GetTimeFromStr(t, "2024-06-01T00:00:00Z"),
@@ -858,11 +894,12 @@ func TestGetTransactions(t *testing.T) {
 	})
 
 	t.Run("to date only", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		createdTransactions, err := createTestTransactions(t, f.DB, f.User.ID)
 		require.NoError(t, err)
 
-		transactions, err := f.DB.GetTransactions(
+		transactions, err := f.DB.GetTransactions(context.Background(),
 			f.User.ID,
 			storage.GetTransactionsParams{
 				ToDate: testutil.GetTimeFromStr(t, "2024-07-01T00:00:00Z"),
@@ -883,11 +920,12 @@ func TestGetTransactions(t *testing.T) {
 	})
 
 	t.Run("limit = 2", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		createdTransactions, err := createTestTransactions(t, f.DB, f.User.ID)
 		require.NoError(t, err)
 
-		transactions, err := f.DB.GetTransactions(
+		transactions, err := f.DB.GetTransactions(context.Background(),
 			f.User.ID,
 			storage.GetTransactionsParams{Limit: new(2)},
 		)
@@ -903,11 +941,12 @@ func TestGetTransactions(t *testing.T) {
 	})
 
 	t.Run("not found for another user", func(t *testing.T) {
+		t.Parallel()
 		f := newFixture(t)
 		user2 := seedUser(t, f.DB)
 		account := seedAccount(t, f.DB, f.User.ID, 100000)
 		categoryParams := defaultCategoryParams(f.User.ID)
-		categoryParams.Type = "income"
+		categoryParams.Type = storage.TransactionTypeIncome
 		category := seedCategory(t, f.DB, categoryParams)
 		_ = seedCashflowTransaction(
 			t,
@@ -917,11 +956,11 @@ func TestGetTransactions(t *testing.T) {
 				amount:          1000,
 				accountID:       account.ID,
 				categoryID:      category.ID,
-				transactionType: "income",
+				transactionType: storage.TransactionTypeIncome,
 			},
 		)
 
-		transactions, err := f.DB.GetTransactions(
+		transactions, err := f.DB.GetTransactions(context.Background(),
 			user2.ID,
 			storage.GetTransactionsParams{},
 		)

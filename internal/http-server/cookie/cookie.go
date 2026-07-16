@@ -21,7 +21,7 @@ func ParseSameSite(s string) http.SameSite {
 }
 
 func BuildSession(cfg config.SessionConfig, value string, maxAge int) *http.Cookie {
-	return &http.Cookie{
+	return &http.Cookie{ //nolint:gosec // G124: Secure is configurable to allow non-HTTPS local dev
 		Name:     cfg.CookieName,
 		Value:    value,
 		MaxAge:   maxAge,

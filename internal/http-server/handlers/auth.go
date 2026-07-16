@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/yurifa/expense-tracker-api/internal/auth"
-	"github.com/yurifa/expense-tracker-api/internal/http-server/httpctx"
 	"github.com/yurifa/expense-tracker-api/internal/http-server/cookie"
+	"github.com/yurifa/expense-tracker-api/internal/http-server/httpctx"
 	"github.com/yurifa/expense-tracker-api/internal/http-server/httperr"
 	"github.com/yurifa/expense-tracker-api/internal/logger"
 	"github.com/yurifa/expense-tracker-api/internal/storage"
@@ -32,7 +32,7 @@ func (h *Handler) startUserSession(c *gin.Context, userID string) error {
 		return err
 	}
 
-	session, err := h.DB.CreateSession(storage.CreateSessionParams{
+	session, err := h.DB.CreateSession(c.Request.Context(), storage.CreateSessionParams{
 		SessionID: sessionID,
 		UserID:    userID,
 		ExpiresAt: time.Now().UTC().Add(h.Config.SessionConfig.TTL),
@@ -70,7 +70,7 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	user, err := h.DB.RegisterUser(storage.RegisterUserParams{
+	user, err := h.DB.RegisterUser(c.Request.Context(), storage.RegisterUserParams{
 		Email:        req.Email,
 		PasswordHash: passwordHash,
 	})
@@ -117,7 +117,7 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	user, err := h.DB.GetUserByEmail(req.Email)
+	user, err := h.DB.GetUserByEmail(c.Request.Context(), req.Email)
 	if err != nil {
 		h.RateLimiter.RecordFailure(key)
 		log.Error("failed to get user by email", logger.Error(err))
@@ -160,7 +160,7 @@ func (h *Handler) Logout(c *gin.Context) {
 		return
 	}
 
-	err = h.DB.DeleteSession(sessionCookie.Value)
+	err = h.DB.DeleteSession(c.Request.Context(), sessionCookie.Value)
 	if err != nil && !errors.Is(err, storage.ErrSessionNotFound) {
 		log.Error("failed to delete session", logger.Error(err))
 		httperr.Write(c, http.StatusInternalServerError, httperr.ErrCodeInternal, "failed to logout")

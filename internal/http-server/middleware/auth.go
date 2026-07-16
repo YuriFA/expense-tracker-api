@@ -29,7 +29,7 @@ func AuthRequired(db *sqlite.Storage, log *slog.Logger, cfg *config.HTTPServer) 
 			return
 		}
 
-		session, err := db.GetSessionByID(sessionID.Value)
+		session, err := db.GetSessionByID(c.Request.Context(), sessionID.Value)
 		if err != nil {
 			if errors.Is(err, storage.ErrSessionNotFound) {
 				log.Info("invalid or expired session")
@@ -44,7 +44,7 @@ func AuthRequired(db *sqlite.Storage, log *slog.Logger, cfg *config.HTTPServer) 
 			return
 		}
 
-		user, err := db.GetUserByID(session.UserID)
+		user, err := db.GetUserByID(c.Request.Context(), session.UserID)
 		if err != nil {
 			log.Error("failed to get user by ID", slog.String("error", err.Error()))
 			httperr.Write(c, http.StatusUnauthorized,
@@ -62,7 +62,7 @@ func AuthRequired(db *sqlite.Storage, log *slog.Logger, cfg *config.HTTPServer) 
 
 		if cfg.SessionConfig.SlidingExpiration && time.Until(expiresAt) < cfg.SessionConfig.TTL/4 {
 			newExpiresAt := time.Now().UTC().Add(cfg.SessionConfig.TTL)
-			if err := db.ExtendSession(session.ID, newExpiresAt); err != nil {
+			if err := db.ExtendSession(c.Request.Context(), session.ID, newExpiresAt); err != nil {
 				log.Error("failed to extend session", slog.String("error", err.Error()))
 				httperr.Write(c, http.StatusInternalServerError,
 					httperr.ErrCodeInternal, "internal server error")

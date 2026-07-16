@@ -3,6 +3,8 @@ package sqlite
 import (
 	"strings"
 	"time"
+
+	"github.com/yurifa/expense-tracker-api/internal/storage"
 )
 
 type sqlClauseBuilder struct {
@@ -29,6 +31,17 @@ func (b *sqlClauseBuilder) addString(
 	if arg != nil {
 		b.clauses = append(b.clauses, col+" = ?")
 		b.args = append(b.args, *arg)
+	}
+	return b
+}
+
+func (b *sqlClauseBuilder) addTransactionType(
+	col string,
+	arg *storage.TransactionType,
+) *sqlClauseBuilder {
+	if arg != nil {
+		b.clauses = append(b.clauses, col+" = ?")
+		b.args = append(b.args, string(*arg))
 	}
 	return b
 }

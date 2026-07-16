@@ -1,13 +1,16 @@
-package handlers
+package util_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/yurifa/expense-tracker-api/internal/util"
 )
 
 func TestEndOfDay(t *testing.T) {
+	t.Parallel()
 	cases := map[string]struct {
 		date     time.Time
 		expected time.Time
@@ -40,7 +43,8 @@ func TestEndOfDay(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			result := endOfDay(tc.date)
+			t.Parallel()
+			result := util.EndOfDay(tc.date)
 			assert.Equal(t, tc.expected, result)
 		})
 	}

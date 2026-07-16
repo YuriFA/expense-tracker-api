@@ -1,6 +1,7 @@
 package middleware_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,7 +21,7 @@ import (
 
 func seedUser(t *testing.T, db *sqlite.Storage, email string) *storage.User {
 	t.Helper()
-	user, err := db.RegisterUser(storage.RegisterUserParams{
+	user, err := db.RegisterUser(context.Background(), storage.RegisterUserParams{
 		Email:        email,
 		PasswordHash: "strongpasswordhash",
 	})
@@ -80,7 +81,9 @@ func (f *idemFixture) do(t *testing.T, key, body string) *httptest.ResponseRecor
 }
 
 func TestIdempotency(t *testing.T) {
+	t.Parallel()
 	t.Run("missing header returns 400", func(t *testing.T) {
+		t.Parallel()
 		f := newIdemFixture(t)
 		w := f.do(t, "", `{"x":1}`)
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -88,6 +91,7 @@ func TestIdempotency(t *testing.T) {
 	})
 
 	t.Run("first request is executed", func(t *testing.T) {
+		t.Parallel()
 		f := newIdemFixture(t)
 		w := f.do(t, "k1", `{"x":1}`)
 		assert.Equal(t, http.StatusCreated, w.Code)
@@ -95,6 +99,7 @@ func TestIdempotency(t *testing.T) {
 	})
 
 	t.Run("replay with same key and body returns cached response", func(t *testing.T) {
+		t.Parallel()
 		f := newIdemFixture(t)
 		body := `{"x":1}`
 		w1 := f.do(t, "k1", body)
@@ -106,6 +111,7 @@ func TestIdempotency(t *testing.T) {
 	})
 
 	t.Run("same key different body returns 409", func(t *testing.T) {
+		t.Parallel()
 		f := newIdemFixture(t)
 		_ = f.do(t, "k1", `{"x":1}`)
 		w := f.do(t, "k1", `{"x":2}`)
@@ -114,6 +120,7 @@ func TestIdempotency(t *testing.T) {
 	})
 
 	t.Run("different users can reuse same key", func(t *testing.T) {
+		t.Parallel()
 		f1 := newIdemFixture(t)
 		f2 := newIdemFixture(t)
 		_ = f1.do(t, "shared-key", `{"x":1}`)
@@ -123,14 +130,15 @@ func TestIdempotency(t *testing.T) {
 }
 
 func TestIdempotency_Concurrent(t *testing.T) {
+	t.Parallel()
 	f := newIdemFixture(t)
 	body := `{"x":1}`
-	const N = 16
+	const n = 16
 	var wg sync.WaitGroup
-	wg.Add(N)
-	responses := make([]*httptest.ResponseRecorder, N)
+	wg.Add(n)
+	responses := make([]*httptest.ResponseRecorder, n)
 	start := make(chan struct{})
-	for i := range N {
+	for i := range n {
 		go func(i int) {
 			defer wg.Done()
 			<-start // выравниваем старт
@@ -163,5 +171,5 @@ func TestIdempotency_Concurrent(t *testing.T) {
 		}
 	}
 	require.GreaterOrEqual(t, ok, 1, "at least one request must return the handler response")
-	require.Equal(t, N-ok, conflict, "remaining requests must hit the pending-409 path")
+	require.Equal(t, n-ok, conflict, "remaining requests must hit the pending-409 path")
 }

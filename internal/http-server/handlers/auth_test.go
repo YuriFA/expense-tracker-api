@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -13,7 +14,9 @@ import (
 )
 
 func TestRegisterUser(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		router, _ := setupTestEnv(t)
 
 		req := newJSONRequest(t, http.MethodPost, "/api/auth/register", map[string]any{
@@ -34,6 +37,7 @@ func TestRegisterUser(t *testing.T) {
 	})
 
 	t.Run("UserAlreadyExists", func(t *testing.T) {
+		t.Parallel()
 		router, db := setupTestEnv(t)
 		seedUser(t, db, "test@example.com")
 
@@ -50,6 +54,7 @@ func TestRegisterUser(t *testing.T) {
 	})
 
 	t.Run("ValidationFail", func(t *testing.T) {
+		t.Parallel()
 		router, _ := setupTestEnv(t)
 
 		cases := map[string]struct {
@@ -89,6 +94,7 @@ func TestRegisterUser(t *testing.T) {
 
 		for name, tc := range cases {
 			t.Run(name, func(t *testing.T) {
+				t.Parallel()
 				req := newJSONRequest(t, http.MethodPost, "/api/auth/register", tc.body)
 				w := performRequest(t, router, req)
 
@@ -97,7 +103,7 @@ func TestRegisterUser(t *testing.T) {
 				parseBody(t, w, &response)
 				assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 				assert.Equal(t, "validation failed", response.Message)
-				require.Equal(t, tc.errorsLen, len(response.Errors))
+				require.Len(t, response.Errors, tc.errorsLen)
 				assert.Equal(t, tc.wantField, response.Errors[0].Field)
 				assert.Equal(t, tc.wantMessage, response.Errors[0].Message)
 			})
@@ -106,11 +112,13 @@ func TestRegisterUser(t *testing.T) {
 }
 
 func TestLoginUser(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		router, db := setupTestEnv(t)
 		passwordHash, err := auth.HashPassword("password123")
 		require.NoError(t, err)
-		_, err = db.RegisterUser(storage.RegisterUserParams{
+		_, err = db.RegisterUser(context.Background(), storage.RegisterUserParams{
 			Email:        "test@example.com",
 			PasswordHash: passwordHash,
 		})
@@ -134,6 +142,7 @@ func TestLoginUser(t *testing.T) {
 	})
 
 	t.Run("InvalidCredentials", func(t *testing.T) {
+		t.Parallel()
 		router, _ := setupTestEnv(t)
 
 		req := newJSONRequest(t, http.MethodPost, "/api/auth/login", map[string]any{
@@ -149,6 +158,7 @@ func TestLoginUser(t *testing.T) {
 	})
 
 	t.Run("ValidationFail", func(t *testing.T) {
+		t.Parallel()
 		router, _ := setupTestEnv(t)
 
 		req := newJSONRequest(t, http.MethodPost, "/api/auth/login", map[string]any{
@@ -163,11 +173,12 @@ func TestLoginUser(t *testing.T) {
 	})
 
 	t.Run("RateLimitExceeded", func(t *testing.T) {
+		t.Parallel()
 		router, db := setupTestEnv(t)
 
 		passwordHash, err := auth.HashPassword("password123")
 		require.NoError(t, err)
-		_, err = db.RegisterUser(storage.RegisterUserParams{
+		_, err = db.RegisterUser(context.Background(), storage.RegisterUserParams{
 			Email:        "test@example.com",
 			PasswordHash: passwordHash,
 		})
@@ -199,7 +210,9 @@ func TestLoginUser(t *testing.T) {
 }
 
 func TestLogoutUser(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodPost, "/api/auth/logout", nil)
@@ -208,6 +221,7 @@ func TestLogoutUser(t *testing.T) {
 	})
 
 	t.Run("NoSession", func(t *testing.T) {
+		t.Parallel()
 		router, _ := setupTestEnv(t)
 
 		req := newJSONRequest(t, http.MethodPost, "/api/auth/logout", map[string]any{
@@ -218,6 +232,7 @@ func TestLogoutUser(t *testing.T) {
 	})
 
 	t.Run("InvalidSession", func(t *testing.T) {
+		t.Parallel()
 		router, _ := setupTestEnv(t)
 
 		req := newJSONRequest(t, http.MethodPost, "/api/auth/logout", map[string]any{
@@ -230,6 +245,7 @@ func TestLogoutUser(t *testing.T) {
 	})
 
 	t.Run("DoubleLogout", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		_ = f.do(t, http.MethodPost, "/api/auth/logout", nil)
@@ -239,7 +255,9 @@ func TestLogoutUser(t *testing.T) {
 }
 
 func TestMe(t *testing.T) {
+	t.Parallel()
 	t.Run("Success", func(t *testing.T) {
+		t.Parallel()
 		f := newAuthFixture(t)
 
 		w := f.do(t, http.MethodGet, "/api/auth/me", nil)
@@ -253,6 +271,7 @@ func TestMe(t *testing.T) {
 	})
 
 	t.Run("NoSession", func(t *testing.T) {
+		t.Parallel()
 		router, _ := setupTestEnv(t)
 
 		req := newJSONRequest(t, http.MethodGet, "/api/auth/me", nil)

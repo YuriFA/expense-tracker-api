@@ -10,7 +10,9 @@ import (
 )
 
 func TestGenerateSessionToken(t *testing.T) {
+	t.Parallel()
 	t.Run("generates a unique token", func(t *testing.T) {
+		t.Parallel()
 		token1, err := auth.GenerateSessionToken()
 		require.NoError(t, err)
 		token2, err := auth.GenerateSessionToken()
@@ -18,8 +20,8 @@ func TestGenerateSessionToken(t *testing.T) {
 
 		assert.NotEmpty(t, token1)
 		assert.NotEmpty(t, token2)
-		assert.Equal(t, 64, len(token1), "Expected token length of 64 characters")
-		assert.Equal(t, 64, len(token2), "Expected token length of 64 characters")
+		assert.Len(t, token1, 64, "Expected token length of 64 characters")
+		assert.Len(t, token2, 64, "Expected token length of 64 characters")
 		require.NotEqual(t, token1, token2, "Expected unique tokens, but got the same")
 	})
 }

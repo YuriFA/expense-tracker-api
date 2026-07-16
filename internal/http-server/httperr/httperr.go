@@ -11,7 +11,7 @@ import (
 
 const (
 	ErrCodeUserAlreadyExists      = "USER_ALREADY_EXISTS"
-	ErrCodeInvalidCredentials     = "INVALID_CREDENTIALS"
+	ErrCodeInvalidCredentials     = "INVALID_CREDENTIALS" //nolint:gosec // G101 false positive: this is an error code string, not a credential
 	ErrCodeInvalidRequest         = "INVALID_REQUEST"
 	ErrCodeValidationFailed       = "VALIDATION_FAILED"
 	ErrCodeAccountNotFound        = "ACCOUNT_NOT_FOUND"
@@ -44,6 +44,7 @@ type ErrorResponse struct {
 
 type ValidationErrorResponse struct {
 	ErrorResponse
+
 	Errors []FieldError `json:"errors"`
 }
 

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -23,19 +24,14 @@ import (
 
 type bodyRecorder struct {
 	gin.ResponseWriter
+
 	body *bytes.Buffer
 }
 
-// pendingStaleThreshold is how long a pending row may exist before we treat it
-// as orphaned (the original request likely crashed between CreateIdempotencyKey
-// and UpdateIdempotencyKey). Past this age, the row is deleted and the caller
-// is allowed to claim the key afresh.
-const pendingStaleThreshold = 5 * time.Minute
-
-// idempotencyKeyTTL is how long a recorded key (and its cached response) is
-// kept after creation. Past this age the row is eligible for cleanup by
-// DeleteExpiredIdempotencyKeys and is treated as expired on read.
-const idempotencyKeyTTL = 24 * time.Hour
+const (
+	pendingStaleThreshold = 5 * time.Minute
+	idempotencyKeyTTL     = 24 * time.Hour
+)
 
 func (r *bodyRecorder) Write(b []byte) (int, error) {
 	r.body.Write(b)
@@ -76,34 +72,39 @@ func Idempotency(db *sqlite.Storage, log *slog.Logger) gin.HandlerFunc {
 		hash := sha256.Sum256(bodyBytes)
 		hashStr := hex.EncodeToString(hash[:])
 
-		ik, err := db.CreateIdempotencyKey(storage.CreateIdempotencyKeyParams{
+		ik, err := db.CreateIdempotencyKey(c.Request.Context(), storage.CreateIdempotencyKeyParams{
 			IdempotencyKey: key,
 			UserID:         user.ID,
 			RequestHash:    hashStr,
 			ExpiresAt:      time.Now().UTC().Add(idempotencyKeyTTL),
 		})
-		if err != nil {
-			if errors.Is(err, storage.ErrIdempotencyKeyInUse) {
-				if existing, _ := db.GetByUserAndKey(user.ID, key); existing != nil {
-					if dispatchExisting(c, db, log, existing, user.ID, hashStr) {
-						return
-					}
-				}
-				httperr.Write(c, http.StatusConflict,
-					httperr.ErrCodeIdempotencyKeyInUse, "idempotency key already used")
-				return
-			}
+		if err == nil {
+			rec := &bodyRecorder{ResponseWriter: c.Writer, body: &bytes.Buffer{}}
+			c.Writer = rec
+			c.Next()
+
+			persistResponse(c.Request.Context(), db, log, ik.ID, user.ID, rec)
+			return
+		}
+
+		if !errors.Is(err, storage.ErrIdempotencyKeyInUse) {
 			log.Info("failed to create idempotency key", logger.Error(err))
 			httperr.Write(c, http.StatusInternalServerError,
 				httperr.ErrCodeInternal, "internal server error")
 			return
 		}
 
-		rec := &bodyRecorder{ResponseWriter: c.Writer, body: &bytes.Buffer{}}
-		c.Writer = rec
-		c.Next()
-
-		persistResponse(db, log, ik.ID, user.ID, rec)
+		if existing, _ := db.GetByUserAndKey(
+			c.Request.Context(),
+			user.ID,
+			key,
+		); existing != nil {
+			if dispatchExisting(c, db, log, existing, user.ID, hashStr) {
+				return
+			}
+		}
+		httperr.Write(c, http.StatusConflict,
+			httperr.ErrCodeIdempotencyKeyInUse, "idempotency key already used")
 	}
 }
 
@@ -125,14 +126,14 @@ func dispatchExisting(
 	}
 
 	if expiresAt.Before(time.Now().UTC()) {
-		_ = db.DeleteIdempotencyKey(userID, ik.ID)
+		_ = db.DeleteIdempotencyKey(c.Request.Context(), userID, ik.ID)
 		return false
 	}
 
 	switch ik.Status {
 	case "pending":
 		if isPendingStale(ik.CreatedAt) {
-			_ = db.DeleteIdempotencyKey(userID, ik.ID)
+			_ = db.DeleteIdempotencyKey(c.Request.Context(), userID, ik.ID)
 			return false
 		}
 		httperr.Write(c, http.StatusConflict,
@@ -149,7 +150,7 @@ func dispatchExisting(
 		c.Abort()
 		return true
 	case "failed":
-		_ = db.DeleteIdempotencyKey(userID, ik.ID)
+		_ = db.DeleteIdempotencyKey(c.Request.Context(), userID, ik.ID)
 		return false
 	}
 	return false
@@ -174,6 +175,7 @@ func replayResponse(c *gin.Context, ik *storage.IdempotencyKey) {
 }
 
 func persistResponse(
+	ctx context.Context,
 	db *sqlite.Storage,
 	l *slog.Logger,
 	ikID string,
@@ -185,21 +187,21 @@ func persistResponse(
 	filtered := filterResponseHeaders(rec.Header())
 	jsonHeaders, err := json.Marshal(filtered)
 	if err != nil {
-		l.Info("failed to marshal response headers", logger.Error(err))
+		l.InfoContext(ctx, "failed to marshal response headers", logger.Error(err))
 		return
 	}
 
 	status := "completed"
-	if resStatus >= 400 {
+	if resStatus >= http.StatusBadRequest {
 		status = "failed"
 	}
-	if _, err := db.UpdateIdempotencyKey(userID, ikID, storage.UpdateIdempotencyKeyParams{
+	if _, err := db.UpdateIdempotencyKey(ctx, userID, ikID, storage.UpdateIdempotencyKeyParams{
 		Status:          &status,
 		ResponseStatus:  &resStatus,
 		ResponseHeaders: &jsonHeaders,
 		ResponseBody:    &resBody,
 	}); err != nil {
-		l.Info("failed to update idempotency key", logger.Error(err))
+		l.InfoContext(ctx, "failed to update idempotency key", logger.Error(err))
 	}
 }
 
