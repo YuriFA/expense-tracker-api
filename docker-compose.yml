@@ -1,0 +1,6 @@
+services:
+  app:
+    build: .
+    image: expense-tracker-api
+    ports:
+      - 8080:8080

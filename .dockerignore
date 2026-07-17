@@ -1,0 +1,10 @@
+.git
+bin
+*.db
+*.sqlite
+.env
+.env*
+ README.md
+config/local.yaml
+*.db
+storage/

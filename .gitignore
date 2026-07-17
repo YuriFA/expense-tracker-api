@@ -3,3 +3,6 @@
 /tmp
 *.log
 coverage.out
+.DS_STORE
+bin
+out
