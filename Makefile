@@ -2,7 +2,7 @@
 export CONFIG_PATH
 export DATABASE_URL
 
-.PHONY: run build tidy test migrate-up migrate-down migrate-create dev
+.PHONY: run build tidy test migrate-up migrate-down migrate-create dev backup
 
 run:
 	@echo "Starting Expense Tracker API..."
@@ -29,4 +29,7 @@ migrate-down:
 migrate-create:
 	@test -n "$(name)" || { echo "Usage: make migrate-create name=add_users"; exit 1; }
 	@migrate create -ext sql -dir ./internal/storage/sqlite/migrations/ -seq $(name)
+
+backup:
+	@bash scripts/backup-sqlite.sh
 

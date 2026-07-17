@@ -1,5 +1,6 @@
 .env
 /storage/
+/backups/
 /tmp
 *.log
 coverage.out
