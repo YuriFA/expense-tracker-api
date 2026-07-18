@@ -27,6 +27,7 @@ type TransactionRequest struct {
 }
 
 type UpdateTransactionRequest struct {
+	Version       int        `json:"version"       binding:"required,gte=1"`
 	Amount        *int64     `json:"amount"        binding:"omitempty,gt=0"`
 	Description   *string    `json:"description"   binding:"omitempty"`
 	OccurredAt    *time.Time `json:"occurredAt"    binding:"omitempty"      time_format:"2006-01-02T15:04:05Z07:00"`
@@ -144,6 +145,7 @@ func validateUpdateTransactionRequest(
 }
 
 type commonTransactionParamsReq struct {
+	ID            *string
 	AccountID     *string
 	CategoryID    *string
 	FromAccountID *string
@@ -245,6 +247,17 @@ func writeTransactionError(
 			http.StatusUnprocessableEntity,
 			httperr.ErrCodeInvalidRefs,
 			"invalid references",
+		)
+	case errors.Is(err, storage.ErrTransactionVersionConflict):
+		log.Info(
+			"transaction version conflict",
+			slog.String("id", util.FromPtrOr(req.ID, "empty")),
+		)
+		httperr.Write(
+			c,
+			http.StatusConflict,
+			httperr.ErrCodeTransactionVersionConflict,
+			"transaction was modified by another request, please refetch and retry",
 		)
 	default:
 		log.Error("failed to create transaction", logger.Error(err))
@@ -350,17 +363,24 @@ func (h *Handler) UpdateTransaction(c *gin.Context) {
 		return
 	}
 
-	transaction, err := h.DB.UpdateTransaction(c.Request.Context(), user.ID, id, storage.UpdateTransactionParams{
-		Amount:        req.Amount,
-		Description:   req.Description,
-		OccurredAt:    req.OccurredAt,
-		AccountID:     req.AccountID,
-		CategoryID:    req.CategoryID,
-		FromAccountID: req.FromAccountID,
-		ToAccountID:   req.ToAccountID,
-	})
+	transaction, err := h.DB.UpdateTransaction(
+		c.Request.Context(),
+		user.ID,
+		id,
+		storage.UpdateTransactionParams{
+			Version:       req.Version,
+			Amount:        req.Amount,
+			Description:   req.Description,
+			OccurredAt:    req.OccurredAt,
+			AccountID:     req.AccountID,
+			CategoryID:    req.CategoryID,
+			FromAccountID: req.FromAccountID,
+			ToAccountID:   req.ToAccountID,
+		},
+	)
 	if err != nil {
 		writeTransactionError(c, log, err, commonTransactionParamsReq{
+			ID:            &id,
 			AccountID:     req.AccountID,
 			CategoryID:    req.CategoryID,
 			FromAccountID: req.FromAccountID,
@@ -461,15 +481,19 @@ func (h *Handler) ListTransactions(c *gin.Context) {
 		"query parameters after parse",
 		slog.Any("params", params),
 	)
-	transactions, err := h.DB.GetTransactions(c.Request.Context(), user.ID, storage.GetTransactionsParams{
-		Type:       params.Type,
-		AccountID:  params.AccountID,
-		CategoryID: params.CategoryID,
-		FromDate:   params.FromDate,
-		ToDate:     params.ToDate,
-		Limit:      params.Limit,
-		Sort:       params.Sort,
-	})
+	transactions, err := h.DB.GetTransactions(
+		c.Request.Context(),
+		user.ID,
+		storage.GetTransactionsParams{
+			Type:       params.Type,
+			AccountID:  params.AccountID,
+			CategoryID: params.CategoryID,
+			FromDate:   params.FromDate,
+			ToDate:     params.ToDate,
+			Limit:      params.Limit,
+			Sort:       params.Sort,
+		},
+	)
 	if err != nil {
 		log.Error("failed to get transactions", logger.Error(err))
 		httperr.Write(

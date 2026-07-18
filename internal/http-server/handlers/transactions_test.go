@@ -402,6 +402,7 @@ func TestUpdateTransaction(t *testing.T) {
 		nextCategory := seedDefaultExpenseCategory(t, f.DB, f.User.ID)
 
 		params := map[string]any{
+			"version":     1,
 			"amount":      int64(50000),
 			"description": "Some expense",
 			"occurredAt":  time.Now(),
@@ -437,7 +438,10 @@ func TestUpdateTransaction(t *testing.T) {
 			t,
 			http.MethodPatch,
 			"/api/transactions/"+existing.ID,
-			map[string]any{"description": "Updated Transaction"},
+			map[string]any{
+				"version":     1,
+				"description": "Updated Transaction",
+			},
 		)
 
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -464,7 +468,9 @@ func TestUpdateTransaction(t *testing.T) {
 			t,
 			http.MethodPatch,
 			"/api/transactions/"+existing.ID,
-			map[string]any{},
+			map[string]any{
+				"version": 1,
+			},
 		)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -488,6 +494,7 @@ func TestUpdateTransaction(t *testing.T) {
 			http.MethodPatch,
 			"/api/transactions/"+existing.ID,
 			map[string]any{
+				"version":     1,
 				"description": "Updated Transaction",
 				"accountId":   uuid.NewString(),
 			},
@@ -514,6 +521,7 @@ func TestUpdateTransaction(t *testing.T) {
 			http.MethodPatch,
 			"/api/transactions/"+existing.ID,
 			map[string]any{
+				"version":     1,
 				"type":        "expense",
 				"description": "Updated Transaction",
 			},
@@ -540,6 +548,7 @@ func TestUpdateTransaction(t *testing.T) {
 			http.MethodPatch,
 			"/api/transactions/"+existing.ID,
 			map[string]any{
+				"version":     1,
 				"description": "Updated Transaction",
 				"categoryId":  uuid.NewString(),
 			},
@@ -568,6 +577,7 @@ func TestUpdateTransaction(t *testing.T) {
 			http.MethodPatch,
 			"/api/transactions/"+existing.ID,
 			map[string]any{
+				"version":     1,
 				"description": "Updated Transaction",
 				"categoryId":  nextCategory.ID,
 			},
@@ -589,7 +599,8 @@ func TestUpdateTransaction(t *testing.T) {
 			http.MethodPatch,
 			"/api/transactions/"+uuid.NewString(),
 			map[string]any{
-				"amount": 10000,
+				"version": 1,
+				"amount":  10000,
 			},
 		)
 
@@ -623,6 +634,7 @@ func TestUpdateTransaction(t *testing.T) {
 			"cashflow with fromAccountId": {
 				id: cashflowTransaction.ID,
 				body: map[string]any{
+					"version":       1,
 					"fromAccountId": uuid.NewString(),
 				},
 				wantField:   "fromAccountId",
@@ -631,6 +643,7 @@ func TestUpdateTransaction(t *testing.T) {
 			"cashflow with toAccountId": {
 				id: cashflowTransaction.ID,
 				body: map[string]any{
+					"version":     1,
 					"toAccountId": uuid.NewString(),
 				},
 				wantField:   "toAccountId",
@@ -639,6 +652,7 @@ func TestUpdateTransaction(t *testing.T) {
 			"transfer with accountId": {
 				id: transferTransaction.ID,
 				body: map[string]any{
+					"version":   1,
 					"accountId": uuid.NewString(),
 				},
 				wantField:   "accountId",
@@ -647,6 +661,7 @@ func TestUpdateTransaction(t *testing.T) {
 			"transfer with categoryId": {
 				id: transferTransaction.ID,
 				body: map[string]any{
+					"version":    1,
 					"categoryId": uuid.NewString(),
 				},
 				wantField:   "categoryId",
@@ -674,6 +689,53 @@ func TestUpdateTransaction(t *testing.T) {
 				assert.Equal(t, tc.wantMessage, response.Errors[0].Message)
 			})
 		}
+	})
+
+	t.Run("VersionConflict", func(t *testing.T) {
+		t.Parallel()
+		f := newAuthFixture(t)
+		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
+			userID:          f.User.ID,
+			categoryName:    "transport",
+			transactionType: storage.TransactionTypeExpense,
+		})
+
+		params := map[string]any{
+			"version":     1,
+			"amount":      int64(50000),
+			"description": "Some expense",
+		}
+		w := f.do(t, http.MethodPatch, "/api/transactions/"+existing.ID, params)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		w = f.do(t, http.MethodPatch, "/api/transactions/"+existing.ID, map[string]any{
+			"version": 1,
+			"amount":  int64(200),
+		})
+		assert.Equal(t, http.StatusConflict, w.Code)
+		var response httperr.ErrorResponse
+		parseBody(t, w, &response)
+		assert.Equal(t, httperr.ErrCodeTransactionVersionConflict, response.Code)
+	})
+
+	t.Run("MissingVersion", func(t *testing.T) {
+		t.Parallel()
+		f := newAuthFixture(t)
+		existing := seedCommonTransaction(t, f.DB, seedCommonTransactionParams{
+			userID:          f.User.ID,
+			categoryName:    "salary",
+			transactionType: storage.TransactionTypeIncome,
+		})
+
+		w := f.do(t, http.MethodPatch, "/api/transactions/"+existing.ID, map[string]any{
+			"description": "no version provided",
+		})
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		var response httperr.ValidationErrorResponse
+		parseBody(t, w, &response)
+		assert.Equal(t, httperr.ErrCodeValidationFailed, response.Code)
 	})
 }
 

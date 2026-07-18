@@ -24,6 +24,14 @@ info:
     возвращает закешированный ответ. Повтор с тем же ключом и другим body →
     `409 Conflict`.
 
+    ## Optimistic Concurrency для PATCH
+
+    `PATCH /api/transactions/{id}` поддерживает optimistic concurrency через
+    обязательное поле `version` в теле запроса. Клиент получает `version` из
+    `GET /api/transactions/{id}` или из ответа на `POST /api/transactions` и
+    отправляет его обратно при PATCH. Если запись была изменена параллельно —
+    сервер возвращает `409 Conflict` с кодом `TRANSACTION_VERSION_CONFLICT`.
+
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -65,7 +73,7 @@ paths:
                   description: Plaintext (хешируется на сервере).
                   example: strong-password
       responses:
-        '201':
+        "201":
           description: Пользователь создан, сессия установлена.
           headers:
             Set-Cookie:
@@ -76,20 +84,20 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '409':
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
           description: Email уже занят.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
               example:
                 code: USER_ALREADY_EXISTS
                 message: user already exists
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/auth/login:
     post:
@@ -114,7 +122,7 @@ paths:
                 password:
                   type: string
       responses:
-        '200':
+        "200":
           description: Успешный вход, сессия установлена.
           headers:
             Set-Cookie:
@@ -123,24 +131,24 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
           description: Неверный email или пароль.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
               example:
                 code: INVALID_CREDENTIALS
                 message: invalid credentials
-        '429':
+        "429":
           description: Слишком неудачных попыток входа с этого IP.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
               example:
                 code: TOO_MANY_REQUESTS
                 message: too many login attempts, please try again later
@@ -154,15 +162,15 @@ paths:
         Удаляет текущую сессию на сервере и сбрасывает cookie. Если cookie
         отсутствует — молча возвращает 204.
       responses:
-        '204':
+        "204":
           description: Успешный выход (или cookie уже отсутствовал).
           headers:
             Set-Cookie:
               description: session_id cookie с Max-Age=-1 (browser удалит).
               schema:
                 type: string
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/auth/me:
     get:
@@ -170,14 +178,14 @@ paths:
       operationId: getCurrentUser
       summary: Текущий пользователь
       responses:
-        '200':
+        "200":
           description: Текущий пользователь по session cookie.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/transactions:
     get:
@@ -224,20 +232,20 @@ paths:
             enum: [occurredAt, -occurredAt, amount, -amount]
             default: occurredAt
       responses:
-        '200':
+        "200":
           description: Список транзакций (опционально отфильтрованный).
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Transaction'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                  $ref: "#/components/schemas/Transaction"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
     post:
       tags: [Transactions]
@@ -248,13 +256,13 @@ paths:
         присутствует, повторный запрос с тем же ключом + тем же body
         возвращает закешированный ответ. Тот же ключ + другой body → `409`.
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TransactionCreateRequest'
+              $ref: "#/components/schemas/TransactionCreateRequest"
             examples:
               cashflow:
                 summary: income / expense
@@ -262,7 +270,7 @@ paths:
                   type: income
                   amount: 100000
                   description: Salary for June
-                  occurredAt: '2026-07-13T10:30:00Z'
+                  occurredAt: "2026-07-13T10:30:00Z"
                   accountId: 550e8400-e29b-41d4-a716-446655440000
                   categoryId: 550e8400-e29b-41d4-a716-446655440001
               transfer:
@@ -271,21 +279,21 @@ paths:
                   type: transfer
                   amount: 50000
                   description: To savings
-                  occurredAt: '2026-07-13T10:30:00Z'
+                  occurredAt: "2026-07-13T10:30:00Z"
                   fromAccountId: 550e8400-e29b-41d4-a716-446655440002
                   toAccountId: 550e8400-e29b-41d4-a716-446655440003
       responses:
-        '201':
+        "201":
           description: Транзакция создана.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Transaction'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '409':
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
           description: |
             Idempotency конфликт:
             - тот же ключ + другой body (mismatch)
@@ -293,7 +301,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
               examples:
                 mismatch:
                   value:
@@ -303,13 +311,13 @@ paths:
                   value:
                     code: IDEMPOTENCY_KEY_IN_USE
                     message: idempotency key already used
-        '422':
+        "422":
           description: |
             Бизнес-правило нарушено — ссылки не найдены или type-mismatch.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
               examples:
                 accountNotFound:
                   value:
@@ -331,29 +339,29 @@ paths:
                   value:
                     code: INVALID_REFS
                     message: invalid references
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/transactions/{id}:
     parameters:
-      - $ref: '#/components/parameters/TransactionId'
+      - $ref: "#/components/parameters/TransactionId"
     get:
       tags: [Transactions]
       operationId: getTransaction
       summary: Получить транзакцию по ID
       responses:
-        '200':
+        "200":
           description: Транзакция.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Transaction'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/TransactionNotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/Transaction"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/TransactionNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
     patch:
       tags: [Transactions]
       operationId: updateTransaction
@@ -366,48 +374,50 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TransactionUpdateRequest'
+              $ref: "#/components/schemas/TransactionUpdateRequest"
       responses:
-        '200':
+        "200":
           description: Обновлённая транзакция.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Transaction'
-        '400':
+                $ref: "#/components/schemas/Transaction"
+        "400":
           description: |
             Либо validation failed, либо пустой body (`no fields to update`).
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: '#/components/schemas/ErrorResponse'
-                  - $ref: '#/components/schemas/ValidationErrorResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/TransactionNotFound'
-        '422':
+                  - $ref: "#/components/schemas/ErrorResponse"
+                  - $ref: "#/components/schemas/ValidationErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/TransactionNotFound"
+        "409":
+          $ref: "#/components/responses/TransactionVersionConflict"
+        "422":
           description: То же, что у POST (бизнес-правило нарушено).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          $ref: '#/components/responses/InternalError'
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
     delete:
       tags: [Transactions]
       operationId: deleteTransaction
       summary: Удалить транзакцию
       responses:
-        '204':
+        "204":
           description: Удалено.
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/TransactionNotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/TransactionNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
 components:
   securitySchemes:
@@ -441,7 +451,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: "#/components/schemas/ErrorResponse"
           example:
             code: UNAUTHORIZED
             message: missing session cookie
@@ -450,7 +460,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: "#/components/schemas/ErrorResponse"
           example:
             code: INTERNAL_ERROR
             message: internal server error
@@ -459,7 +469,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ValidationErrorResponse'
+            $ref: "#/components/schemas/ValidationErrorResponse"
           example:
             code: VALIDATION_FAILED
             message: validation failed
@@ -471,10 +481,19 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: "#/components/schemas/ErrorResponse"
           example:
             code: TRANSACTION_NOT_FOUND
             message: transaction not found
+    TransactionVersionConflict:
+      description: Конфликт в версии транзакции (optimistic concurrency).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: TRANSACTION_VERSION_CONFLICT
+            message: transaction version conflict
 
   schemas:
     User:
@@ -533,15 +552,30 @@ components:
           type: string
           format: uuid
           nullable: true
-        fromAccountID:
+        fromAccountId:
           type: string
           format: uuid
           nullable: true
-        toAccountID:
+        toAccountId:
           type: string
           format: uuid
           nullable: true
-      required: [id, userId, type, amount, description, occurredAt, createdAt, updatedAt]
+        version:
+          type: integer
+          format: int
+          description: Версия транзакции
+      required:
+        [
+          id,
+          userId,
+          type,
+          amount,
+          description,
+          occurredAt,
+          createdAt,
+          updatedAt,
+          version,
+        ]
 
     TransactionCreateRequest:
       type: object
@@ -556,7 +590,7 @@ components:
           minimum: 1
         description:
           type: string
-          default: ''
+          default: ""
         occurredAt:
           type: string
           format: date-time
@@ -579,8 +613,12 @@ components:
 
     TransactionUpdateRequest:
       type: object
-      description: Все поля optional. Поле `type` менять нельзя.
+      description: Все поля кроме `version` optional. Поле `type` менять нельзя.
       properties:
+        version:
+          type: integer
+          format: int
+          minimum: 1
         amount:
           type: integer
           format: int64
@@ -602,6 +640,7 @@ components:
         toAccountId:
           type: string
           format: uuid
+      required: [version]
 
     ErrorResponse:
       type: object
@@ -617,13 +656,13 @@ components:
 
     ValidationErrorResponse:
       allOf:
-        - $ref: '#/components/schemas/ErrorResponse'
+        - $ref: "#/components/schemas/ErrorResponse"
         - type: object
           properties:
             errors:
               type: array
               items:
-                $ref: '#/components/schemas/FieldError'
+                $ref: "#/components/schemas/FieldError"
 
     FieldError:
       type: object

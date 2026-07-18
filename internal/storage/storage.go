@@ -111,6 +111,7 @@ type Transaction struct {
 	OccurredAt  string          `json:"occurredAt"`
 	CreatedAt   string          `json:"createdAt"`
 	UpdatedAt   string          `json:"updatedAt"`
+	Version     int             `json:"version"`
 	// Cashflow fields
 	AccountID  *string `json:"accountId,omitempty"`
 	CategoryID *string `json:"categoryId,omitempty"`
@@ -137,6 +138,7 @@ type UpdateTransactionParams struct {
 	Amount      *int64
 	Description *string
 	OccurredAt  *time.Time
+	Version     int
 	// Cashflow fields
 	AccountID  *string
 	CategoryID *string
@@ -193,20 +195,21 @@ type UpdateIdempotencyKeyParams struct {
 }
 
 var (
-	ErrUserNotFound            = errors.New("user not found")
-	ErrUserAlreadyExists       = errors.New("user already exists")
-	ErrSessionNotFound         = errors.New("session not found")
-	ErrSessionExpired          = errors.New("session expired")
-	ErrAccountNotFound         = errors.New("account not found")
-	ErrCategoryNotFound        = errors.New("category not found")
-	ErrCategoryAlreadyExists   = errors.New("category already exists")
-	ErrCategoryTypeMismatch    = errors.New("category type mismatch")
-	ErrTransactionNotFound     = errors.New("transaction not found")
-	ErrUnknownSort             = errors.New("unknown sort")
-	ErrAccountHasTransactions  = errors.New("account has transactions and cannot be deleted")
-	ErrCategoryHasTransactions = errors.New("category has transactions and cannot be deleted")
-	ErrInvalidRefs             = errors.New("invalid references in transaction")
-	ErrSameAccountTransfer     = errors.New("transfer cannot be made to the same account")
-	ErrIdempotencyKeyNotFound  = errors.New("idempotency key not found")
-	ErrIdempotencyKeyInUse     = errors.New("idempotency key is already in use")
+	ErrUserNotFound               = errors.New("user not found")
+	ErrUserAlreadyExists          = errors.New("user already exists")
+	ErrSessionNotFound            = errors.New("session not found")
+	ErrSessionExpired             = errors.New("session expired")
+	ErrAccountNotFound            = errors.New("account not found")
+	ErrCategoryNotFound           = errors.New("category not found")
+	ErrCategoryAlreadyExists      = errors.New("category already exists")
+	ErrCategoryTypeMismatch       = errors.New("category type mismatch")
+	ErrTransactionNotFound        = errors.New("transaction not found")
+	ErrTransactionVersionConflict = errors.New("transaction version conflict")
+	ErrUnknownSort                = errors.New("unknown sort")
+	ErrAccountHasTransactions     = errors.New("account has transactions and cannot be deleted")
+	ErrCategoryHasTransactions    = errors.New("category has transactions and cannot be deleted")
+	ErrInvalidRefs                = errors.New("invalid references in transaction")
+	ErrSameAccountTransfer        = errors.New("transfer cannot be made to the same account")
+	ErrIdempotencyKeyNotFound     = errors.New("idempotency key not found")
+	ErrIdempotencyKeyInUse        = errors.New("idempotency key is already in use")
 )
